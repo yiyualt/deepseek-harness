@@ -36,6 +36,9 @@
   - button "深色":
     - img
     - text: 深色
+  - button "装甲 HUD":
+    - img
+    - text: 装甲 HUD
   - button "跟随系统" [pressed]:
     - img
     - text: 跟随系统

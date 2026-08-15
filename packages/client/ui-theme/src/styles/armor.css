@@ -1,0 +1,125 @@
+/* Armor HUD is an original cinematic interface theme. It keeps the dark base
+ * palette for native controls, then replaces semantic tokens with a carbon,
+ * reactor-red, and arc-cyan palette. */
+body[data-dsh-theme='armor'] {
+  --dsw-font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas,
+    'Liberation Mono', Menlo, Courier, 'PingFang SC', 'Microsoft YaHei';
+  --dsw-static-neutral-bluish-400: rgb(255, 70, 54);
+  --dsw-alias-bg-base: rgb(7, 9, 13);
+  --dsw-alias-bg-layer-1: rgb(11, 16, 22);
+  --dsw-alias-bg-layer-2: rgb(15, 23, 31);
+  --dsw-alias-bg-layer-3: rgb(20, 31, 40);
+  --dsw-alias-bg-mask-1: rgba(0, 3, 8, 0.72);
+  --dsw-alias-bg-mask-2: rgba(0, 3, 8, 0.42);
+  --dsw-alias-bg-mask-drop: rgba(7, 9, 13, 0.82);
+  --dsw-alias-bg-module-platform: rgb(14, 25, 33);
+  --dsw-alias-bg-multi-select: rgb(17, 31, 39);
+  --dsw-alias-bg-overlay: rgb(24, 39, 49);
+  --dsw-alias-bg-skeleton: rgba(69, 230, 255, 0.09);
+  --dsw-alias-border-inverted2: rgba(69, 230, 255, 0.16);
+  --dsw-alias-border-inverted: rgba(69, 230, 255, 0.12);
+  --dsw-alias-border-l1: rgba(69, 230, 255, 0.12);
+  --dsw-alias-border-l2-darkmode-thin: rgba(69, 230, 255, 0.18);
+  --dsw-alias-border-l2: rgba(69, 230, 255, 0.24);
+  --dsw-alias-border-l3: rgba(69, 230, 255, 0.34);
+  --dsw-alias-border-l4: rgba(255, 70, 54, 0.55);
+  --dsw-alias-brand-primary-invert: rgb(255, 70, 54);
+  --dsw-alias-brand-primary-new-colorprimary-new-color: rgb(255, 70, 54);
+  --dsw-alias-brand-primary: rgb(255, 70, 54);
+  --dsw-alias-brand-text: rgb(255, 105, 88);
+  --dsw-alias-button-contrast-fill: rgb(255, 70, 54);
+  --dsw-alias-button-elevated-fill: rgb(20, 31, 40);
+  --dsw-alias-button-floating-fill: rgb(15, 23, 31);
+  --dsw-alias-button-floating-hover: rgb(23, 39, 48);
+  --dsw-alias-button-ghost-active-border: rgb(69, 230, 255);
+  --dsw-alias-button-ghost-active-fill: rgba(69, 230, 255, 0.12);
+  --dsw-alias-button-ghost-active-hover: rgba(69, 230, 255, 0.18);
+  --dsw-alias-button-info-fill: rgb(69, 230, 255);
+  --dsw-alias-button-info-hover: rgb(121, 239, 255);
+  --dsw-alias-button-primary-dimmed: rgb(75, 47, 45);
+  --dsw-alias-button-primary-fill: rgb(255, 70, 54);
+  --dsw-alias-button-primary-hover: rgb(255, 105, 88);
+  --dsw-alias-interactive-bg-active: rgba(255, 70, 54, 0.2);
+  --dsw-alias-interactive-bg-hover-accent: rgba(69, 230, 255, 0.18);
+  --dsw-alias-interactive-bg-hover-danger: rgba(255, 70, 54, 0.16);
+  --dsw-alias-interactive-bg-hover-solid: rgb(20, 35, 44);
+  --dsw-alias-interactive-bg-hover: rgba(69, 230, 255, 0.09);
+  --dsw-alias-label-caption: rgb(81, 106, 117);
+  --dsw-alias-label-dimmed: rgb(47, 67, 76);
+  --dsw-alias-label-primary-bluish: rgb(232, 247, 255);
+  --dsw-alias-label-primary-dimmed: rgb(191, 216, 225);
+  --dsw-alias-label-primary-foreground: rgb(7, 9, 13);
+  --dsw-alias-label-primary-inverted: rgb(7, 9, 13);
+  --dsw-alias-label-primary: rgb(232, 247, 255);
+  --dsw-alias-label-secondary: rgb(159, 184, 198);
+  --dsw-alias-label-tertiary: rgb(113, 141, 154);
+  --dsw-alias-markdown-citation: rgb(17, 31, 39);
+  --dsw-alias-markdown-code-block-banner: rgb(13, 21, 28);
+  --dsw-alias-markdown-code-block: rgb(5, 8, 11);
+  --dsw-alias-markdown-code-segment-selected: rgb(20, 35, 44);
+  --dsw-alias-markdown-code-segment-unselected: rgb(9, 15, 20);
+  --dsw-alias-markdown-inline-code: rgb(20, 35, 44);
+  --dsw-alias-markdown-placeholder: rgb(10, 18, 24);
+  --dsw-alias-markdown-tag: rgb(17, 31, 39);
+  --dsw-alias-scrollbar-bg-l1: rgb(35, 66, 75);
+  --dsw-alias-scrollbar-bg-l2: rgb(48, 86, 95);
+  --dsw-alias-scrollbar-hover-l1: rgb(255, 70, 54);
+  --dsw-alias-scrollbar-hover-l2: rgb(69, 230, 255);
+  --dsw-alias-state-business-primary: rgb(69, 230, 255);
+  --dsw-alias-state-business-tertiary: rgb(12, 51, 61);
+  --dsw-alias-state-error-primary: rgb(255, 75, 62);
+  --dsw-alias-state-error-secondary: rgb(255, 105, 88);
+  --dsw-alias-state-success-primary: rgb(110, 255, 168);
+  --dsw-alias-state-success-secondary: rgb(70, 215, 133);
+  --dsw-alias-state-success-tertiary: rgb(17, 58, 42);
+  --dsw-alias-state-warn-label: rgb(255, 196, 92);
+  --dsw-alias-state-warn-primary: rgb(255, 184, 77);
+  --dsw-alias-state-warn-secondary: rgb(235, 144, 51);
+  --dsw-alias-state-warn-tertiary: rgb(58, 40, 18);
+  --dsw-alias-toast-bg: rgb(24, 39, 49);
+  --dsw-alias-tooltip-bg: rgb(24, 39, 49);
+  --dsw-specific-bubble-highlight: rgb(25, 52, 61);
+  --dsw-specific-bubble: rgb(16, 28, 36);
+  --dsw-specific-input-major: rgb(10, 16, 22);
+  --dsw-specific-login-input: rgb(7, 12, 17);
+  --dsw-specific-menu: rgb(20, 31, 40);
+  --dsw-specific-selector: rgb(13, 24, 31);
+  --dsw-specific-sidebar-fill: rgb(7, 12, 17);
+  --dsw-specific-sidebar-nav-item-active-accent: rgba(255, 70, 54, 0.2);
+  --dsw-specific-sidebar-nav-item-active: rgb(30, 25, 27);
+  --dsw-specific-sidebar-nav-item-hover: rgb(13, 25, 32);
+  --dsw-specific-tip: rgb(13, 24, 31);
+  --dsw-linear-gradient-think: linear-gradient(180deg, rgb(7, 9, 13) 24%, rgba(7, 9, 13, 0) 100%);
+  --dsw-linear-think-select: linear-gradient(180deg, rgb(14, 25, 33) 24%, rgba(14, 25, 33, 0) 100%);
+  --dsw-shadow-lv1: 0 0 0 1px rgba(69, 230, 255, 0.12), 0 3px 0 rgba(0, 0, 0, 0.5);
+  --dsw-shadow-lv1-blur: 0 0 12px rgba(69, 230, 255, 0.08);
+  --dsw-shadow-lv2: 0 0 0 1px rgba(69, 230, 255, 0.18), 5px 5px 0 rgba(0, 0, 0, 0.55);
+  --dsw-shadow-lv3: 0 0 0 1px rgba(69, 230, 255, 0.26), 0 0 20px rgba(69, 230, 255, 0.1), 8px 8px 0 rgba(0, 0, 0, 0.6);
+  box-shadow: inset 2px 0 rgba(255, 70, 54, 0.42), inset -2px 0 rgba(69, 230, 255, 0.32);
+  letter-spacing: 0.012em;
+}
+
+body[data-dsh-theme='armor']::before {
+  position: fixed;
+  z-index: 2147483647;
+  inset: 0;
+  pointer-events: none;
+  content: '';
+  background:
+    linear-gradient(90deg, rgba(255, 70, 54, 0.025), transparent 28%, transparent 72%, rgba(69, 230, 255, 0.025)),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(148, 239, 255, 0.025) 3px 4px);
+}
+
+body[data-dsh-theme='armor'] :where(button, input, select, textarea, pre, [role='dialog'], [role='menu']) {
+  border-radius: 2px;
+}
+
+body[data-dsh-theme='armor'] button[aria-pressed='true'] {
+  border-color: rgb(255, 70, 54);
+  box-shadow: inset 0 -2px rgba(255, 70, 54, 0.7), 0 0 12px rgba(255, 70, 54, 0.16);
+}
+
+body[data-dsh-theme='armor'] ::selection {
+  color: rgb(7, 9, 13);
+  background: rgb(69, 230, 255);
+}

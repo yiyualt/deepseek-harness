@@ -1,6 +1,6 @@
 // Web e2e scenarios: the settings surface — the modal shell (trigger, nav,
 // section switching, both close paths), the Appearance preference row (the
-// real theme gesture — click 深色 and the whole cascade runs: ThemeRuntime preference -> Host settings
+// real theme gestures — click 深色 then 装甲 HUD and the whole cascade runs: ThemeRuntime preference -> Host settings
 // -> theme/change -> ui-layout's presenter -> body attribute -> alias token +
 // browser theme-color metadata)
 // the Language row and busy-state Enter preference (both Host-backed), plus
@@ -244,6 +244,8 @@ describe('web e2e: settings modal and General preferences', () => {
     interface ThemeState {
       attr: boolean
       background: string
+      font: string
+      id: string | null
       /** Pre-migration localStorage key; the Host-backed world never writes it. */
       legacy: string | null
       themeColor: string | null
@@ -256,6 +258,8 @@ describe('web e2e: settings modal and General preferences', () => {
       return {
         attr: document.body.hasAttribute('data-ds-dark-theme'),
         background: computed.backgroundColor,
+        font: computed.fontFamily,
+        id: document.body.getAttribute('data-dsh-theme'),
         legacy: localStorage.getItem('dsh.theme'),
         themeColor: metas[0]?.content ?? null,
         themeColorCount: metas.length,
@@ -285,11 +289,22 @@ describe('web e2e: settings modal and General preferences', () => {
     await expect.poll(() => darkCube.getAttribute('aria-pressed'), { timeout: 5_000 }).toBe('true')
     const dark = await readState()
     expect(dark.attr).toBe(true)
+    expect(dark.id).toBe('dark')
     expect(dark.legacy).toBeNull()
     expect(dark.token).not.toBe(light.token)
     expectThemeColorSynchronized(dark)
+
+    const armorCube = dialog.getByRole('button', { name: '装甲 HUD' })
+    await armorCube.click()
+    await expect.poll(() => armorCube.getAttribute('aria-pressed'), { timeout: 5_000 }).toBe('true')
+    const armor = await readState()
+    expect(armor.attr).toBe(true)
+    expect(armor.id).toBe('armor')
+    expect(armor.font).toContain('SF Mono')
+    expect(armor.token).not.toBe(dark.token)
+    expectThemeColorSynchronized(armor)
     await expect.poll(async () => readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8'), { timeout: 5_000 })
-      .toMatch(/ui-theme:\n\s+preference: dark/)
+      .toMatch(/ui-theme:\n\s+preference: armor/)
     await page.keyboard.press('Escape')
 
     // Reload: the preference survives the background Host read + presenter update.
@@ -300,12 +315,14 @@ describe('web e2e: settings modal and General preferences', () => {
     await page.emulateMedia({ colorScheme: 'light' })
     await expect.poll(async () => (await readState()).attr, { timeout: 5_000 }).toBe(true)
     const reloaded = await readState()
+    expect(reloaded.id).toBe('armor')
+    expect(reloaded.font).toContain('SF Mono')
     expect(reloaded.legacy).toBeNull()
     expectThemeColorSynchronized(reloaded)
 
     // A second live Host binds another ephemeral port but shares the same
     // user-settings home. Its fresh origin has no theme localStorage and still
-    // converges to dark before the settings dialog opens.
+    // converges to Armor HUD before the settings dialog opens.
     const second = await launchWebScaffold({ harnessHome: scaffold.harnessHome })
     const secondPage = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
     const secondTripwire = watchConsole(secondPage)
@@ -316,6 +333,8 @@ describe('web e2e: settings modal and General preferences', () => {
       await secondPage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
       await expect.poll(async () => (await readState(secondPage)).attr, { timeout: 5_000 }).toBe(true)
       const secondState = await readState(secondPage)
+      expect(secondState.id).toBe('armor')
+      expect(secondState.font).toContain('SF Mono')
       expect(secondState.legacy).toBeNull()
       expectThemeColorSynchronized(secondState)
       expect(secondTripwire.pageErrors).toEqual([])
