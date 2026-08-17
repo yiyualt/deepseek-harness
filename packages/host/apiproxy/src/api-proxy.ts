@@ -62,6 +62,7 @@ import type {} from '@deepseek-ai/dsh-session-projection'
 // Type-only: resolves `ctx.get('tasks')` to the background job registry.
 import type {} from '@deepseek-ai/dsh-jobs'
 import type { JobSnapshot } from '@deepseek-ai/dsh-jobs'
+import { OfficePreviewError, OfficePreviewGrants, type OfficePreviewConfig } from './office-preview.ts'
 // Type-only: resolves `ctx.get('sessionProjectionCache')` (the cold listing column).
 import type {} from '@deepseek-ai/dsh-session-projection-cache'
 // GoalError narrows domain rejections to their stable codes at the wire boundary.
@@ -668,6 +669,8 @@ export interface ApiProxyDefaults {
    * falls back to platform detection ({@link canOpenNativePath}).
    */
   canOpenPath?: () => boolean
+  /** Optional ONLYOFFICE deployment used for editable DOCX previews. */
+  onlyOffice?: OfficePreviewConfig
 }
 
 /** The tool/call payload fields the presenter path reads. */
@@ -1110,6 +1113,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   const coldBlankProbeMaxBytes = defaults.coldBlankProbeMaxBytes
     ?? DEFAULT_COLD_BLANK_PROBE_MAX_BYTES
   const artifactPreviews = new ArtifactPreviewGrants()
+  const officePreviews = new OfficePreviewGrants(defaults.onlyOffice)
   /** The seed model each create/resume declares; re-read so it never goes stale. */
   const agentOptions = (): AgentOptions => {
     const { provider, model } = defaults.defaultModelSelection()
@@ -3013,9 +3017,12 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
 
       async prepareArtifactPreview(request) {
         try {
+          if (/\.docx$/i.test(request.payload.path)) {
+            return ok(request, await officePreviews.prepare(request.payload.path))
+          }
           return ok(request, await artifactPreviews.prepare(request.payload.path))
         } catch (error: unknown) {
-          if (!(error instanceof ArtifactPreviewError)) throw error
+          if (!(error instanceof ArtifactPreviewError) && !(error instanceof OfficePreviewError)) throw error
           return err(request, {
             code: error.reason === 'unsupported'
               ? 'artifact-preview-unsupported'
@@ -3654,6 +3661,14 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     },
 
     downloads: {
+      officePreviewFile(request, signal) {
+        return officePreviews.file(request.token, signal)
+      },
+
+      officePreviewCallback(request, signal) {
+        return officePreviews.callback(request.token, request.body, signal)
+      },
+
       artifactPreview(request, signal) {
         return artifactPreviews.response(request.token, request.path, signal)
       },

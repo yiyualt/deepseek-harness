@@ -185,6 +185,8 @@ export interface WebScaffold {
 
 /** Options for {@link launchWebScaffold}. */
 export interface LaunchOptions {
+  /** Test-owned ONLYOFFICE addresses for assembled DOCX preview scenarios. */
+  onlyOffice?: { browserUrl: string; harnessUrl: string }
   /**
    * Optional product overlay applied after the shipped Web surface and before
    * the scaffold's hermetic test patches, matching the launcher's `--patch`
@@ -424,6 +426,15 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // workspace, keeping the composition untouched.
     { id: 'agent-instructions', disabled: true },
     { id: 'session-title-llm', disabled: true },
+    ...options.onlyOffice === undefined
+      ? []
+      : [{
+        id: 'api-gateway',
+        config: {
+          onlyOfficeBrowserUrl: options.onlyOffice.browserUrl,
+          onlyOfficeHarnessUrl: options.onlyOffice.harnessUrl,
+        },
+      }],
     // Fixture sessions must never leave the process: the shipped row defaults
     // to the production OTLP endpoint (or whatever DSH_TELEMETRY_OTLP_URL
     // names in the ambient environment). A scenario that pins a real backend

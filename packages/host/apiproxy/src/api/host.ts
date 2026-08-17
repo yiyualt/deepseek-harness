@@ -5,6 +5,31 @@
 
 import type { RpcRequest, RpcResponse } from './rpc.ts'
 
+/** Browser-safe ONLYOFFICE editor configuration produced by the Host. */
+export interface OfficeEditorConfig {
+  width: '100%'
+  height: '100%'
+  documentType: 'word'
+  document: {
+    fileType: 'docx'
+    key: string
+    title: string
+    url: string
+    permissions: { edit: true; download: true }
+  }
+  editorConfig: {
+    mode: 'edit'
+    callbackUrl: string
+    customization: Record<string, never>
+    user: { id: 'deepseek-harness'; name: 'DeepSeek Harness' }
+  }
+}
+
+/** Prepared renderer selected from the artifact's file type. */
+export type ArtifactPreviewValue =
+  | { kind: 'html'; name: string; url: string }
+  | { kind: 'office'; name: string; apiUrl: string; config: OfficeEditorConfig }
+
 /** One directory row of a listing: a child entry or a breadcrumb ancestor. */
 export interface DirectoryEntry {
   /** Base name shown in a browser row (a root crumb carries its full path). */
@@ -95,11 +120,11 @@ export interface HostApi {
   ): Promise<RpcResponse<{ opened: true }>>
 
   /**
-   * Exchange one existing HTML file for a short-lived same-origin URL used by
-   * the Web client's sandboxed preview iframe. The Host validates and retains
-   * the path; the browser receives only an opaque grant URL.
+   * Prepare one existing HTML or DOCX file for the Web preview column. HTML
+   * returns a same-origin iframe URL; DOCX returns a Host-issued ONLYOFFICE
+   * editor configuration when that integration is configured.
    */
   prepareArtifactPreview(
     request: RpcRequest<{ path: string }>,
-  ): Promise<RpcResponse<{ name: string; url: string }>>
+  ): Promise<RpcResponse<ArtifactPreviewValue>>
 }

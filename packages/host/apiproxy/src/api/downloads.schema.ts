@@ -16,6 +16,11 @@ export const artifactPreviewPathSchema = z.object({
   path: z.string().min(1),
 }) satisfies z.ZodType<Parameters<DownloadsApi['artifactPreview']>[0]>
 
+/** Opaque Office-preview token parsed from its physical route. */
+export const officePreviewTokenSchema = z.object({
+  token: z.uuid(),
+}) satisfies z.ZodType<Parameters<DownloadsApi['officePreviewFile']>[0]>
+
 /**
  * session.export query params → the sessionLog request. `includeDescendants`
  * accepts exactly `true`/`false`/absent; any other value is rejected (400) so

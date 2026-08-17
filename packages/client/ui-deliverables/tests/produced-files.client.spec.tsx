@@ -434,7 +434,16 @@ describe('producedFileMentions resolver', () => {
     // and so does a token naming nothing the turn wrote.
     expect(resolver.resolve('style.css')).toBeUndefined()
     expect(resolver.resolve('notes.md')).toBeUndefined()
+    expect(resolver.resolve('generated.docx')).toMatchObject({ title: 'generated.docx' })
     expect(basename('a\\b\\c.txt')).toBe('c.txt')
+  })
+
+  it('opens an exact DOCX mention without produced mutation locations', () => {
+    const openFile = vi.fn()
+    const resolver = producedFileMentions([], openFile, label)
+    resolver.resolve('专注的力量.docx')?.open()
+    expect(openFile).toHaveBeenCalledWith('专注的力量.docx')
+    expect(resolver.resolve('力量.docx.bak')).toBeUndefined()
   })
 })
 
@@ -471,6 +480,7 @@ describe('plugin registration', () => {
       result: {
         ok: true as const,
         value: {
+          kind: 'html' as const,
           name: 'report.html',
           url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html',
         },
@@ -510,8 +520,10 @@ describe('plugin registration', () => {
     const mentions = service?.forClosing(owner)
     mentions?.resolve('report.html')?.open()
     expect(opened).toEqual(['site/report.html'])
-    // A turn that produced nothing yields no vocabulary at all.
-    expect(service?.forClosing(tailOwner(undefined, 2))).toBeUndefined()
+    // A turn without mutation locations still links exact DOCX output.
+    const indirect = service?.forClosing(tailOwner(undefined, 2, (path) => { opened.push(path) }))
+    indirect?.resolve('generated.docx')?.open()
+    expect(opened).toEqual(['site/report.html', 'generated.docx'])
 
     const preview = (ctx as unknown as { get(name: string): ChatFilePreview | undefined })
       .get('chatFilePreview')

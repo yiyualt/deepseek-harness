@@ -9,6 +9,15 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 /** Host-only download surfaces (no wire envelope; absent from IApiClient). */
 export interface DownloadsApi {
+  /** Serve one granted DOCX to ONLYOFFICE Document Server. */
+  officePreviewFile(request: { token: string }, signal: AbortSignal): Promise<Response>
+
+  /** Apply one ONLYOFFICE save callback to its granted workspace file. */
+  officePreviewCallback(
+    request: { token: string; body: unknown },
+    signal: AbortSignal,
+  ): Promise<Response>
+
   /**
    * Read one resource through an opaque artifact-preview grant. The carrier
    * serves this response inline inside a sandboxed iframe.

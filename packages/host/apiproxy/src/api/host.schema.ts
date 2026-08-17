@@ -79,7 +79,36 @@ export const hostPrepareArtifactPreviewRequestSchema = z.object({
 }) satisfies z.ZodType<Wire<RequestPayload<'host.prepareArtifactPreview'>>>
 
 /** host.prepareArtifactPreview response value. */
-export const hostPrepareArtifactPreviewValueSchema = z.object({
-  name: z.string().min(1),
-  url: z.string().startsWith('/api/artifact-preview/'),
-}) satisfies z.ZodType<Wire<ResponseValue<'host.prepareArtifactPreview'>>>
+export const hostPrepareArtifactPreviewValueSchema = z.union([
+  z.object({
+    kind: z.literal('html'),
+    name: z.string().min(1),
+    url: z.string().startsWith('/api/artifact-preview/'),
+  }),
+  z.object({
+    kind: z.literal('office'),
+    name: z.string().min(1),
+    apiUrl: z.url(),
+    config: z.object({
+      width: z.literal('100%'),
+      height: z.literal('100%'),
+      documentType: z.literal('word'),
+      document: z.object({
+        fileType: z.literal('docx'),
+        key: z.string().min(1),
+        title: z.string().min(1),
+        url: z.url(),
+        permissions: z.object({ edit: z.literal(true), download: z.literal(true) }),
+      }),
+      editorConfig: z.object({
+        mode: z.literal('edit'),
+        callbackUrl: z.url(),
+        customization: z.object({}),
+        user: z.object({
+          id: z.literal('deepseek-harness'),
+          name: z.literal('DeepSeek Harness'),
+        }),
+      }),
+    }),
+  }),
+]) satisfies z.ZodType<Wire<ResponseValue<'host.prepareArtifactPreview'>>>

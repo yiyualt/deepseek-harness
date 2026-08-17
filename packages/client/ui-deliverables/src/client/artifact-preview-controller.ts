@@ -1,4 +1,4 @@
-/** HTML file interception and Host grant preparation for the preview panel. */
+/** HTML and DOCX interception with Host preparation for the preview panel. */
 
 import type { IApiClient, SessionId } from '@deepseek-ai/dsh-client-connection/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
@@ -9,6 +9,7 @@ import {
 } from './artifact-preview-store.ts'
 
 const HTML_EXTENSION = /\.(?:html?|xhtml)$/i
+const OFFICE_EXTENSION = /\.docx$/i
 
 function basename(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path
@@ -39,14 +40,21 @@ export class ArtifactPreviewController implements ChatFilePreview {
     return store
   }
 
-  /** Activate one retained tab when it exists. */
+  /**
+   * Activate one retained tab when it exists.
+   * @param sessionId Session that owns the tab.
+   * @param id Retained tab id.
+   */
   activate(sessionId: SessionId, id: string): void {
     this.sourceFor(sessionId).update((state) => {
       if (state.tabs.some(tab => tab.id === id)) state.activeId = id
     })
   }
 
-  /** Add and activate an empty preview tab. */
+  /**
+   * Add and activate an empty preview tab.
+   * @param sessionId Session that owns the new tab.
+   */
   newTab(sessionId: SessionId): void {
     const id = `blank-${String(++this.#tabId)}`
     this.sourceFor(sessionId).update((state) => {
@@ -56,7 +64,11 @@ export class ArtifactPreviewController implements ChatFilePreview {
     this.layout.openDetails('artifact-preview', 'wide')
   }
 
-  /** Close one retained tab and close the right column when it was the last tab. */
+  /**
+   * Close one retained tab and close the right column when it was the last tab.
+   * @param sessionId Session that owns the tab.
+   * @param id Retained tab id.
+   */
   close(sessionId: SessionId, id: string): void {
     const store = this.sourceFor(sessionId)
     store.update((state) => {
@@ -71,12 +83,12 @@ export class ArtifactPreviewController implements ChatFilePreview {
     if (store.getSnapshot().tabs.length === 0) this.layout.closeDetails()
   }
 
-  /** Claim HTML paths, add or activate their tab, and prepare an opaque Host grant. */
+  /** Claim supported paths, add or activate their tab, and prepare its renderer. */
   async open(request: ChatFilePreviewRequest): Promise<boolean> {
-    if (!HTML_EXTENSION.test(request.path)) return false
+    if (!HTML_EXTENSION.test(request.path) && !OFFICE_EXTENSION.test(request.path)) return false
     const store = this.sourceFor(request.sessionId)
     const existing = store.getSnapshot().tabs.find(tab => tab.path === request.path)
-    if (existing !== undefined) {
+    if (existing !== undefined && existing.kind !== 'office') {
       this.activate(request.sessionId, existing.id)
       this.layout.openDetails('artifact-preview', 'wide')
       return true
@@ -86,7 +98,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
     const blank = before.tabs.find(tab => (
       tab.id === before.activeId && tab.status === 'idle' && tab.path === ''
     ))
-    const id = blank?.id ?? `file-${String(++this.#tabId)}`
+    const id = existing?.id ?? blank?.id ?? `file-${String(++this.#tabId)}`
     store.update((state) => {
       const tab = state.tabs.find(candidate => candidate.id === id)
       if (tab === undefined) {
@@ -107,13 +119,22 @@ export class ArtifactPreviewController implements ChatFilePreview {
       if (!store.getSnapshot().tabs.some(tab => tab.requestId === requestId)) return true
       const result = response.result
       if (result.ok) {
-        const { name, url } = result.value
+        const prepared = result.value
         store.update((state) => {
           const tab = state.tabs.find(candidate => candidate.requestId === requestId)
           if (tab === undefined) return
           tab.status = 'ready'
-          tab.name = name
-          tab.url = url
+          tab.name = prepared.name
+          tab.kind = prepared.kind
+          if (prepared.kind === 'html') {
+            tab.url = prepared.url
+            delete tab.officeApiUrl
+            delete tab.officeConfig
+          } else {
+            tab.officeApiUrl = prepared.apiUrl
+            tab.officeConfig = prepared.config
+            delete tab.url
+          }
           delete tab.error
         })
       } else {
@@ -124,6 +145,8 @@ export class ArtifactPreviewController implements ChatFilePreview {
           tab.status = 'error'
           tab.error = message
           delete tab.url
+          delete tab.officeApiUrl
+          delete tab.officeConfig
         })
       }
     } catch (error: unknown) {
@@ -134,6 +157,8 @@ export class ArtifactPreviewController implements ChatFilePreview {
         tab.status = 'error'
         tab.error = error instanceof Error ? error.message : String(error)
         delete tab.url
+        delete tab.officeApiUrl
+        delete tab.officeConfig
       })
     }
     return true

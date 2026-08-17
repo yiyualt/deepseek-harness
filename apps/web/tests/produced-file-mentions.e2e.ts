@@ -6,6 +6,7 @@
 // locations reaching the prose as an opener. The HTML click exercises the
 // assembled artifact-preview RPC, right-column entry, and iframe resource.
 import { mkdir, writeFile } from 'node:fs/promises'
+import { createServer, type Server } from 'node:http'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
@@ -28,7 +29,7 @@ function text(value: string): { type: 'text'; text: string }[] {
 }
 
 /** The files the built turn writes; `notes.md` is named in prose but never written. */
-const WRITES = ['site/report.html', 'site/other.html', 'a/style.css', 'b/style.css']
+const WRITES = ['site/report.html', 'site/other.html', 'site/report.docx', 'a/style.css', 'b/style.css']
 
 /** Build a settled write turn whose closing prose mentions files in inline code. */
 function mentionFixture(): string {
@@ -89,7 +90,7 @@ function mentionFixture(): string {
       content: [{
         type: 'text',
         text: [
-          'Wrote `report.html` plus two `style.css` copies; `notes.md` untouched.',
+          'Wrote `report.html`, `report.docx`, plus two `style.css` copies; `notes.md` untouched.',
           '',
           DONE,
         ].join('\n'),
@@ -121,9 +122,24 @@ describe('web e2e: inline-code mentions of produced files', () => {
   let browser: Browser
   let page: Page
   let tripwire: ReturnType<typeof watchConsole>
+  let onlyOffice: Server | undefined
 
   beforeAll(async () => {
-    scaffold = await launchWebScaffold({})
+    onlyOffice = createServer((_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' })
+      response.end('window.DocsAPI={DocEditor:function(id,config){var root=document.getElementById(id);'
+        + 'var button=document.createElement(\'button\');button.textContent=\'Edit \'+config.document.title;'
+        + 'root.append(button);return{destroyEditor:function(){root.replaceChildren()}}}}')
+    })
+    await new Promise<void>((resolve) => { onlyOffice.listen(0, '127.0.0.1', resolve) })
+    const address = onlyOffice.address()
+    if (address === null || typeof address === 'string') throw new Error('ONLYOFFICE test server did not bind TCP')
+    scaffold = await launchWebScaffold({
+      onlyOffice: {
+        browserUrl: `http://127.0.0.1:${String(address.port)}`,
+        harnessUrl: 'http://127.0.0.1:9',
+      },
+    })
     await mkdir(join(scaffold.workspaceCwd, 'site'), { recursive: true })
     await writeFile(
       join(scaffold.workspaceCwd, 'site', 'report.html'),
@@ -133,6 +149,7 @@ describe('web e2e: inline-code mentions of produced files', () => {
       join(scaffold.workspaceCwd, 'site', 'other.html'),
       '<!doctype html><html><body><h1>Second HTML preview</h1></body></html>',
     )
+    await writeFile(join(scaffold.workspaceCwd, 'site', 'report.docx'), 'fixture-docx')
     await seedSession(scaffold, mentionFixture(), SEED_ID)
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
@@ -144,6 +161,11 @@ describe('web e2e: inline-code mentions of produced files', () => {
   afterAll(async () => {
     await browser?.close()
     await scaffold?.close()
+    if (onlyOffice !== undefined) {
+      await new Promise<void>((resolve, reject) => {
+        onlyOffice.close((error) => { if (error === undefined) resolve(); else reject(error) })
+      })
+    }
   })
 
   it.skipIf(MODE === 'record')('links the unique mention and leaves ambiguous and unknown code inert', async () => {
@@ -156,10 +178,10 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await sessionRow.click()
     await expect.poll(() => page.getByText(DONE, { exact: true }).count(), { timeout: 15_000 }).toBe(1)
 
-    // Exactly one prose mention links: `report.html` resolves to the written
+    // Exactly two prose mentions link: the unique HTML and DOCX basenames
     // path; the shared `style.css` basename and unwritten `notes.md` stay code.
     const mentions = page.locator('[class*="markdown"] code button')
-    await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(1)
+    await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(2)
     expect(await mentions.first().innerText()).toBe('report.html')
     expect(await mentions.first().getAttribute('aria-label')).toBe('Open site/report.html')
     expect(await mentions.first().getAttribute('title')).toBe('site/report.html')
@@ -183,6 +205,12 @@ describe('web e2e: inline-code mentions of produced files', () => {
     expect(await preview.getByRole('tab', { name: 'other.html', exact: true }).getAttribute('aria-selected')).toBe('true')
     await preview.getByRole('tab', { name: 'report.html', exact: true }).click()
     await expect.poll(() => frame.getByText('running', { exact: true }).count(), {
+      timeout: 10_000,
+    }).toBe(1)
+
+    await page.getByRole('button', { name: 'Open site/report.docx', exact: true }).click()
+    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(3)
+    await expect.poll(() => preview.getByRole('button', { name: 'Edit report.docx', exact: true }).count(), {
       timeout: 10_000,
     }).toBe(1)
 

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import {
@@ -21,17 +21,51 @@ function successApi() {
     host: {
       prepareArtifactPreview: vi.fn(async ({ path }: { path: string }) => {
         const name = path.split('/').at(-1) ?? path
+        if (path.endsWith('.docx')) {
+          return {
+            rpcId: 'preview',
+            result: {
+              ok: true as const,
+              value: {
+                kind: 'office' as const,
+                name,
+                apiUrl: 'http://127.0.0.1:8080/web-apps/apps/api/documents/api.js',
+                config: officeConfig(name),
+              },
+            },
+          }
+        }
         return {
           rpcId: 'preview',
-          result: { ok: true as const, value: { name, url: `${PREVIEW_URL}/${name}` } },
+          result: { ok: true as const, value: { kind: 'html' as const, name, url: `${PREVIEW_URL}/${name}` } },
         }
       }),
     },
   }
 }
 
+function officeConfig(name = 'report.docx') {
+  return {
+    width: '100%' as const,
+    height: '100%' as const,
+    documentType: 'word' as const,
+    document: {
+      fileType: 'docx' as const,
+      key: 'document-key',
+      title: name,
+      url: 'http://host.docker.internal:3080/api/office-preview/token/file',
+      permissions: { edit: true as const, download: true as const },
+    },
+    editorConfig: {
+      mode: 'edit' as const,
+      callbackUrl: 'http://host.docker.internal:3080/api/office-preview/token/callback',
+      user: { id: 'deepseek-harness' as const, name: 'DeepSeek Harness' as const },
+    },
+  }
+}
+
 describe('ArtifactPreviewController', () => {
-  it('declines non-HTML files and opens HTML in the artifact panel', async () => {
+  it('declines unsupported files and opens HTML in the artifact panel', async () => {
     const api = successApi()
     const layout = { openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn() }
     const controller = new ArtifactPreviewController(api as never, layout)
@@ -75,6 +109,26 @@ describe('ArtifactPreviewController', () => {
     controller.close(SID, two?.id ?? '')
     expect(controller.sourceFor(SID).getSnapshot()).toEqual({ tabs: [] })
     expect(layout.closeDetails).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens DOCX as an editable Office tab', async () => {
+    const api = successApi()
+    const controller = new ArtifactPreviewController(api as never, {
+      openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn(),
+    })
+    await expect(controller.open({ sessionId: SID, path: '/workspace/report.docx' })).resolves.toBe(true)
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
+      status: 'ready',
+      kind: 'office',
+      name: 'report.docx',
+      officeApiUrl: 'http://127.0.0.1:8080/web-apps/apps/api/documents/api.js',
+      officeConfig: { documentType: 'word', editorConfig: { mode: 'edit' } },
+    })
+    const originalId = controller.sourceFor(SID).getSnapshot().tabs[0]?.id
+    await controller.open({ sessionId: SID, path: '/workspace/report.docx' })
+    expect(api.host.prepareArtifactPreview).toHaveBeenCalledTimes(2)
+    expect(controller.sourceFor(SID).getSnapshot().tabs).toHaveLength(1)
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]?.id).toBe(originalId)
   })
 
   it('adds an active blank tab and reuses it for the next HTML path', async () => {
@@ -193,5 +247,28 @@ describe('ArtifactPreviewPanel', () => {
     expect(closePreviewTab).toHaveBeenCalledWith('two')
     fireEvent.click(view.getByRole('button', { name: 'preview.close' }))
     expect(closePreview).toHaveBeenCalledTimes(1)
+  })
+
+  it('mounts the ONLYOFFICE editor for a ready DOCX tab', async () => {
+    const destroyEditor = vi.fn()
+    const DocEditor = vi.fn(function () { return { destroyEditor } })
+    Object.defineProperty(window, 'DocsAPI', {
+      configurable: true,
+      value: { DocEditor },
+    })
+    const view = render(<ArtifactPreviewPanel {...panelProps({
+      activeId: 'doc',
+      tabs: [{
+        id: 'doc', status: 'ready', requestId: 1, kind: 'office',
+        name: 'report.docx', path: '/report.docx',
+        officeApiUrl: 'http://127.0.0.1:8080/web-apps/apps/api/documents/api.js',
+        officeConfig: officeConfig(),
+      }],
+    })} />)
+    await waitFor(() => { expect(DocEditor).toHaveBeenCalledTimes(1) })
+    expect(view.container.querySelector('[data-onlyoffice-editor]')).not.toBeNull()
+    view.unmount()
+    expect(destroyEditor).toHaveBeenCalledTimes(1)
+    delete (window as Window & { DocsAPI?: unknown }).DocsAPI
   })
 })

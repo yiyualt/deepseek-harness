@@ -157,6 +157,12 @@
   background: white;
 }
 
+.officeEditor {
+  width: 100%;
+  height: 100%;
+  background: white;
+}
+
 .status,
 .error,
 .blank {

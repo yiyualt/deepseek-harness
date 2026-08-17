@@ -730,6 +730,10 @@ Requires: `agentDefaultModel` · `agents` · `attachments` · `directoryPicker` 
 ```ts config-catalog
 /** Gateway plugin configuration. */
 export interface Config {
+  /** Document Server origin reachable from the user's browser. */
+  onlyOfficeBrowserUrl?: string
+  /** Harness origin reachable from the Document Server. */
+  onlyOfficeHarnessUrl?: string
   /**
    * Whether this deployment can hand paths to a native desktop opener —
    * the `hasDocument` capability the agent-preset roster reports. Absent,

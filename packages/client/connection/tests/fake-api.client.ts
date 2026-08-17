@@ -150,6 +150,7 @@ export class FakeApiClient implements IApiClient {
       'host.prepareArtifactPreview',
       payload,
       Promise.resolve(ok({
+        kind: 'html' as const,
         name: 'report.html',
         url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html',
       })),

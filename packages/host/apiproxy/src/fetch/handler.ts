@@ -9,8 +9,11 @@
 import { randomUUID } from 'node:crypto'
 import type { z } from 'zod'
 import type { ApiProxy, MuxFrame, HostFrame } from '../api/index.ts'
-import { artifactPreviewPathSchema, sessionLogQuerySchema } from '../api/downloads.schema.ts'
+import {
+  artifactPreviewPathSchema, officePreviewTokenSchema, sessionLogQuerySchema,
+} from '../api/downloads.schema.ts'
 import { ARTIFACT_PREVIEW_PATH } from '../artifact-preview.ts'
+import { OFFICE_PREVIEW_PATH } from '../office-preview.ts'
 import type { RequestPayload, ResponseValue, RpcMethodMap } from '../api/rpc-map.ts'
 import type { ClientRequest, RpcError, RpcRequest, RpcResponse, ServerRequest, ServerResponse } from '../api/rpc.ts'
 import { RpcId } from '../api/rpc.ts'
@@ -283,6 +286,30 @@ export function toFetchHandler(api: ApiProxy): { fetch: typeof fetch } {
         if (req.method === 'GET') return response
         await response.body?.cancel()
         return new Response(null, { status: response.status, headers: response.headers })
+      }
+      if (path.startsWith(`${OFFICE_PREVIEW_PATH}/`)) {
+        const tail = path.slice(OFFICE_PREVIEW_PATH.length + 1)
+        const [token, action, extra] = tail.split('/')
+        const parsed = officePreviewTokenSchema.safeParse({ token })
+        if (!parsed.success || extra !== undefined) return new Response('invalid Office preview path', { status: 400 })
+        if (action === 'file' && (req.method === 'GET' || req.method === 'HEAD')) {
+          const response = await api.downloads.officePreviewFile(parsed.data, req.signal)
+          if (req.method === 'GET') return response
+          await response.body?.cancel()
+          return new Response(null, { status: response.status, headers: response.headers })
+        }
+        if (action === 'callback' && req.method === 'POST') {
+          const mediaType = req.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase()
+          if (mediaType !== 'application/json') return new Response('content type must be application/json', { status: 415 })
+          let body: unknown
+          try {
+            body = await req.json()
+          } catch {
+            return new Response('body is not JSON', { status: 400 })
+          }
+          return api.downloads.officePreviewCallback({ ...parsed.data, body }, req.signal)
+        }
+        return new Response('not found', { status: 404 })
       }
 
       if (req.method !== 'POST' || !path.startsWith('/api/')) {

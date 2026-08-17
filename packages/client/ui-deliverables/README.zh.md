@@ -8,9 +8,9 @@
 
 `ProducedFiles` 在收尾消息正文与其 IconActions 之间渲染该行：一个低调的标签和一条经过测量的单行文件 lane。它展示能够放下的最大前缀（至多六个标签项；文本为文件名，完整路径作为 `title`），并为本地化后的精确 `+ N 个文件` 宽度预留空间，因此剩余计数始终可见，既不换行也不横向滚动。每个标签项经由属主提供的 `openFile` 打开——与工具行相同的 Host 打开器，chat 视图会把相对路径按会话 cwd 解析。存在隐藏文件时，第二行的**在文件夹中显示**也经由同一属主路径打开会话 workspace；它只在页面使用 loopback 且当前 Host 握手报告 `canOpenPath` 时出现，直接远程 Web 与 headless／容器 Linux Host 默认均省略该操作。设计原理：[workspace 文件链接 Agent Note](../../../.agents/notes/implemented/feature/2026-07-31-web-workspace-file-links.md)。
 
-点击 HTML、HTM 或 XHTML 文件会先使用布局的 520px 宽模式在共享右栏中打开 sandbox iframe。每条不同路径会新增一个 tab；再次选择已有路径会激活其保留的 iframe，可见的 `+` 会新增由下一次 HTML 点击填充的空白 tab，关闭最后一个 tab 时关闭右栏。iframe 允许脚本和同源存储，因此交互式生成页面可以正常工作。Host 把解析后的路径换成不透明预览 URL，并从文件所在目录提供入口文件及其相对资源；其他文件类型以及未组合预览 provider 的部署继续使用原生 opener。所有权与回退规则见 [HTML 工件预览决策](../../../.agents/notes/implemented/feature/2026-08-17-web-html-artifact-preview.md)。
+点击 HTML、HTM、XHTML 或 DOCX 文件会先使用布局的 520px 宽模式打开共享右栏。每条不同路径会新增一个 tab；再次选择已有 HTML 路径会激活其保留的 iframe，再次选择已有 DOCX 路径则会准备新 grant 并重新挂载编辑器，避免 Host 重启后标签页滞留在过期 token。可见的 `+` 会新增由下一次受支持文件点击填充的空白 tab，关闭最后一个 tab 时关闭右栏。HTML 使用允许脚本与同源存储的 sandbox iframe；Host 把解析后的路径换成不透明预览 URL，并从文件所在目录提供入口及其相对资源。DOCX 使用可编辑的 ONLYOFFICE `DocEditor`；Host 提供 API URL 和文档配置，Document Server 通过不透明 Host route 下载与保存文件。其他文件类型以及未组合预览 provider 的部署继续使用原生 opener。所有权与部署规则见 [HTML 预览](../../../.agents/notes/implemented/feature/2026-08-17-web-html-artifact-preview.md)和 [DOCX 编辑](../../../.agents/notes/implemented/feature/2026-08-18-web-docx-onlyoffice-editing.md)决策。
 
-收尾正文承载同一份词表。本插件提供供 chat 视图按收尾消息查询的 `chatFileMentions` 服务：`producedFileMentions` 按精确路径解析行内代码 token，或当 token 恰好等于某条产出路径的 basename，且这样的路径仅有一条时解析——两条路径共享同一 basename 时，文本保持不可点击而不作猜测，因此提及链接永远不会打开错误的文件，也不会导致 404。解析成功的提及保留代码标签，并采用 Markdown 样式表的链接样式：静止时为链接蓝色，悬停时显示下划线，与 URL 提升的行内代码完全一致——完整路径作为其 `title`；提及绝不会渲染在链接内部或流式文本中。决策记录：[行内文件提及 Agent Note](../../../.agents/notes/implemented/feature/2026-08-07-web-inline-file-mentions.md)。
+收尾正文承载同一份词表。本插件提供供 chat 视图按收尾消息查询的 `chatFileMentions` 服务：`producedFileMentions` 按精确路径解析行内代码 token，或当 token 恰好等于某条产出路径的 basename，且这样的路径仅有一条时解析——两条路径共享同一 basename 时，文本保持不可点击而不作猜测。由于二进制文档通常由 terminal process 创建，即使没有 produced mutation location，精确的 `.docx` token 也会解析；点击时由 Host 校验文件是否存在。解析成功的提及保留代码标签，并采用 Markdown 样式表的链接样式：静止时为链接蓝色，悬停时显示下划线，与 URL 提升的行内代码完全一致——完整路径作为其 `title`；提及绝不会渲染在链接内部或流式文本中。决策记录：[行内文件提及](../../../.agents/notes/implemented/feature/2026-08-07-web-inline-file-mentions.md)和 [DOCX 编辑](../../../.agents/notes/implemented/feature/2026-08-18-web-docx-onlyoffice-editing.md) Agent Note。
 
 Node 侧注册静态系统提示词段落 `ui:deliverable-file-references`。它要求模型点名成功创建或修改的主要文件，并将这些文件以及正文中提到的其他本轮变更文件写成 Markdown 行内代码：使用文件工具采用的精确路径，或仅在 basename 能唯一指代本轮文件时使用 basename。该提示词只向模型说明渲染器接受的语法；它不约束无关的路径讨论，也不会扩大渲染器的成功修改词表。
 
@@ -33,6 +33,6 @@ Node 侧注册静态系统提示词段落 `ui:deliverable-file-references`。它
 ## 已知限制与暂缓事项
 
 - **提及匹配只认精确路径或唯一 basename。**后缀式提及（`out/index.html` 写作 `index.html` 可解析；`deep/out/index.html` 写作 `out/index.html` 则不行）保持不可点击；等真实的收尾消息形态产生需求后再放宽匹配规则。
-- **终端命令间接创建的文件仍不在匹配词表内。**除非某个成功修改位置也记录了该路径，否则在行内代码中点名这类文件不会使其可点击。
+- **终端命令间接创建的文件仍不进入产出文件行。**精确的 DOCX 行内代码路径可以点击，其他 terminal 创建的格式仍需要成功修改位置。
 - **HTML 预览不是通用浏览器标签页。**iframe 会阻止表单、嵌套 frame、object 和网络连接；生成页面需要这些能力时应使用原生 opener。
 - **原生文件夹交接以 Host 桌面为目标。**经非 loopback 权威访问的浏览器会省略该操作，报告没有原生打开器的部署也一样。若 SSH 转发让远端 Host 看似处于本机 loopback，部署必须为网关设置 `nativeOpen: false`；无界面的 macOS／Windows Host、Windows interop 不可用的 WSL，或 display／opener 探测误报的 Linux 桌面也必须这样配置。识别操作者实际可见的桌面仍属于部署策略。

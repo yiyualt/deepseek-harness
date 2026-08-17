@@ -1,13 +1,18 @@
-/** Per-session state for the right-column HTML artifact preview. */
+/** Per-session state for the right-column artifact preview. */
 
-/** One HTML document retained as a browser-style preview tab. */
+import type { OfficeEditorConfig } from '@deepseek-ai/dsh-client-connection/client'
+
+/** One HTML or Office document retained as a browser-style preview tab. */
 export interface ArtifactPreviewTab {
   id: string
   status: 'idle' | 'loading' | 'ready' | 'error'
   requestId: number
   name: string
   path: string
+  kind?: 'html' | 'office'
   url?: string
+  officeApiUrl?: string
+  officeConfig?: OfficeEditorConfig
   error?: string
 }
 

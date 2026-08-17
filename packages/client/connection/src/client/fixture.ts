@@ -2563,6 +2563,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       },
       openPath: request => ok(request, { opened: true as const }),
       prepareArtifactPreview: request => ok(request, {
+        kind: 'html' as const,
         name: request.payload.path.split('/').at(-1) ?? request.payload.path,
         url: `/api/artifact-preview/00000000-0000-4000-8000-000000000000/${encodeURIComponent(request.payload.path.split('/').at(-1) ?? 'index.html')}`,
       }),
@@ -2995,6 +2996,8 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     // hands GET /api/session.export to the native download manager, so this
     // stub is never reached through the fixture's dispatch.
     downloads: {
+      officePreviewFile: () => Promise.resolve(new Response('fixture mode does not serve Office previews', { status: 404 })),
+      officePreviewCallback: () => Promise.resolve(new Response('fixture mode does not save Office previews', { status: 404 })),
       artifactPreview: () => Promise.resolve(new Response('fixture mode does not serve artifact previews', { status: 404 })),
       sessionLog: () => Promise.resolve(new Response('fixture mode does not serve session export', { status: 404 })),
     },

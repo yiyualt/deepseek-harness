@@ -165,6 +165,7 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
           result: {
             ok: true,
             value: {
+              kind: 'html' as const,
               name: 'report.html',
               url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html',
             },
@@ -302,6 +303,12 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
       return message.rpcId === 'known' ? { accepted: true } : { accepted: false, reason: 'not-pending' }
     },
     downloads: {
+      async officePreviewFile() {
+        return new Response('stub', { status: 404 })
+      },
+      async officePreviewCallback() {
+        return new Response('stub', { status: 404 })
+      },
       async artifactPreview() {
         return new Response('stub', { status: 404 })
       },

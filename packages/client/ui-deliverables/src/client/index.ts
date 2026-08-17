@@ -81,10 +81,10 @@ export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
   const mentions: ChatFileMentions = {
     forClosing(owner) {
-      // Same claim test the turn-tail chain entry runs: no produced files,
-      // no vocabulary — the two surfaces agree by construction.
-      const paths = selectProducedFiles(owner)
-      if (paths === null) return undefined
+      // The row remains mutation-location based. The prose resolver also
+      // accepts exact DOCX paths because terminal-created binary output has no
+      // mutation location to contribute.
+      const paths = selectProducedFiles(owner) ?? []
       return producedFileMentions(paths, owner.openFile, path => t('produced.open', { name: path }))
     },
   }

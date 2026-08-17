@@ -49,6 +49,8 @@ const PREVIEW_CSP = [
 
 /** Successful grant material returned to the browser client. */
 export interface ArtifactPreviewGrant {
+  /** Renderer discriminator consumed by the Web client. */
+  kind: 'html'
   /** Display name of the granted HTML entry. */
   name: string
   /** Same-origin resource URL suitable for a sandboxed iframe. */
@@ -120,6 +122,7 @@ export class ArtifactPreviewGrants {
     const name = basename(entry)
     this.#grants.set(token, { root: dirname(entry) })
     return {
+      kind: 'html',
       name,
       url: `${ARTIFACT_PREVIEW_PATH}/${token}/${encodeURIComponent(name)}`,
     }

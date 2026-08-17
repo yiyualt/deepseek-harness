@@ -6,6 +6,7 @@ import type { DetailsOwnerProps } from '@deepseek-ai/dsh-client-ui-layout/client
 import type { ArtifactPreviewState } from './artifact-preview-store.ts'
 import type { NS } from './locales.ts'
 import css from './ArtifactPreviewPanel.module.css'
+import { OnlyOfficeEditor } from './OnlyOfficeEditor.tsx'
 
 /** Layout action injected into the preview entry. */
 export interface ArtifactPreviewPanelInjected {
@@ -28,7 +29,7 @@ export type ArtifactPreviewPanelProps = PropsRuntime<'details'> & { matched: Det
   & InjectFace<ArtifactPreviewPanelInjected>
   & PropsLocale<typeof NS>
 
-/** Render the retained HTML previews as a browser-style tab strip and viewport. */
+/** Render retained HTML and Office previews as a browser-style tab strip. */
 export function ArtifactPreviewPanel({
   usePreview, activatePreview, newPreviewTab, closePreviewTab, closePreview, t,
 }: ArtifactPreviewPanelProps) {
@@ -109,6 +110,22 @@ export function ArtifactPreviewPanel({
               referrerPolicy="no-referrer"
             />
           </div>
+        ))}
+        {preview.tabs.map(tab => (
+          tab.status === 'ready'
+          && tab.kind === 'office'
+          && tab.officeApiUrl !== undefined
+          && tab.officeConfig !== undefined
+          && (
+            <div
+              key={tab.id}
+              className={css.framePane}
+              role="tabpanel"
+              hidden={tab.id !== preview.activeId}
+            >
+              <OnlyOfficeEditor apiUrl={tab.officeApiUrl} config={tab.officeConfig} />
+            </div>
+          )
         ))}
       </div>
     </div>
