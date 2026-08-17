@@ -109,6 +109,7 @@ import {
   inspectApiRemoteSession,
 } from '@deepseek-ai/dsh-api-remotes'
 import { canOpenNativePath, openNativePath, openNativeTextFile } from './native-path-opener.ts'
+import { ArtifactPreviewError, ArtifactPreviewGrants } from './artifact-preview.ts'
 
 /** Page size when history is called without maxMessages. */
 const DEFAULT_MAX_MESSAGES = 50
@@ -1108,6 +1109,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     ?? DEFAULT_SESSION_LOG_COMPRESSION_LEVEL
   const coldBlankProbeMaxBytes = defaults.coldBlankProbeMaxBytes
     ?? DEFAULT_COLD_BLANK_PROBE_MAX_BYTES
+  const artifactPreviews = new ArtifactPreviewGrants()
   /** The seed model each create/resume declares; re-read so it never goes stale. */
   const agentOptions = (): AgentOptions => {
     const { provider, model } = defaults.defaultModelSelection()
@@ -3008,6 +3010,21 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       async openPath(request, signal) {
         return openPath(request, request.payload.path, signal)
       },
+
+      async prepareArtifactPreview(request) {
+        try {
+          return ok(request, await artifactPreviews.prepare(request.payload.path))
+        } catch (error: unknown) {
+          if (!(error instanceof ArtifactPreviewError)) throw error
+          return err(request, {
+            code: error.reason === 'unsupported'
+              ? 'artifact-preview-unsupported'
+              : 'artifact-preview-unavailable',
+            message: error.message,
+            details: { path: request.payload.path },
+          })
+        }
+      },
     },
 
     goals: {
@@ -3637,6 +3654,10 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     },
 
     downloads: {
+      artifactPreview(request, signal) {
+        return artifactPreviews.response(request.token, request.path, signal)
+      },
+
       async sessionLog(request, signal) {
         // Clean error path first: missing services answer 500 and a missing
         // root artifact 404 before any zip byte is produced. The root content

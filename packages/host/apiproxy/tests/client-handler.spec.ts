@@ -78,6 +78,7 @@ function scriptedApi(overrides: {
       listDirectory: r => ok(r, { path: '/t', home: '/t', crumbs: [], entries: [], truncated: false }),
       createDirectory: r => ok(r, { path: '/t/new' }),
       openPath: r => ok(r, { opened: true as const }),
+      prepareArtifactPreview: r => ok(r, { name: 'report.html', url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html' }),
       ...overrides.host,
     },
     workspace: {
@@ -130,7 +131,10 @@ function scriptedApi(overrides: {
     },
     events: { mux: () => empty<MuxFrame>(), host: () => empty<HostFrame>(), ...overrides.events },
     respond: overrides.respond ?? (() => Promise.resolve({ accepted: false as const, reason: 'not-pending' as const })),
-    downloads: { sessionLog: async () => new Response('stub', { status: 404 }) },
+    downloads: {
+      artifactPreview: async () => new Response('stub', { status: 404 }),
+      sessionLog: async () => new Response('stub', { status: 404 }),
+    },
   }
 }
 

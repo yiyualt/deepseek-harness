@@ -14,6 +14,18 @@ import type { createLayoutStore } from './stores.ts'
 /** The layout store's bound action set (framework-baked, draft params peeled). */
 export type PanelActions = BoundActions<ReturnType<typeof createLayoutStore>>
 
+/** Merge-extensible ids of right-column occupants. */
+export interface DetailsPanelMap {
+  /** Tool-call details owned by ui-conversation. */
+  conversation: unknown
+}
+
+/** Registered right-column occupant id. */
+export type DetailsPanelId = Extract<keyof DetailsPanelMap, string>
+
+/** Geometry requested when opening a right-column occupant. */
+export type DetailsOpenMode = 'default' | 'wide'
+
 /**
  * The outward layout face (`ctx.layout`): the panel transitions other
  * plugins may trigger — and exactly what a test fake must supply. The
@@ -23,8 +35,8 @@ export type PanelActions = BoundActions<ReturnType<typeof createLayoutStore>>
 export interface ILayout {
   /** Toggle the sidebar panel (closed ⟷ contract default width). */
   toggleSidebar(): void
-  /** Open the details panel (no-op when already open). */
-  openDetails(): void
+  /** Open the named right-column occupant using default or wide geometry. */
+  openDetails(panel?: DetailsPanelId, mode?: DetailsOpenMode): void
   /** Close the details panel. */
   closeDetails(): void
 }
@@ -49,9 +61,9 @@ export class LayoutController implements ILayout {
     this.#require().toggleSidebar()
   }
 
-  /** Open the details panel (no-op when already open). */
-  openDetails(): void {
-    this.#require().openDetails()
+  /** Open the named right-column occupant; conversation and normal geometry are the defaults. */
+  openDetails(panel: DetailsPanelId = 'conversation', mode: DetailsOpenMode = 'default'): void {
+    this.#require().openDetails(panel, mode)
   }
 
   /** Close the details panel. */

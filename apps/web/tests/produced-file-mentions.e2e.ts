@@ -3,9 +3,10 @@
 // file three ways: by unique basename (links), ambiguously (stays inert), and
 // as a file the turn never touched (stays inert). Package tests cover the
 // resolver in isolation; only the assembled application shows a real write's
-// locations reaching the prose as an opener. The click itself is not driven
-// here: it hands the path to the Host's opener, which would launch a real
-// application on the machine running the suite (the produced-files restraint).
+// locations reaching the prose as an opener. The HTML click exercises the
+// assembled artifact-preview RPC, right-column entry, and iframe resource.
+import { mkdir, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
@@ -27,7 +28,7 @@ function text(value: string): { type: 'text'; text: string }[] {
 }
 
 /** The files the built turn writes; `notes.md` is named in prose but never written. */
-const WRITES = ['site/report.html', 'a/style.css', 'b/style.css']
+const WRITES = ['site/report.html', 'site/other.html', 'a/style.css', 'b/style.css']
 
 /** Build a settled write turn whose closing prose mentions files in inline code. */
 function mentionFixture(): string {
@@ -35,7 +36,7 @@ function mentionFixture(): string {
   const eventTimeOrigin = new Date().setHours(12, 0, 0, 0)
   session.append('turn/start', { turn: 1 })
   const user = session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'Write the report page and both stylesheets.' }],
+    content: [{ type: 'text', text: 'Write two report pages and both stylesheets.' }],
     source: { kind: 'user' },
   }), { surfaceOp: 'append' })
   session.append('session/title', {
@@ -123,6 +124,15 @@ describe('web e2e: inline-code mentions of produced files', () => {
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold({})
+    await mkdir(join(scaffold.workspaceCwd, 'site'), { recursive: true })
+    await writeFile(
+      join(scaffold.workspaceCwd, 'site', 'report.html'),
+      '<!doctype html><html><body><h1>HTML preview ready</h1><button id="start">Start preview</button><output id="status">idle</output><script>localStorage.setItem("preview-ready", "yes"); document.querySelector("#start").addEventListener("click", () => { document.querySelector("#status").textContent = "running" })</script></body></html>',
+    )
+    await writeFile(
+      join(scaffold.workspaceCwd, 'site', 'other.html'),
+      '<!doctype html><html><body><h1>Second HTML preview</h1></body></html>',
+    )
     await seedSession(scaffold, mentionFixture(), SEED_ID)
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
@@ -153,8 +163,28 @@ describe('web e2e: inline-code mentions of produced files', () => {
     expect(await mentions.first().innerText()).toBe('report.html')
     expect(await mentions.first().getAttribute('aria-label')).toBe('Open site/report.html')
     expect(await mentions.first().getAttribute('title')).toBe('site/report.html')
-    // The turn still ends with its produced-files row (all three writes).
+    // The turn still ends with its produced-files row (all four writes).
     expect(await page.getByText('Produced', { exact: true }).count()).toBe(1)
+
+    await mentions.first().click()
+    const preview = page.locator('[data-artifact-preview]')
+    await preview.waitFor({ timeout: 10_000 })
+    const frame = page.frameLocator('iframe[title="report.html preview"]')
+    await expect.poll(() => frame.getByText('HTML preview ready', { exact: true }).count(), {
+      timeout: 10_000,
+    }).toBe(1)
+    await frame.getByRole('button', { name: 'Start preview', exact: true }).click()
+    await expect.poll(() => frame.getByText('running', { exact: true }).count(), {
+      timeout: 10_000,
+    }).toBe(1)
+
+    await page.getByRole('button', { name: 'Open site/other.html', exact: true }).click()
+    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(2)
+    expect(await preview.getByRole('tab', { name: 'other.html', exact: true }).getAttribute('aria-selected')).toBe('true')
+    await preview.getByRole('tab', { name: 'report.html', exact: true }).click()
+    await expect.poll(() => frame.getByText('running', { exact: true }).count(), {
+      timeout: 10_000,
+    }).toBe(1)
 
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])

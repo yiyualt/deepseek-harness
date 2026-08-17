@@ -180,6 +180,14 @@ export class FakeApiClient implements IApiClient {
     listDirectory: (payload: unknown) => this.record('host.listDirectory', payload, this.onListDirectory(payload)),
     createDirectory: (payload: unknown) => this.record('host.createDirectory', payload, this.onCreateDirectory(payload)),
     openPath: (payload: unknown) => this.record('host.openPath', payload, this.onOpenPath(payload)),
+    prepareArtifactPreview: (payload: unknown) => this.record(
+      'host.prepareArtifactPreview',
+      payload,
+      Promise.resolve(ok({
+        name: 'report.html',
+        url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html',
+      })),
+    ),
   }
 
   // The archive-set field defaults at the binding below so list stubs keep

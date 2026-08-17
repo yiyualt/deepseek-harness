@@ -18,6 +18,7 @@ export { apply, inject } from './apply.ts'
 export { ConversationController } from './service.ts'
 export type { IConversation } from './service.ts'
 export type { DraftAttachmentId } from './input/contract.ts'
+export type { ChatFilePreview, ChatFilePreviewRequest } from './contract/file-preview.ts'
 
 export type {
   CallId, ChatStoreState, SelectionTarget, ViewTab,
@@ -41,5 +42,7 @@ declare module '@deepseek-ai/cordis' {
   interface Context {
     /** The outward face only; the concrete service stays inside this plugin. */
     conversation: import('./service.ts').IConversation
+    /** Optional in-app file-preview provider consulted before native opening. */
+    chatFilePreview: import('./contract/file-preview.ts').ChatFilePreview
   }
 }

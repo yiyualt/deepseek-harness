@@ -1,0 +1,185 @@
+.root {
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--dsw-alias-bg-base);
+}
+
+.toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding-left: 6px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+.tabs {
+  display: flex;
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tabItem {
+  position: relative;
+  display: flex;
+  flex: 0 1 168px;
+  align-items: center;
+  min-width: 92px;
+  max-width: 190px;
+  border-right: 1px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.tabItem[data-active='true'] {
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+}
+
+.tabItem[data-active='true']::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--dsw-alias-state-business-primary);
+  content: '';
+}
+
+.tab {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  align-self: stretch;
+  min-width: 0;
+  padding: 0 4px 0 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: var(--dsw-font-xs-13);
+}
+
+.tabLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabClose,
+.newTab,
+.panelClose {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.tabClose {
+  margin-right: 4px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.newTab {
+  margin-left: 4px;
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.panelClose {
+  margin: 0 7px;
+}
+
+.tab:hover,
+.tabClose:hover,
+.newTab:hover,
+.panelClose:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.tab:focus-visible,
+.tabClose:focus-visible,
+.newTab:focus-visible,
+.panelClose:focus-visible {
+  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline-offset: -1px;
+}
+
+.body {
+  position: relative;
+  flex: 1;
+  box-sizing: border-box;
+  min-height: 0;
+  overflow: hidden;
+  background: white;
+}
+
+.framePane {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: white;
+}
+
+.framePane[hidden] {
+  display: none;
+}
+
+.frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: white;
+}
+
+.status,
+.error,
+.blank {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  padding: 20px 16px;
+  background: var(--dsw-alias-bg-base);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.status {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.error {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.blank {
+  display: grid;
+  place-items: center;
+  color: var(--dsw-alias-label-tertiary);
+  text-align: center;
+}

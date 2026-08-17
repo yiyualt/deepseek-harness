@@ -2562,6 +2562,10 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         return ok(request, { path: target })
       },
       openPath: request => ok(request, { opened: true as const }),
+      prepareArtifactPreview: request => ok(request, {
+        name: request.payload.path.split('/').at(-1) ?? request.payload.path,
+        url: `/api/artifact-preview/00000000-0000-4000-8000-000000000000/${encodeURIComponent(request.payload.path.split('/').at(-1) ?? 'index.html')}`,
+      }),
     },
     workspace: {
       list: request => ok(request, {
@@ -2991,6 +2995,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     // hands GET /api/session.export to the native download manager, so this
     // stub is never reached through the fixture's dispatch.
     downloads: {
+      artifactPreview: () => Promise.resolve(new Response('fixture mode does not serve artifact previews', { status: 404 })),
       sessionLog: () => Promise.resolve(new Response('fixture mode does not serve session export', { status: 404 })),
     },
   }
@@ -3098,6 +3103,7 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'host.listDirectory': return this.api.host.listDirectory(request, new AbortController().signal)
       case 'host.createDirectory': return this.api.host.createDirectory(request)
       case 'host.openPath': return this.api.host.openPath(request, new AbortController().signal)
+      case 'host.prepareArtifactPreview': return this.api.host.prepareArtifactPreview(request)
       case 'workspace.list': return this.api.workspace.list(request)
       case 'workspace.create': return this.api.workspace.create(request)
       case 'workspace.rename': return this.api.workspace.rename(request)

@@ -17,7 +17,9 @@ import type {
   ConversationViewNode, ToolResultNode, TurnLocation,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
-import type { ChatFileMentions, TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {
+  ChatFileMentions, ChatFilePreview, TurnTailOwnerProps,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { makeTranslate, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import {
   fitProducedFiles, ProducedFiles, type ProducedFilesProps,
@@ -458,13 +460,32 @@ describe('plugin registration', () => {
     // The owning view's child declaration, stood up by a bench root entry.
     ctx.slots.register({
       name: 'root',
-      children: { 'conversation.chat.turnTail': { kind: 'chain', scope: 'session' } },
+      children: {
+        'conversation.chat.turnTail': { kind: 'chain', scope: 'session' },
+        'details': { kind: 'chain', scope: 'session' },
+      },
     } as never, () => null)
     const hostDescription = { getSnapshot: () => undefined, subscribe: () => () => {} }
+    const prepareArtifactPreview = vi.fn(async () => ({
+      rpcId: 'preview',
+      result: {
+        ok: true as const,
+        value: {
+          name: 'report.html',
+          url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html',
+        },
+      },
+    }))
     ctx.provide('connection', {
-      api: { settings: {} },
+      api: { host: { prepareArtifactPreview }, settings: {} },
       isLoopback: false,
       hostDescription,
+    } as never)
+    const openDetails = vi.fn()
+    ctx.provide('layout', {
+      openDetails,
+      closeDetails: vi.fn(),
+      toggleSidebar: vi.fn(),
     } as never)
     // ui-theme's Appearance row binds a durable scope through these two.
     ctx.provide('remote', { $on: () => () => {} } as never)
@@ -492,9 +513,18 @@ describe('plugin registration', () => {
     // A turn that produced nothing yields no vocabulary at all.
     expect(service?.forClosing(tailOwner(undefined, 2))).toBeUndefined()
 
+    const preview = (ctx as unknown as { get(name: string): ChatFilePreview | undefined })
+      .get('chatFilePreview')
+    await expect(preview?.open({ sessionId: 's1' as never, path: '/tmp/report.html' }))
+      .resolves.toBe(true)
+    expect(prepareArtifactPreview).toHaveBeenCalledWith({ path: '/tmp/report.html' })
+    expect(openDetails).toHaveBeenCalledWith('artifact-preview', 'wide')
+    expect(ctx.slots.entries('details')).toHaveLength(1)
+
     await fiber.dispose()
     expect(ctx.slots.entries('conversation.chat.turnTail')).toHaveLength(0)
     // Fiber teardown retracts the service: the consumer's ctx.get sees the off state.
     expect((ctx as unknown as { get(name: string): unknown }).get('chatFileMentions')).toBeUndefined()
+    expect((ctx as unknown as { get(name: string): unknown }).get('chatFilePreview')).toBeUndefined()
   })
 })

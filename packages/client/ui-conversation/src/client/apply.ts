@@ -7,7 +7,7 @@ import {
 // Type-only: the ctx.settingsScope Context merge. Cross-plugin collaboration
 // goes through the service, never a value import (client bundle purity gate).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import type { DetailsOwnerProps } from '@deepseek-ai/dsh-client-ui-layout/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { ViewTab } from './contract/views.ts'
@@ -107,6 +107,15 @@ function concreteConversation(ctx: Context): ConversationController {
 /** Chain routing: claim the composer while an approval wait is pending (pure — owner props only). */
 function selectApproval({ interactions }: ComposerChainProps): ApprovalWait | null {
   return interactions.find((i): i is ApprovalWait => i.kind === 'approval') ?? null
+}
+
+/** Claim the right column while layout selects the conversation detail panel. */
+function selectConversationDetails(owner: DetailsOwnerProps): { panel: 'conversation' } | null {
+  return panelIs(owner, 'conversation') ? { panel: 'conversation' } : null
+}
+
+function panelIs(owner: DetailsOwnerProps, panel: string): boolean {
+  return owner.panel === panel
 }
 
 /** Mounts the conversation plugin.
@@ -394,9 +403,14 @@ export function apply(ctx: Context): void {
         fileMentions: owner => ctx.get('chatFileMentions')?.forClosing(owner),
         openFile: (path) => {
           const cwd = sessions.list.getSnapshot().byId[sessionId]?.cwd
-          void workspaces.openPath(resolveWorkspacePath(cwd, path)).catch(() => {
-            // Host/OS open failures stay silent in the chat row; the native
-            // app surfaces its own error dialog when the path is unusable.
+          const resolved = resolveWorkspacePath(cwd, path)
+          void (async () => {
+            const preview = ctx.get('chatFilePreview')
+            if (preview !== undefined && await preview.open({ sessionId, path: resolved })) return
+            await workspaces.openPath(resolved)
+          })().catch(() => {
+            // Preview and Host/OS open failures stay silent in the chat row;
+            // a successful native handoff surfaces its own unusable-path dialog.
           })
         },
         loadOlder: () => { void scoped.loadOlder() },
@@ -443,6 +457,7 @@ export function apply(ctx: Context): void {
 
   slots.register({
     name: 'details',
+    select: selectConversationDetails,
     locale: NS,
     children: {
       'conversation.details.tool': { kind: 'single', scope: 'session' },

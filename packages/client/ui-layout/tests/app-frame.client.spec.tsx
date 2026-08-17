@@ -64,6 +64,10 @@ function mountFrame() {
     if (key === 'conversation.empty') return <div data-testid="empty-content" />
     return <div data-testid="other-content" />
   }) as AppFrameProps['renderSlot']
+  const renderSlotChain = ((key: string, owner: object) => {
+    slotCalls.push({ key, props: owner })
+    return <div data-testid="details-content" />
+  }) as AppFrameProps['renderSlotChain']
   const useSessions = ((sel: (s: SessionListState) => unknown) => {
     const current = selectedSession.current
     const sessionState = {
@@ -85,6 +89,7 @@ function mountFrame() {
       useStore={hookOf(instance)}
       actions={instance.actions}
       renderSlot={renderSlot}
+      renderSlotChain={renderSlotChain}
       useSessions={useSessions}
       useWorkspaces={((sel: (s: WorkspaceListState) => unknown) => sel(workspaceState)) as never}
       SessionProvider={SessionProviderStub}
@@ -151,7 +156,7 @@ describe('AppFrame', () => {
     expect(keys).toContain('details')
     expect(keys).not.toContain('conversation.empty')
     expect(slotCalls.find(c => c.key === 'conversation')!.props).toEqual({})
-    expect(slotCalls.find(c => c.key === 'details')!.props).toEqual({})
+    expect(slotCalls.find(c => c.key === 'details')!.props).toEqual({ panel: 'conversation' })
   })
 
   it('keeps the conversation slot mounted while no session is current', () => {
@@ -176,14 +181,14 @@ describe('AppFrame', () => {
     const { frame, instance, rerenderFrame } = mountFrame()
     expect(tracks(frame)).toEqual([280, 0])
 
-    act(() => { instance.actions.openDetails() })
+    act(() => { instance.actions.openDetails('conversation') })
     expect(tracks(frame)).toEqual([280, 360])
 
     selectedSession.current = 's-next' as SessionId
     act(() => { rerenderFrame() })
     expect(tracks(frame)).toEqual([280, 0])
 
-    act(() => { instance.actions.openDetails() })
+    act(() => { instance.actions.openDetails('conversation') })
     selectedSession.current = 's-blank' as SessionId
     selectedSessionBlank.current = true
     act(() => { rerenderFrame() })
@@ -228,7 +233,7 @@ describe('AppFrame', () => {
 
   it('details drag widens leftward (negative dx grows the panel)', () => {
     const { frame, instance } = mountFrame()
-    act(() => { instance.actions.openDetails() })
+    act(() => { instance.actions.openDetails('conversation') })
     const handles = frame.querySelectorAll('[class*="handle"]')
     drag(handles[1]!, 1560, 1500)
     expect(tracks(frame)[1]).toBe(420)
@@ -237,7 +242,7 @@ describe('AppFrame', () => {
   it('drag base is the rendered (concession-clamped) width, not the preference', () => {
     frameWidth = 1250 // step-2 squeeze: details renders 330 while preference is 360
     const { frame, instance } = mountFrame()
-    act(() => { instance.actions.openDetails() })
+    act(() => { instance.actions.openDetails('conversation') })
     expect(tracks(frame)).toEqual([280, 330])
     const handles = frame.querySelectorAll('[class*="handle"]')
     drag(handles[1]!, 920, 930) // shrink by 10 from the rendered width
@@ -263,7 +268,7 @@ describe('AppFrame', () => {
 
   it('viewport shrink triggers the concession chain via ResizeObserver', () => {
     const { frame, instance } = mountFrame()
-    act(() => { instance.actions.openDetails() })
+    act(() => { instance.actions.openDetails('conversation') })
     frameWidth = 1250
     act(() => { fireResize?.(); vi.advanceTimersByTime(20) })
     expect(tracks(frame)).toEqual([280, 330])
@@ -275,7 +280,7 @@ describe('AppFrame', () => {
   it('drag handles disappear for collapsed columns', () => {
     const { frame, instance } = mountFrame()
     expect(frame.querySelectorAll('[class*="handle"]')).toHaveLength(1)
-    act(() => { instance.actions.openDetails() })
+    act(() => { instance.actions.openDetails('conversation') })
     expect(frame.querySelectorAll('[class*="handle"]')).toHaveLength(2)
     act(() => { instance.actions.closeDetails() })
     expect(frame.querySelectorAll('[class*="handle"]')).toHaveLength(1)
@@ -390,7 +395,7 @@ describe('AppFrame — unmount with an in-flight resize frame', () => {
 
   it('double resize inside one frame rides the pending rAF (??= guard)', () => {
     const { frame, instance } = mountFrame()
-    act(() => { instance.actions.openDetails() })
+    act(() => { instance.actions.openDetails('conversation') })
     frameWidth = 1250
     act(() => { fireResize?.(); fireResize?.(); vi.advanceTimersByTime(20) })
     expect(tracks(frame)).toEqual([280, 330])

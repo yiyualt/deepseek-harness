@@ -98,6 +98,10 @@ export interface RpcErrorDetailsMap {
   'subagent-not-resumable': { childSessionId: SessionId }
   'subagent-unauthorized': { childSessionId: SessionId }
   'subagent-delivery-unavailable': { childSessionId: SessionId }
+  /** The requested file type has no in-app artifact renderer. */
+  'artifact-preview-unsupported': { path: string }
+  /** The requested HTML entry is missing, unreadable, not regular, or exceeds the configured size limit. */
+  'artifact-preview-unavailable': { path: string }
   'internal': {}
 }
 

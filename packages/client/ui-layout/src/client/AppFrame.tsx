@@ -89,6 +89,7 @@ export function AppFrame({
   useSessions,
   actions,
   renderSlot,
+  renderSlotChain,
 }: AppFrameProps) {
   const panels = useStore(s => s)
   const detailsSession = useSessions((s) => {
@@ -139,7 +140,12 @@ export function AppFrame({
   const sidebarPreference = sidebarCollapsed
     ? 0
     : panels.sidebar === 0 ? SIDEBAR_DEFAULT : panels.sidebar
-  const cols = computeColumns(viewport, sidebarPreference, detailsSession === undefined ? 0 : panels.details)
+  const cols = computeColumns(
+    viewport,
+    sidebarPreference,
+    detailsSession === undefined ? 0 : panels.details,
+    panels.detailsCenterMinimum,
+  )
   const colsRef = useRef(cols)
   colsRef.current = cols
 
@@ -188,7 +194,7 @@ export function AppFrame({
             is session-maybe; the strict details entry naturally renders
             empty while no session is current. */}
         <CenterColumn>{renderSlot('conversation', {})}</CenterColumn>
-        <DetailsColumn>{renderSlot('details', {})}</DetailsColumn>
+        <DetailsColumn>{renderSlotChain('details', { panel: panels.detailsPanel })}</DetailsColumn>
       </>
       <div className={css.overlayLayer} data-shell-overlay>
         {renderSlot('shell.overlay', {})}

@@ -93,4 +93,13 @@ export interface HostApi {
     request: RpcRequest<{ path: string }>,
     signal: AbortSignal,
   ): Promise<RpcResponse<{ opened: true }>>
+
+  /**
+   * Exchange one existing HTML file for a short-lived same-origin URL used by
+   * the Web client's sandboxed preview iframe. The Host validates and retains
+   * the path; the browser receives only an opaque grant URL.
+   */
+  prepareArtifactPreview(
+    request: RpcRequest<{ path: string }>,
+  ): Promise<RpcResponse<{ name: string; url: string }>>
 }

@@ -118,6 +118,8 @@ describe('render branch tails', () => {
     })
     const view = render(
       <DetailsPanel
+        panel="conversation"
+        matched={{ panel: 'conversation' }}
         SessionProvider={SessionProviderStub}
         renderSlot={renderToolDetailsProbe()}
         sessionId={SID}
@@ -175,6 +177,8 @@ describe('render branch tails', () => {
     const owners: DetailsToolOwnerProps[] = []
     const view = render(
       <DetailsPanel
+        panel="conversation"
+        matched={{ panel: 'conversation' }}
         SessionProvider={SessionProviderStub}
         renderSlot={renderToolDetailsProbe(owners)}
         sessionId={SID}

@@ -67,7 +67,7 @@ async function bench() {
   // live entry before apply can contribute into them.
   await runtime.root.declare({
     'conversation': { kind: 'single', scope: 'session-maybe' },
-    'details': { kind: 'single', scope: 'session' },
+    'details': { kind: 'chain', scope: 'session' },
   }, (_p: { renderSlot?: unknown }) => null)
 
   const feature = await runtime.mount({ inject: [...inject], apply })

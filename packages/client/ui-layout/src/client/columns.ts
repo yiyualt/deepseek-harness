@@ -1,7 +1,7 @@
 /**
  * Pure concession-chain column solver for the three-column AppFrame.
- * Chain order is fixed by contract: keep center >= CENTER_MIN by shrinking
- * details, then auto-closing it (derived zero width — preferred width
+ * Chain order is fixed by contract: keep center above the active center floor
+ * by shrinking details, then auto-closing it (derived zero width — preferred width
  * preferences are never rewritten, so widening the window restores them).
  * The sidebar never concedes: its rendered width is always the drag
  * preference (or the collapsed rail), and center absorbs any remaining
@@ -13,7 +13,7 @@
  * breakpoint-free.
  */
 
-/** Resolved widths for one frame; center may drop below CENTER_MIN only at the final fallback. */
+/** Resolved widths for one frame; center may drop below its active floor only at the final fallback. */
 export interface Columns { sidebar: number; center: number; details: number }
 
 // Contract-frozen geometry: the three-column concession chain's fixed points.
@@ -37,6 +37,8 @@ export const DETAILS_MIN = 300
 export const DETAILS_MAX = 520
 /** Details width before any user drag. */
 export const DETAILS_DEFAULT = 360
+/** Center floor while a wide details occupant needs the maximum details width. */
+export const DETAILS_WIDE_CENTER_MIN = 480
 
 /**
  * Clamp a panel width into its contract range.
@@ -57,19 +59,25 @@ export function clampWidth(px: number, min: number, max: number): number {
  * @param viewport - available frame width in px.
  * @param sidebar - sidebar width preference in px (0 = closed).
  * @param details - details width preference in px (0 = closed).
+ * @param centerMinimum - center width protected before details concedes.
  * @returns resolved widths; details 0 means visually closed (never unmounted), while a closed sidebar keeps its compact rail.
  */
-export function computeColumns(viewport: number, sidebar: number, details: number): Columns {
+export function computeColumns(
+  viewport: number,
+  sidebar: number,
+  details: number,
+  centerMinimum = CENTER_MIN,
+): Columns {
   // The sidebar is fixed at its preference (or the rail) — it never concedes.
   const s = sidebar === 0 ? SIDEBAR_COLLAPSED : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
   const d0 = details === 0 ? 0 : clampWidth(details, DETAILS_MIN, DETAILS_MAX)
 
   // Step 1: everything fits at preferred widths.
-  if (s + d0 + CENTER_MIN <= viewport) return { sidebar: s, center: viewport - s - d0, details: d0 }
+  if (s + d0 + centerMinimum <= viewport) return { sidebar: s, center: viewport - s - d0, details: d0 }
 
   // Step 2: shrink details toward its minimum.
-  const d1 = d0 === 0 ? 0 : Math.max(DETAILS_MIN, viewport - s - CENTER_MIN)
-  if (s + d1 + CENTER_MIN <= viewport) return { sidebar: s, center: CENTER_MIN, details: d1 }
+  const d1 = d0 === 0 ? 0 : Math.max(DETAILS_MIN, viewport - s - centerMinimum)
+  if (s + d1 + centerMinimum <= viewport) return { sidebar: s, center: centerMinimum, details: d1 }
 
   // Step 3: auto-close details (derived — preferences untouched); center
   // absorbs any remaining deficit (may drop below CENTER_MIN).

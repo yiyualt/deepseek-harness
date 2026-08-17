@@ -463,6 +463,8 @@ describe('DetailsPanel Output section', () => {
     })
     return render(
       <DetailsPanel
+        panel="conversation"
+        matched={{ panel: 'conversation' }}
         SessionProvider={SessionProviderStub}
         renderSlot={renderToolDetails(t)}
         sessionId={SID}
@@ -642,6 +644,8 @@ describe('DetailsPanel Output section', () => {
     const snap = snapshot()
     const view = render(
       <DetailsPanel
+        panel="conversation"
+        matched={{ panel: 'conversation' }}
         SessionProvider={SessionProviderStub}
         renderSlot={renderToolDetails(t)}
         sessionId={SID}

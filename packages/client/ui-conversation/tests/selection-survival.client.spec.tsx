@@ -22,11 +22,15 @@ async function bench() {
     'conversation': { kind: 'single', scope: 'session-maybe' },
     'conversation.session': { kind: 'single', scope: 'session' },
     'conversation.session.header': { kind: 'single', scope: 'session' },
-    'details': { kind: 'single', scope: 'session' },
+    'details': { kind: 'chain', scope: 'session' },
   }, (_p: { renderSlot?: unknown }) => null)
   runtime.slots.register({ name: 'conversation.session', store: chat }, () => null)
   runtime.slots.register({ name: 'conversation.session.header', store: chat }, () => null)
-  runtime.slots.register({ name: 'details', store: chat }, () => null)
+  runtime.slots.register({
+    name: 'details',
+    store: chat,
+    select: owner => owner.panel === 'conversation' ? { panel: owner.panel } : null,
+  }, () => null)
   runtime.renderRoot() // materializes the host face storeOf resolves through
   return { runtime, chat }
 }

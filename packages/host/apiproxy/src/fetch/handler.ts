@@ -9,7 +9,8 @@
 import { randomUUID } from 'node:crypto'
 import type { z } from 'zod'
 import type { ApiProxy, MuxFrame, HostFrame } from '../api/index.ts'
-import { sessionLogQuerySchema } from '../api/downloads.schema.ts'
+import { artifactPreviewPathSchema, sessionLogQuerySchema } from '../api/downloads.schema.ts'
+import { ARTIFACT_PREVIEW_PATH } from '../artifact-preview.ts'
 import type { RequestPayload, ResponseValue, RpcMethodMap } from '../api/rpc-map.ts'
 import type { ClientRequest, RpcError, RpcRequest, RpcResponse, ServerRequest, ServerResponse } from '../api/rpc.ts'
 import { RpcId } from '../api/rpc.ts'
@@ -32,7 +33,7 @@ import {
 import {
   hostCreateDirectoryRequestSchema, hostDescribeRequestSchema,
   hostListDirectoryRequestSchema, hostOpenPathRequestSchema,
-  hostPickDirectoryRequestSchema,
+  hostPickDirectoryRequestSchema, hostPrepareArtifactPreviewRequestSchema,
 } from '../api/host.schema.ts'
 import {
   workspaceArchiveSessionRequestSchema,
@@ -109,6 +110,7 @@ const UNARY_ROUTES: UnaryRoutes = {
   'host.listDirectory': { schema: hostListDirectoryRequestSchema, invoke: (api, r, signal) => api.host.listDirectory(r, signal) },
   'host.createDirectory': { schema: hostCreateDirectoryRequestSchema, invoke: (api, r) => api.host.createDirectory(r) },
   'host.openPath': { schema: hostOpenPathRequestSchema, invoke: (api, r, signal) => api.host.openPath(r, signal) },
+  'host.prepareArtifactPreview': { schema: hostPrepareArtifactPreviewRequestSchema, invoke: (api, r) => api.host.prepareArtifactPreview(r) },
   'workspace.list': { schema: workspaceListRequestSchema, invoke: (api, r) => api.workspace.list(r) },
   'workspace.create': { schema: workspaceCreateRequestSchema, invoke: (api, r) => api.workspace.create(r) },
   'workspace.rename': { schema: workspaceRenameRequestSchema, invoke: (api, r) => api.workspace.rename(r) },
@@ -265,6 +267,19 @@ export function toFetchHandler(api: ApiProxy): { fetch: typeof fetch } {
           return new Response('missing or invalid sessionId query parameter', { status: 400 })
         }
         const response = await api.downloads.sessionLog(parsed.data, req.signal)
+        if (req.method === 'GET') return response
+        await response.body?.cancel()
+        return new Response(null, { status: response.status, headers: response.headers })
+      }
+      if (path.startsWith(`${ARTIFACT_PREVIEW_PATH}/`) && (req.method === 'GET' || req.method === 'HEAD')) {
+        const tail = path.slice(ARTIFACT_PREVIEW_PATH.length + 1)
+        const slash = tail.indexOf('/')
+        const parsed = artifactPreviewPathSchema.safeParse({
+          token: slash === -1 ? '' : tail.slice(0, slash),
+          path: slash === -1 ? '' : tail.slice(slash + 1),
+        })
+        if (!parsed.success) return new Response('invalid artifact preview path', { status: 400 })
+        const response = await api.downloads.artifactPreview(parsed.data, req.signal)
         if (req.method === 'GET') return response
         await response.body?.cancel()
         return new Response(null, { status: response.status, headers: response.headers })

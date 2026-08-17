@@ -9,9 +9,10 @@
  */
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
 import {
-  clampWidth, DETAILS_DEFAULT, DETAILS_MAX, DETAILS_MIN,
+  CENTER_MIN, clampWidth, DETAILS_DEFAULT, DETAILS_MAX, DETAILS_MIN, DETAILS_WIDE_CENTER_MIN,
   SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN,
 } from './columns.ts'
+import type { DetailsPanelId } from './service.ts'
 
 /**
  * Layout store state: panel width preferences in px (0 = closed), plus the
@@ -20,7 +21,14 @@ import {
  * `narrowExpanded` is the manual override that re-expands the auto-collapsed
  * sidebar over the squeezed center without rewriting the width preference.
  */
-type LayoutState = { sidebar: number; details: number; narrow: boolean; narrowExpanded: boolean }
+type LayoutState = {
+  sidebar: number
+  details: number
+  detailsCenterMinimum: number
+  detailsPanel: DetailsPanelId
+  narrow: boolean
+  narrowExpanded: boolean
+}
 
 /**
  * Annotation twin of the actions literal below (the export needs a declared
@@ -31,7 +39,7 @@ type LayoutActions = {
   setDetails: (draft: LayoutState, px: number) => void
   toggleSidebar: (draft: LayoutState) => void
   setNarrow: (draft: LayoutState, narrow: boolean) => void
-  openDetails: (draft: LayoutState) => void
+  openDetails: (draft: LayoutState, panel: DetailsPanelId, mode?: 'default' | 'wide') => void
   closeDetails: (draft: LayoutState) => void
 }
 
@@ -40,14 +48,21 @@ type LayoutActions = {
  * closing a panel forgets its drag width — reopening restores the contract
  * default. Actions are the complete write set: drag writes clamp
  * into the panel's contract range and never cross the open/closed line;
- * open/close transitions write 0 / the default explicitly. Below the
+ * open/close transitions write 0 / the selected mode's width explicitly. Below the
  * auto-collapse breakpoint (AppFrame feeds setNarrow) the sidebar toggle
  * flips the narrowExpanded override instead of the preference.
  * @returns the store handle (spec + type + identity + factory in one).
  */
 export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutActions>  {
   const handle = defineStore({
-    init: (): LayoutState => ({ sidebar: SIDEBAR_DEFAULT, details: 0, narrow: false, narrowExpanded: false }),
+    init: (): LayoutState => ({
+      sidebar: SIDEBAR_DEFAULT,
+      details: 0,
+      detailsCenterMinimum: CENTER_MIN,
+      detailsPanel: 'conversation',
+      narrow: false,
+      narrowExpanded: false,
+    }),
     actions: {
       setSidebar: (d, px: number) => { d.sidebar = clampWidth(px, SIDEBAR_MIN, SIDEBAR_MAX) },
       setDetails: (d, px: number) => { d.details = clampWidth(px, DETAILS_MIN, DETAILS_MAX) },
@@ -64,7 +79,12 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
         d.narrow = narrow
         d.narrowExpanded = false
       },
-      openDetails: (d) => { if (d.details === 0) d.details = DETAILS_DEFAULT },
+      openDetails: (d, panel: DetailsPanelId, mode: 'default' | 'wide' = 'default') => {
+        d.detailsPanel = panel
+        d.detailsCenterMinimum = mode === 'wide' ? DETAILS_WIDE_CENTER_MIN : CENTER_MIN
+        if (mode === 'wide') d.details = DETAILS_MAX
+        else if (d.details === 0) d.details = DETAILS_DEFAULT
+      },
       closeDetails: (d) => { d.details = 0 },
     },
   })

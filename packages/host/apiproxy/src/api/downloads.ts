@@ -10,6 +10,18 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 /** Host-only download surfaces (no wire envelope; absent from IApiClient). */
 export interface DownloadsApi {
   /**
+   * Read one resource through an opaque artifact-preview grant. The carrier
+   * serves this response inline inside a sandboxed iframe.
+   * @param request - grant token and relative resource path from the URL.
+   * @param signal - cancellation for the file read.
+   * @returns isolated resource response; invalid or expired grants answer 404.
+   */
+  artifactPreview(
+    request: { token: string; path: string },
+    signal: AbortSignal,
+  ): Promise<Response>
+
+  /**
    * Stream one session-log ZIP — the root artifact verbatim plus each subagent
    * descendant's — as an attachment response. The carrier's GET route answers
    * this directly; the browser never calls it.

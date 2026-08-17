@@ -2995,7 +2995,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DownloadsApi',
-    declaration: 'export interface DownloadsApi {\n    sessionLog(request: {\n        sessionId: SessionId;\n        includeDescendants?: boolean;\n    }, signal: AbortSignal): Promise<Response>;\n}',
+    declaration: 'export interface DownloadsApi {\n    artifactPreview(request: {\n        token: string;\n        path: string;\n    }, signal: AbortSignal): Promise<Response>;\n    sessionLog(request: {\n        sessionId: SessionId;\n        includeDescendants?: boolean;\n    }, signal: AbortSignal): Promise<Response>;\n}',
   },
   {
     name: 'DshEnvironment',

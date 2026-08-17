@@ -146,6 +146,14 @@ export class FakeApiClient implements IApiClient {
     listDirectory: payload => this.record('host.listDirectory', payload, this.onListDirectory(payload)),
     createDirectory: payload => this.record('host.createDirectory', payload, this.onCreateDirectory(payload)),
     openPath: payload => this.record('host.openPath', payload, this.onOpenPath(payload)),
+    prepareArtifactPreview: payload => this.record(
+      'host.prepareArtifactPreview',
+      payload,
+      Promise.resolve(ok({
+        name: 'report.html',
+        url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html',
+      })),
+    ),
   }
 
   readonly workspace: IApiClient['workspace'] = {

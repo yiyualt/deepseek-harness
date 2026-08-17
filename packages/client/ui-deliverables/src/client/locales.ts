@@ -10,6 +10,16 @@ export const zh = {
   'produced.more': '+ {count} 个文件',
   'produced.open': '打开 {name}',
   'produced.showInFolder': '在文件夹中显示',
+  'preview.title': 'HTML 预览',
+  'preview.tabs': 'HTML 预览标签页',
+  'preview.addTab': '新建标签页',
+  'preview.newTab': '新标签页',
+  'preview.blank': '从会话中点击 HTML 文件，在此标签页中打开。',
+  'preview.close': '关闭预览',
+  'preview.closeTab': '关闭 {name}',
+  'preview.loading': '正在加载预览…',
+  'preview.failed': '无法加载预览。',
+  'preview.frameTitle': '{name} 预览',
 }
 
 /** English dictionary (same key set). */
@@ -19,6 +29,16 @@ export const en: Record<DeliverablesKey, string> = {
   'produced.more': '+ {count} files',
   'produced.open': 'Open {name}',
   'produced.showInFolder': 'Show in folder',
+  'preview.title': 'HTML preview',
+  'preview.tabs': 'HTML preview tabs',
+  'preview.addTab': 'New tab',
+  'preview.newTab': 'New tab',
+  'preview.blank': 'Click an HTML file in the conversation to open it in this tab.',
+  'preview.close': 'Close preview',
+  'preview.closeTab': 'Close {name}',
+  'preview.loading': 'Loading preview…',
+  'preview.failed': 'Unable to load preview.',
+  'preview.frameTitle': '{name} preview',
 }
 
 /** Union of this namespace's dictionary keys. */

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   CENTER_MIN, clampWidth, computeColumns,
-  DETAILS_DEFAULT, DETAILS_MIN, SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT, SIDEBAR_MIN,
+  DETAILS_DEFAULT, DETAILS_MAX, DETAILS_MIN, DETAILS_WIDE_CENTER_MIN,
+  SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT, SIDEBAR_MIN,
 } from '@deepseek-ai/dsh-client-ui-layout/src/client/columns.ts'
 
 // Numeric preference form (0 = closed); helpers keep the scenario names readable.
@@ -83,6 +84,11 @@ describe('computeColumns', () => {
     const restored = computeColumns(1920, open(SIDEBAR_DEFAULT), open(DETAILS_DEFAULT))
     expect(restored.details).toBe(DETAILS_DEFAULT)
     expect(restored.sidebar).toBe(SIDEBAR_DEFAULT)
+  })
+
+  it('uses a caller-provided center floor for wide details occupants', () => {
+    expect(computeColumns(1280, open(SIDEBAR_DEFAULT), open(DETAILS_MAX), DETAILS_WIDE_CENTER_MIN))
+      .toEqual({ sidebar: SIDEBAR_DEFAULT, center: DETAILS_WIDE_CENTER_MIN, details: DETAILS_MAX })
   })
 })
 

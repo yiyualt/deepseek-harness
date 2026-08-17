@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createLayoutStore } from '@deepseek-ai/dsh-client-ui-layout/src/client/stores.ts'
 import {
-  DETAILS_DEFAULT, DETAILS_MAX, DETAILS_MIN,
+  CENTER_MIN, DETAILS_DEFAULT, DETAILS_MAX, DETAILS_MIN, DETAILS_WIDE_CENTER_MIN,
   SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN,
 } from '@deepseek-ai/dsh-client-ui-layout/src/client/columns.ts'
 
@@ -19,7 +19,14 @@ beforeEach(() => { localStorage.clear() })
 describe('createLayoutStore', () => {
   it('initializes the sidebar at its default width, details closed, wide viewport assumed', () => {
     const { store } = createLayoutStore().create()
-    expect(store.getSnapshot()).toEqual({ sidebar: SIDEBAR_DEFAULT, details: 0, narrow: false, narrowExpanded: false })
+    expect(store.getSnapshot()).toEqual({
+      sidebar: SIDEBAR_DEFAULT,
+      details: 0,
+      detailsCenterMinimum: CENTER_MIN,
+      detailsPanel: 'conversation',
+      narrow: false,
+      narrowExpanded: false,
+    })
   })
 
   it('each create() is an independent instance (factory is not a singleton)', () => {
@@ -55,7 +62,14 @@ describe('createLayoutStore', () => {
     actions.setSidebar(400)
     actions.setNarrow(true)
     actions.toggleSidebar()
-    expect(store.getSnapshot()).toEqual({ sidebar: 400, details: 0, narrow: true, narrowExpanded: true })
+    expect(store.getSnapshot()).toEqual({
+      sidebar: 400,
+      details: 0,
+      detailsCenterMinimum: CENTER_MIN,
+      detailsPanel: 'conversation',
+      narrow: true,
+      narrowExpanded: true,
+    })
     actions.toggleSidebar()
     expect(store.getSnapshot().narrowExpanded).toBe(false)
     expect(store.getSnapshot().sidebar).toBe(400)
@@ -76,19 +90,30 @@ describe('createLayoutStore', () => {
 
   it('openDetails uses the contract default, preserves an open width, and closeDetails zeroes', () => {
     const { store, actions } = createLayoutStore().create()
-    actions.openDetails()
+    actions.openDetails('conversation')
     expect(store.getSnapshot().details).toBe(DETAILS_DEFAULT)
     actions.setDetails(500)
-    actions.openDetails()
+    actions.openDetails('conversation')
     expect(store.getSnapshot().details).toBe(500)
     actions.closeDetails()
     expect(store.getSnapshot().details).toBe(0)
   })
 
+  it('wide details requests the maximum width and compact center floor', () => {
+    const { store, actions } = createLayoutStore().create()
+    actions.openDetails('conversation', 'wide')
+    expect(store.getSnapshot()).toMatchObject({
+      details: DETAILS_MAX,
+      detailsCenterMinimum: DETAILS_WIDE_CENTER_MIN,
+    })
+    actions.openDetails('conversation')
+    expect(store.getSnapshot().detailsCenterMinimum).toBe(CENTER_MIN)
+  })
+
   it('does not persist panel geometry', () => {
     const first = createLayoutStore().create()
     first.actions.setSidebar(400)
-    first.actions.openDetails()
+    first.actions.openDetails('conversation')
     first.actions.setDetails(500)
     expect(localStorage.getItem(PERSIST_KEY)).toBeNull()
 
@@ -96,6 +121,8 @@ describe('createLayoutStore', () => {
     expect(second.store.getSnapshot()).toEqual({
       sidebar: SIDEBAR_DEFAULT,
       details: 0,
+      detailsCenterMinimum: CENTER_MIN,
+      detailsPanel: 'conversation',
       narrow: false,
       narrowExpanded: false,
     })

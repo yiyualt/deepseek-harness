@@ -159,6 +159,18 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
       async openPath(request) {
         return { rpcId: request.rpcId, result: { ok: true, value: { opened: true as const } } }
       },
+      async prepareArtifactPreview(request) {
+        return {
+          rpcId: request.rpcId,
+          result: {
+            ok: true,
+            value: {
+              name: 'report.html',
+              url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html',
+            },
+          },
+        }
+      },
     },
     workspace: {
       async list(request) {
@@ -290,6 +302,9 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
       return message.rpcId === 'known' ? { accepted: true } : { accepted: false, reason: 'not-pending' }
     },
     downloads: {
+      async artifactPreview() {
+        return new Response('stub', { status: 404 })
+      },
       async sessionLog() {
         return new Response('stub', { status: 404 })
       },

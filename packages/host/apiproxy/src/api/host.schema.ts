@@ -72,3 +72,14 @@ export const hostOpenPathRequestSchema = z.object({
 export const hostOpenPathValueSchema = z.object({
   opened: z.literal(true),
 }) satisfies z.ZodType<Wire<ResponseValue<'host.openPath'>>>
+
+/** host.prepareArtifactPreview request payload. */
+export const hostPrepareArtifactPreviewRequestSchema = z.object({
+  path: z.string().min(1),
+}) satisfies z.ZodType<Wire<RequestPayload<'host.prepareArtifactPreview'>>>
+
+/** host.prepareArtifactPreview response value. */
+export const hostPrepareArtifactPreviewValueSchema = z.object({
+  name: z.string().min(1),
+  url: z.string().startsWith('/api/artifact-preview/'),
+}) satisfies z.ZodType<Wire<ResponseValue<'host.prepareArtifactPreview'>>>

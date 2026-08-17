@@ -221,6 +221,8 @@ describe('DetailsPanel web Output section', () => {
     })
     return render(
       <DetailsPanel
+        panel="conversation"
+        matched={{ panel: 'conversation' }}
         SessionProvider={SessionProviderStub}
         renderSlot={renderToolDetails(t)}
         sessionId={SID}

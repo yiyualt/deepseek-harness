@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <!-- custom 脚手架（内容页）：不预设任何页面结构与视觉样式，仅提供导出必需的依赖与 1280×720 硬约束。
+       页面结构、布局、配色、字号全部由 slide-designer 依据 style-custom.md 与本页内容自由设计。 -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280, height=720">
+  <title>AI 技术底座：大脑（模型）与海马体（RAG）协同作战</title>
+  <script src="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/tailwind.js"></script>
+  <script src="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/echarts.min.js"></script>
+  <link href="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/css/fonts.css" rel="stylesheet">
+
+  <style id="theme-contract">
+    :root {
+      /* 视觉变量已按 style-custom.md 注入；字体缺失时使用中性栈 */
+      --font-family: "Frex Sans GB", "Noto Sans SC", sans-serif;
+      --color-bg: #071426;
+      --color-surface: #0D2036;
+      --color-surface-2: #132B43;
+      --color-text: #F3F7FA;
+      --color-muted: #A9B7C6;
+      --color-silver: #C6D0DA;
+      --color-line: #4F6478;
+      --color-accent: #36BCE8;
+      --color-accent-2: #6D9FC5;
+      --font-family: "Frex Sans GB", "Noto Sans SC", sans-serif;
+      --radius-card: 4px;
+      --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.18);
+      --content-density: compact;
+    }
+  </style>
+
+  <style type="text/tailwindcss">
+    @layer utilities {
+      /* 硬约束：幻灯片画布固定 1280×720，溢出由 check-layout 只读检测 */
+      .ppt-slide {
+        @apply relative w-[1280px] h-[720px] mx-auto box-border overflow-hidden;
+      }
+      .ppt-slide *,
+      .ppt-slide *::before,
+      .ppt-slide *::after {
+        @apply box-border;
+        max-width: 100%;
+      }
+      .ppt-slide img {
+        @apply max-w-full max-h-full;
+      }
+
+      .ppt-slide video,
+      .ppt-slide svg,
+      .ppt-slide .echarts-main,
+      .ppt-slide .chart-container,
+      .ppt-slide [id*="chart" i] {
+        @apply max-w-full max-h-full object-contain;
+      }
+      /* 图表容器支撑：保证 CHART_SCAFFOLD 激活后图表有可读高度 */
+      .ppt-slide [id*="chart" i],
+      .ppt-slide .chart-container,
+      .ppt-slide .echarts-main {
+        width: 100%;
+        height: 100%;
+        min-height: 160px;
+      }
+      .ppt-slide :has(> [id*="chart" i]),
+      .ppt-slide :has(> .chart-container),
+      .ppt-slide :has(> .echarts-main) {
+        min-height: 160px;
+      }
+      /* 导出安全：模糊滤镜无法矢量导出，统一剥离 */
+      .ppt-slide [class*="blur"],
+      .ppt-slide [style*="blur"] {
+        filter: none !important;
+        backdrop-filter: none !important;
+      }
+      .ppt-slide [class*="backdrop-blur"],
+      .ppt-slide [style*="backdrop-filter"] {
+        backdrop-filter: none !important;
+      }
+    }
+  </style>
+
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; }
+    .ppt-slide, .ppt-slide svg { font-family: var(--font-family); }
+  </style>
+
+  <style id="theme-rules">
+    /* 全局样式规则槽：由 style-custom.md 的全局 CSS 规则块逐字填入（如标题、卡片、列表的共享样式）；
+       风格文件未提供时替换为空，页面样式由 slide-designer 在本页自由编写 */
+    .ppt-slide { background: var(--color-bg); color: var(--color-text); font-family: var(--font-family); }
+    .page-content { width: 100%; height: 100%; position: relative; }
+    .panel { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-card); }
+    .panel-strong { background: var(--color-surface-2); border: 1px solid var(--color-accent-2); border-radius: var(--radius-card); }
+    .muted { color: var(--color-muted); }
+    .accent { color: var(--color-accent); }
+  </style>
+<link rel="stylesheet" href="__LOCAL_ASSET__:tailwind__" />
+</head>
+
+<body>
+  <div class="ppt-slide" type="content">
+    <div class="w-full flex-1 min-h-0 page-content flex flex-col px-[30px] pt-[22px] pb-[20px] gap-[10px]">
+      <header class="flex-none h-[56px] flex items-start justify-between flex-shrink-0" data-pptx-role="header">
+        <div class="min-w-0">
+          <h1 class="m-0 text-[32px] leading-[44px] font-semibold tracking-[-0.4px] text-[var(--color-text)]">AI 技术底座：大脑（模型）与海马体（RAG）协同作战</h1>
+        </div>
+        <div class="flex-none mt-[5px] pl-[18px] border-l border-[var(--color-line)] text-right">
+          <div class="text-[13px] leading-[18px] text-[var(--color-muted)]">集团 AI 核心能力底座</div>
+          <div class="text-[13px] leading-[18px] text-[var(--color-accent)]">思考 + 记忆</div>
+        </div>
+      </header>
+
+      <main class="flex-1 min-h-0 flex flex-col overflow-hidden" data-pptx-role="content">
+        <svg class="w-full flex-1 min-h-0" viewBox="0 0 1220 510" role="img" aria-label="数据工程、模型工程、RAG 与知识工程共同支撑集团 AI 场景的架构图" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow-cyan" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L9,4.5 L0,9 Z" fill="#36BCE8" />
+            </marker>
+            <marker id="arrow-silver" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L9,4.5 L0,9 Z" fill="#C6D0DA" />
+            </marker>
+            <pattern id="industrial-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+              <path d="M24 0H0V24" fill="none" stroke="#4F6478" stroke-width="0.6" opacity="0.22" />
+            </pattern>
+          </defs>
+
+          <rect x="0" y="0" width="1220" height="510" fill="url(#industrial-grid)" opacity="0.32" />
+          <path d="M0 22V0H22 M1198 0H1220V22 M0 488V510H22 M1198 510H1220V488" fill="none" stroke="#6D9FC5" stroke-width="1.2" opacity="0.65" />
+
+          <!-- 顶部业务场景 -->
+          <text x="610" y="17" text-anchor="middle" fill="#A9B7C6" font-size="12" font-weight="500" letter-spacing="1.4">上层业务场景</text>
+          <g>
+            <rect x="270" y="27" width="210" height="48" rx="4" fill="#132B43" stroke="#6D9FC5" stroke-width="1" />
+            <rect x="505" y="27" width="210" height="48" rx="4" fill="#132B43" stroke="#36BCE8" stroke-width="1.4" />
+            <rect x="740" y="27" width="210" height="48" rx="4" fill="#132B43" stroke="#6D9FC5" stroke-width="1" />
+            <text x="375" y="58" text-anchor="middle" fill="#F3F7FA" font-size="18" font-weight="600">AI+产品</text>
+            <text x="610" y="58" text-anchor="middle" fill="#F3F7FA" font-size="18" font-weight="600">AI+制造</text>
+            <text x="845" y="58" text-anchor="middle" fill="#F3F7FA" font-size="18" font-weight="600">AI+经营管理</text>
+          </g>
+
+          <!-- 四大模块向上支撑场景 -->
+          <path d="M145 146V98H1075" fill="none" stroke="#4F6478" stroke-width="1.5" />
+          <path d="M455 161V98 M765 161V98 M1075 146V98" fill="none" stroke="#4F6478" stroke-width="1.5" />
+          <path d="M375 98V78 M610 98V78 M845 98V78" fill="none" stroke="#36BCE8" stroke-width="2" marker-end="url(#arrow-cyan)" />
+          <rect x="539" y="85" width="142" height="26" rx="3" fill="#071426" stroke="#4F6478" stroke-width="1" />
+          <text x="610" y="103" text-anchor="middle" fill="#36BCE8" font-size="12" font-weight="600">AI 能力赋能</text>
+
+          <!-- 左侧：数据工程 -->
+          <g>
+            <rect x="15" y="132" width="260" height="300" rx="4" fill="#0D2036" stroke="#4F6478" stroke-width="1.2" />
+            <path d="M15 174H275" stroke="#4F6478" stroke-width="1" />
+            <text x="35" y="158" fill="#F3F7FA" font-size="20" font-weight="650">数据工程</text>
+            <text x="255" y="158" text-anchor="end" fill="#A9B7C6" font-size="12">大脑的营养供给</text>
+
+            <rect x="35" y="191" width="220" height="43" rx="3" fill="#132B43" stroke="#6D9FC5" stroke-width="1" />
+            <rect x="35" y="242" width="220" height="43" rx="3" fill="#132B43" stroke="#6D9FC5" stroke-width="1" />
+            <rect x="35" y="293" width="220" height="43" rx="3" fill="#132B43" stroke="#6D9FC5" stroke-width="1" />
+            <text x="52" y="217" fill="#36BCE8" font-size="13" font-weight="700">01</text>
+            <text x="82" y="217" fill="#F3F7FA" font-size="14">原始数据标准化</text>
+            <text x="52" y="268" fill="#36BCE8" font-size="13" font-weight="700">02</text>
+            <text x="82" y="268" fill="#F3F7FA" font-size="14">标准数据资产化</text>
+            <text x="52" y="319" fill="#36BCE8" font-size="13" font-weight="700">03</text>
+            <text x="82" y="319" fill="#F3F7FA" font-size="14">资产数据模型化</text>
+            <path d="M145 234V239 M145 285V290" stroke="#36BCE8" stroke-width="1.5" marker-end="url(#arrow-cyan)" />
+
+            <text x="35" y="365" fill="#A9B7C6" font-size="12">核心动作</text>
+            <text x="35" y="387" fill="#C6D0DA" font-size="13">治理｜标注｜特征｜样本</text>
+            <rect x="35" y="399" width="220" height="22" rx="3" fill="#071426" stroke="#4F6478" stroke-width="1" />
+            <text x="145" y="415" text-anchor="middle" fill="#36BCE8" font-size="12" font-weight="600">高质量训练数据集</text>
+          </g>
+
+          <!-- 中间：大脑与海马体 -->
+          <g>
+            <rect x="340" y="150" width="230" height="220" rx="6" fill="#132B43" stroke="#36BCE8" stroke-width="2" />
+            <rect x="650" y="150" width="230" height="220" rx="6" fill="#132B43" stroke="#36BCE8" stroke-width="2" />
+            <path d="M360 170H390 M360 170V200 M550 170H520 M550 170V200 M670 170H700 M670 170V200 M860 170H830 M860 170V200" fill="none" stroke="#6D9FC5" stroke-width="1.2" />
+
+            <circle cx="455" cy="219" r="35" fill="#0D2036" stroke="#6D9FC5" stroke-width="1.2" />
+            <path d="M434 219c0-12 9-22 21-22s21 10 21 22-9 22-21 22-21-10-21-22Zm7-7h28M441 226h28M455 198v42" fill="none" stroke="#36BCE8" stroke-width="1.4" opacity="0.9" />
+            <text x="455" y="279" text-anchor="middle" fill="#F3F7FA" font-size="24" font-weight="700">大脑</text>
+            <text x="455" y="300" text-anchor="middle" fill="#A9B7C6" font-size="13">模型工程</text>
+            <text x="455" y="332" text-anchor="middle" fill="#C6D0DA" font-size="14">思考｜推理｜理解</text>
+            <rect x="408" y="344" width="94" height="22" rx="3" fill="#071426" stroke="#4F6478" stroke-width="1" />
+            <text x="455" y="360" text-anchor="middle" fill="#36BCE8" font-size="12" font-weight="650">更聪明</text>
+
+            <circle cx="765" cy="219" r="35" fill="#0D2036" stroke="#6D9FC5" stroke-width="1.2" />
+            <path d="M743 205h44v30h-44z M750 212h30M750 220h25M750 228h18" fill="none" stroke="#36BCE8" stroke-width="1.4" opacity="0.9" />
+            <text x="765" y="279" text-anchor="middle" fill="#F3F7FA" font-size="24" font-weight="700">海马体</text>
+            <text x="765" y="300" text-anchor="middle" fill="#A9B7C6" font-size="13">RAG</text>
+            <text x="765" y="327" text-anchor="middle" fill="#C6D0DA" font-size="13">快速调取｜精准回忆</text>
+            <text x="765" y="347" text-anchor="middle" fill="#C6D0DA" font-size="13">实时响应</text>
+            <rect x="718" y="348" width="94" height="22" rx="3" fill="#071426" stroke="#4F6478" stroke-width="1" />
+            <text x="765" y="364" text-anchor="middle" fill="#36BCE8" font-size="12" font-weight="650">有记忆</text>
+
+            <path d="M574 224H646" fill="none" stroke="#36BCE8" stroke-width="2" marker-end="url(#arrow-cyan)" />
+            <path d="M646 302H574" fill="none" stroke="#C6D0DA" stroke-width="1.8" marker-end="url(#arrow-silver)" />
+            <text x="610" y="214" text-anchor="middle" fill="#36BCE8" font-size="12">检索请求</text>
+            <text x="610" y="325" text-anchor="middle" fill="#C6D0DA" font-size="12">知识返回</text>
+
+            <path d="M455 374V392H610 M765 374V392H610V399" fill="none" stroke="#6D9FC5" stroke-width="1.5" marker-end="url(#arrow-silver)" />
+            <rect x="430" y="399" width="360" height="47" rx="4" fill="#0D2036" stroke="#36BCE8" stroke-width="1.5" />
+            <text x="610" y="420" text-anchor="middle" fill="#36BCE8" font-size="16" font-weight="700">既聪明｜又懂行业</text>
+            <text x="610" y="438" text-anchor="middle" fill="#A9B7C6" font-size="12">集团专属 AI 模型</text>
+          </g>
+
+          <!-- 左右输入流向 -->
+          <path d="M278 279H334" fill="none" stroke="#36BCE8" stroke-width="2.2" marker-end="url(#arrow-cyan)" />
+          <text x="306" y="268" text-anchor="middle" fill="#36BCE8" font-size="12">高质量数据</text>
+          <path d="M942 279H886" fill="none" stroke="#36BCE8" stroke-width="2.2" marker-end="url(#arrow-cyan)" />
+          <text x="914" y="268" text-anchor="middle" fill="#36BCE8" font-size="12">企业知识</text>
+
+          <!-- 右侧：知识工程 -->
+          <g>
+            <rect x="945" y="132" width="260" height="300" rx="4" fill="#0D2036" stroke="#4F6478" stroke-width="1.2" />
+            <path d="M945 174H1205" stroke="#4F6478" stroke-width="1" />
+            <text x="965" y="158" fill="#F3F7FA" font-size="20" font-weight="650">知识工程</text>
+            <text x="1185" y="158" text-anchor="end" fill="#A9B7C6" font-size="12">海马体的记忆构建</text>
+
+            <rect x="965" y="191" width="220" height="43" rx="3" fill="#132B43" stroke="#6D9FC5" stroke-width="1" />
+            <rect x="965" y="242" width="220" height="43" rx="3" fill="#132B43" stroke="#6D9FC5" stroke-width="1" />
+            <rect x="965" y="293" width="220" height="43" rx="3" fill="#132B43" stroke="#6D9FC5" stroke-width="1" />
+            <text x="982" y="217" fill="#36BCE8" font-size="13" font-weight="700">01</text>
+            <text x="1012" y="217" fill="#F3F7FA" font-size="14">隐性知识显性化</text>
+            <text x="982" y="268" fill="#36BCE8" font-size="13" font-weight="700">02</text>
+            <text x="1012" y="268" fill="#F3F7FA" font-size="14">显性知识工程化</text>
+            <text x="982" y="319" fill="#36BCE8" font-size="13" font-weight="700">03</text>
+            <text x="1012" y="319" fill="#F3F7FA" font-size="14">工程知识AI化</text>
+            <path d="M1075 234V239 M1075 285V290" stroke="#36BCE8" stroke-width="1.5" marker-end="url(#arrow-cyan)" />
+
+            <text x="965" y="365" fill="#A9B7C6" font-size="12">核心动作</text>
+            <text x="965" y="387" fill="#C6D0DA" font-size="13">切片｜向量｜图谱｜本体</text>
+            <rect x="965" y="399" width="220" height="22" rx="3" fill="#071426" stroke="#4F6478" stroke-width="1" />
+            <text x="1075" y="415" text-anchor="middle" fill="#36BCE8" font-size="12" font-weight="600">知识库｜向量库｜知识图谱</text>
+          </g>
+
+          <text x="610" y="488" text-anchor="middle" fill="#A9B7C6" font-size="12">数据工程 → 大脑 ｜ 知识工程 → 海马体 ｜ 大脑 ↔ 海马体</text>
+        </svg>
+      </main>
+
+      <footer class="flex-none min-h-[54px] panel-strong px-[22px] py-[9px] flex items-center justify-center text-center flex-shrink-0" data-pptx-role="footer">
+        <p class="m-0 max-w-[1120px] text-[17px] leading-[24px] font-medium text-[var(--color-text)]">
+          数据工程让大脑聪明，知识工程让海马体有记忆，两者结合让 AI 既会思考又懂行业，共同构筑集团 AI 核心能力底座。
+        </p>
+      </footer>
+    </div>
+  </div>
+    <!-- CHART_SCAFFOLD_BEGIN
+    <script>
+      /*
+       * 图表骨架（图表候选页激活；非图表页保持注释即可，对浏览器与 fix 零副作用）。
+       * 重要：说明文字必须写在本 script 内的 JS 块注释中，禁止写在 HTML 注释定界符与
+       * script 之间（否则激活后会成为页面可见裸文本）。
+       *
+       * 激活步骤：
+       *   1) 在 PAGE_CONTENT 放置图表容器，标准写法：
+       *        div.flex.flex-col > div.flex-1.min-h-0 > div#chart-1.w-full.h-full
+       *      （容器硬约束：flex flex-col 套 flex-1 min-h-0 套 w-full h-full；可读高度建议 >=300px）
+       *   2) 成对删除首尾两个定界符：开头的 HTML 注释起始（含 CHART_SCAFFOLD_BEGIN）
+       *      与结尾的 CHART_SCAFFOLD_END 注释结束，保留中间的 script。
+       *   3) 把下方 const option = null 的 null 替换为图表 option 对象（series/data/xAxis/yAxis 等）。
+       *
+       * 骨架已内置硬约束（机制勿改）：SVG renderer · animation:false 强制 · 全局 textStyle.fontFamily · IIFE · formatter 外部函数。
+       * CHART_FONT_FAMILY 必须等于当前风格 style.md（custom 为 style-custom.md）frontmatter 的完整字体栈：
+       *   预设风格模板已预置正确值（勿改）；custom 模板为中性占位值，必须替换后再激活。
+       * 仍需 designer 自觉遵守（骨架不强制）：
+       *   - 禁止渐变（colorStops、type 为 linear 或 radial、echarts.graphic.LinearGradient 等会触发导出位图化）；
+       *     折线/面积图 areaStyle.color 用半透明纯色，如 rgba(<风格主色>, 0.18)，色值以 style.md 为准。
+       *   - 坐标轴/图例/数据标签的 fontFamily/color 按 style.md 图表色规范设置。
+       * 设计约束：外层 HTML 注释（BEGIN 与 END 之间）任何位置都不得出现 HTML 注释结束符
+       * 或连续减号，否则会提前终止外层注释、让非图表页误执行图表代码。
+       * 多图表：每段独立成 HTML 注释块（CHART_SCAFFOLD_BEGIN 与 CHART_SCAFFOLD_2_BEGIN ），并把第二段标签改为 _2_ 以便区分；切勿把第二段粘贴到第一段注释内部，否则外层注释会在内层第一个 HTML标签注释结束符（减号减号大于号）处提前闭合。改 id（chart-1 改 chart-2）与 getElementById 入参。
+       */
+      (function () {
+        const CHART_FONT_FAMILY = "Noto Sans SC, sans-serif";
+        // formatter 外部函数模板：
+        //   axisLabel / xAxis / yAxis 的 formatter 接收原始数值；
+        //   series.label / tooltip 的 formatter 接收 params 对象（需取 .value）。
+        function formatAxisNumber(v) {
+          if (v >= 1e8) return (v / 1e8).toFixed(1) + "亿";
+          if (v >= 1e4) return (v / 1e4).toFixed(1) + "万";
+          return v.toString();
+        }
+        function formatAxisPercent(v) {
+          return (v * 100).toFixed(1) + "%";
+        }
+        function formatLabelNumber(p) {
+          var v = typeof p === "object" ? p.value : p;
+          if (v == null) return "";
+          if (v >= 1e8) return (v / 1e8).toFixed(1) + "亿";
+          if (v >= 1e4) return (v / 1e4).toFixed(1) + "万";
+          return v.toString();
+        }
+        function formatLabelPercent(p) {
+          var v = typeof p === "object" ? p.value : p;
+          if (v == null) return "";
+          return (v * 100).toFixed(1) + "%";
+        }
+        const el = document.getElementById("chart-1");
+        if (!el) return;
+        // 激活后把下方 null 替换为图表 option 对象，例如：
+        //   { xAxis:{type:"category",data:[...]}, yAxis:{type:"value"}, series:[{data:[...],type:"bar"}] }
+        // 注意：option 校验必须在 echarts.init 之前，否则未替换 null 时仍会创建实例并产出空 SVG，
+        // 进而被 convert 阶段渲染为空图（fix 已不再落盘 ECharts，由 convert 阶段现场渲染）。
+        const option = null;
+        if (!option) return; // 未填 option 则跳过，避免执行 echarts.init 产出空图
+        const chart = echarts.init(el, null, { renderer: "svg" });
+        option.animation = false; // 强制禁动画，PPT 静态输出必须禁用，不可覆盖
+        option.textStyle = Object.assign({ fontFamily: CHART_FONT_FAMILY }, option.textStyle);
+        chart.setOption(option);
+      })();
+    </script>
+    CHART_SCAFFOLD_END -->
+</body>
+
+</html>
