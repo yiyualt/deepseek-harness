@@ -15,6 +15,18 @@ function basename(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path
 }
 
+function webUrl(rawUrl: string): URL | undefined {
+  const value = rawUrl.trim()
+  if (value === '') return undefined
+  if (/^[a-z][a-z\d+.-]*:/i.test(value) && !/^https?:\/\//i.test(value)) return undefined
+  try {
+    const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** Coordinates the optional file-preview interception with session stores. */
 export class ArtifactPreviewController implements ChatFilePreview {
   readonly #stores = new Map<SessionId, SnapshotStore<ArtifactPreviewState>>()
@@ -62,6 +74,33 @@ export class ArtifactPreviewController implements ChatFilePreview {
       state.activeId = id
     })
     this.layout.openDetails('artifact-preview', 'wide')
+  }
+
+  /**
+   * Navigate an empty tab directly to an HTTP(S) page.
+   * @param sessionId Session that owns the tab.
+   * @param id Empty tab id.
+   * @param rawUrl User-entered address; HTTPS is assumed when the scheme is omitted.
+   * @returns Whether the address and tab were accepted.
+   */
+  openUrl(sessionId: SessionId, id: string, rawUrl: string): boolean {
+    const url = webUrl(rawUrl)
+    if (url === undefined) return false
+    const store = this.sourceFor(sessionId)
+    if (!store.getSnapshot().tabs.some(tab => tab.id === id && tab.status === 'idle')) return false
+    store.update((state) => {
+      const tab = state.tabs.find(candidate => candidate.id === id && candidate.status === 'idle')
+      if (tab === undefined) return
+      tab.status = 'ready'
+      tab.kind = 'html'
+      tab.name = url.host
+      tab.path = url.href
+      tab.url = url.href
+      delete tab.error
+      state.activeId = id
+    })
+    this.layout.openDetails('artifact-preview', 'wide')
+    return true
   }
 
   /**

@@ -1,0 +1,53 @@
+export const NS = 'meeting' as const
+
+export const zh = {
+  trigger: '会议',
+  title: '加入会议',
+  close: '关闭会议面板',
+  description: '让一个仅参会、不录制的 AI 助手加入 Google Meet 或 Zoom。',
+  urlLabel: '会议链接',
+  urlPlaceholder: 'Google Meet 或 Zoom 链接',
+  join: '加入会议',
+  joining: '正在启动…',
+  leave: '离开会议',
+  leaving: '正在离开…',
+  idle: '尚未加入会议',
+  starting: '正在启动会议助手',
+  waitingAdmission: '等待主持人准入',
+  waitingHint: '请在会议中允许会议助手加入。',
+  joined: '会议助手已进入会议',
+  joinedHint: '该助手只保持在线，不录制或上传会议内容。',
+  left: '会议助手已离开',
+  failed: '会议助手加入失败',
+  provider: '当前支持 Google Meet 和 Zoom。',
+  platform: '会议平台',
+  name: '参会名称',
+  retry: '重新加入',
+} as const
+
+export type MeetingKey = keyof typeof zh
+
+export const en: Record<MeetingKey, string> = {
+  trigger: 'Meetings',
+  title: 'Join a meeting',
+  close: 'Close meeting panel',
+  description: 'Send a presence-only AI assistant to Google Meet or Zoom without recording.',
+  urlLabel: 'Meeting link',
+  urlPlaceholder: 'Google Meet or Zoom link',
+  join: 'Join meeting',
+  joining: 'Starting…',
+  leave: 'Leave meeting',
+  leaving: 'Leaving…',
+  idle: 'Not in a meeting',
+  starting: 'Starting meeting assistant',
+  waitingAdmission: 'Waiting for host admission',
+  waitingHint: 'Admit the meeting assistant from the meeting.',
+  joined: 'Meeting assistant joined',
+  joinedHint: 'The assistant remains present without recording or uploading meeting content.',
+  left: 'Meeting assistant left',
+  failed: 'Meeting assistant failed to join',
+  provider: 'Google Meet and Zoom are currently supported.',
+  platform: 'Meeting platform',
+  name: 'Participant name',
+  retry: 'Join again',
+}

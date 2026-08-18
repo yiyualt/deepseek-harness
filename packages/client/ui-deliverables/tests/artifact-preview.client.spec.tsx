@@ -59,6 +59,7 @@ function officeConfig(name = 'report.docx') {
     editorConfig: {
       mode: 'edit' as const,
       callbackUrl: 'http://host.docker.internal:3080/api/office-preview/token/callback',
+      customization: {},
       user: { id: 'deepseek-harness' as const, name: 'DeepSeek Harness' as const },
     },
   }
@@ -150,6 +151,28 @@ describe('ArtifactPreviewController', () => {
     })
   })
 
+  it('navigates an empty tab to an HTTP page and rejects other schemes', () => {
+    const layout = { openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn() }
+    const controller = new ArtifactPreviewController(successApi() as never, layout)
+    controller.newTab(SID)
+    const first = controller.sourceFor(SID).getSnapshot().activeId ?? ''
+
+    expect(controller.openUrl(SID, first, 'example.com/docs')).toBe(true)
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
+      status: 'ready',
+      kind: 'html',
+      name: 'example.com',
+      path: 'https://example.com/docs',
+      url: 'https://example.com/docs',
+    })
+
+    controller.newTab(SID)
+    const second = controller.sourceFor(SID).getSnapshot().activeId ?? ''
+    expect(controller.openUrl(SID, second, 'file:///tmp/report.html')).toBe(false)
+    expect(controller.openUrl(SID, 'missing', 'https://example.com')).toBe(false)
+    expect(controller.sourceFor(SID).getSnapshot().tabs[1]).toMatchObject({ status: 'idle' })
+  })
+
   it('retains a readable error when preparation fails', async () => {
     const api = successApi()
     api.host.prepareArtifactPreview.mockResolvedValueOnce({
@@ -177,6 +200,7 @@ function panelProps(
   actions: {
     activatePreview?: (id: string) => void
     newPreviewTab?: () => void
+    openPreviewUrl?: (id: string, url: string) => boolean
     closePreviewTab?: (id: string) => void
     closePreview?: () => void
   } = {},
@@ -192,6 +216,7 @@ function panelProps(
     SessionProvider: vi.fn(),
     activatePreview: actions.activatePreview ?? vi.fn(),
     newPreviewTab: actions.newPreviewTab ?? vi.fn(),
+    openPreviewUrl: actions.openPreviewUrl ?? vi.fn(() => true),
     closePreviewTab: actions.closePreviewTab ?? vi.fn(),
     closePreview: actions.closePreview ?? vi.fn(),
     t: (key: string, params?: Record<string, string>) => {
@@ -247,6 +272,25 @@ describe('ArtifactPreviewPanel', () => {
     expect(closePreviewTab).toHaveBeenCalledWith('two')
     fireEvent.click(view.getByRole('button', { name: 'preview.close' }))
     expect(closePreview).toHaveBeenCalledTimes(1)
+  })
+
+  it('submits a website address from an empty tab and shows invalid input', () => {
+    const openPreviewUrl = vi.fn((_id: string, url: string) => url === 'example.com')
+    const view = render(<ArtifactPreviewPanel {...panelProps({
+      activeId: 'blank',
+      tabs: [{ id: 'blank', status: 'idle', requestId: 0, name: '', path: '' }],
+    }, { openPreviewUrl })} />)
+
+    const input = view.getByLabelText('preview.urlLabel')
+    fireEvent.change(input, { target: { value: 'file:///tmp/report.html' } })
+    fireEvent.click(view.getByRole('button', { name: 'preview.openUrl' }))
+    expect(openPreviewUrl).toHaveBeenLastCalledWith('blank', 'file:///tmp/report.html')
+    expect(view.getByRole('alert').textContent).toBe('preview.invalidUrl')
+
+    fireEvent.change(input, { target: { value: 'example.com' } })
+    expect(view.queryByRole('alert')).toBeNull()
+    fireEvent.click(view.getByRole('button', { name: 'preview.openUrl' }))
+    expect(openPreviewUrl).toHaveBeenLastCalledWith('blank', 'example.com')
   })
 
   it('mounts the ONLYOFFICE editor for a ready DOCX tab', async () => {

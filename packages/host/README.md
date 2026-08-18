@@ -14,6 +14,7 @@ The host side of the dsh web GUI: the API gateway every client shape shares, and
 | [`directory-picker-browse/`](directory-picker-browse/README.md) | In-app directory-browser backend and interaction | registers `ctx.directoryPicker` |
 | [`directory-picker-auto/`](directory-picker-auto/README.md) | Host-adaptive picker composition | mounts a backend |
 | [`plugin-inventory/`](plugin-inventory/README.md) | Read-only projection of current Loader entries | Remote `pluginInventory/list` |
+| [`meeting-presence/`](meeting-presence/README.md) | Presence-only Google Meet and Zoom browser participant | Remote `meetingPresence/*` |
 
 `apiproxy` remains transport-independent; [`client/connection`](../client/connection/README.md) supplies the browser/HTTP carrier. Picker implementations replace one another behind the shared seam.
 

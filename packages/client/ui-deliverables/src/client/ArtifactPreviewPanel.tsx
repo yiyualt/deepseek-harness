@@ -3,6 +3,7 @@
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DetailsOwnerProps } from '@deepseek-ai/dsh-client-ui-layout/client'
+import { useState, type FormEvent } from 'react'
 import type { ArtifactPreviewState } from './artifact-preview-store.ts'
 import type { NS } from './locales.ts'
 import css from './ArtifactPreviewPanel.module.css'
@@ -18,6 +19,8 @@ export interface ArtifactPreviewPanelInjected {
   activatePreview: (id: string) => void
   /** Add and activate an empty preview tab. */
   newPreviewTab: () => void
+  /** Navigate an empty preview tab to an HTTP(S) URL. */
+  openPreviewUrl: (id: string, url: string) => boolean
   /** Close one preview tab. */
   closePreviewTab: (id: string) => void
   /** Close the shared right column without discarding its tabs. */
@@ -29,9 +32,50 @@ export type ArtifactPreviewPanelProps = PropsRuntime<'details'> & { matched: Det
   & InjectFace<ArtifactPreviewPanelInjected>
   & PropsLocale<typeof NS>
 
+function UrlEntry({ id, openPreviewUrl, t }: {
+  id: string
+  openPreviewUrl: (id: string, url: string) => boolean
+  t: ArtifactPreviewPanelProps['t']
+}) {
+  const [url, setUrl] = useState('')
+  const [invalid, setInvalid] = useState(false)
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setInvalid(!openPreviewUrl(id, url))
+  }
+
+  return (
+    <form className={css.urlEntry} onSubmit={submit}>
+      <label className={css.urlLabel} htmlFor={`preview-url-${id}`}>{t('preview.urlLabel')}</label>
+      <div className={css.urlControls}>
+        <input
+          id={`preview-url-${id}`}
+          className={css.urlInput}
+          type="text"
+          inputMode="url"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={url}
+          placeholder={t('preview.urlPlaceholder')}
+          aria-invalid={invalid || undefined}
+          onChange={(event) => {
+            setUrl(event.target.value)
+            if (invalid) setInvalid(false)
+          }}
+        />
+        <button type="submit" className={css.urlOpen}>{t('preview.openUrl')}</button>
+      </div>
+      {invalid && <div className={css.urlError} role="alert">{t('preview.invalidUrl')}</div>}
+      <div className={css.urlHint}>{t('preview.embedHint')}</div>
+    </form>
+  )
+}
+
 /** Render retained HTML and Office previews as a browser-style tab strip. */
 export function ArtifactPreviewPanel({
-  usePreview, activatePreview, newPreviewTab, closePreviewTab, closePreview, t,
+  usePreview, activatePreview, newPreviewTab, openPreviewUrl, closePreviewTab, closePreview, t,
 }: ArtifactPreviewPanelProps) {
   const preview = usePreview(state => state)
   const active = preview.tabs.find(tab => tab.id === preview.activeId)
@@ -93,7 +137,9 @@ export function ArtifactPreviewPanel({
           <div className={css.error} role="alert">{active.error ?? t('preview.failed')}</div>
         )}
         {active?.status === 'idle' && (
-          <div className={css.blank}>{t('preview.blank')}</div>
+          <div className={css.blank}>
+            <UrlEntry id={active.id} openPreviewUrl={openPreviewUrl} t={t} />
+          </div>
         )}
         {preview.tabs.map(tab => tab.status === 'ready' && tab.url !== undefined && (
           <div

@@ -71,6 +71,7 @@ export function apply(ctx: ClientContext): void {
         hooks: { preview: preview.sourceFor(sessionId) },
         activatePreview: (id) => { preview.activate(sessionId, id) },
         newPreviewTab: () => { preview.newTab(sessionId) },
+        openPreviewUrl: (id, url) => preview.openUrl(sessionId, id, url),
         closePreviewTab: (id) => { preview.close(sessionId, id) },
         closePreview: () => { ctx.layout.closeDetails() },
       }),

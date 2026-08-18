@@ -1,0 +1,14 @@
+- dialog "加入会议":
+  - banner:
+    - heading "加入会议" [level=2]
+    - paragraph: 让一个仅参会、不录制的 AI 助手加入 Google Meet 或 Zoom。
+    - button "关闭会议面板":
+      - img
+  - text: 会议链接
+  - textbox "会议链接":
+    - /placeholder: Google Meet 或 Zoom 链接
+    - text: https://example.com/not-a-meeting
+  - paragraph: 当前支持 Google Meet 和 Zoom。
+  - text: 尚未加入会议
+  - alert: 请输入完整的 Google Meet 或 Zoom 会议链接。
+  - button "加入会议"

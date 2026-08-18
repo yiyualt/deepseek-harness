@@ -4,7 +4,8 @@
 // as a file the turn never touched (stays inert). Package tests cover the
 // resolver in isolation; only the assembled application shows a real write's
 // locations reaching the prose as an opener. The HTML click exercises the
-// assembled artifact-preview RPC, right-column entry, and iframe resource.
+// assembled artifact-preview RPC, right-column entry, local iframe resource,
+// and the empty-tab HTTP URL flow.
 import { mkdir, writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import { join } from 'node:path'
@@ -123,17 +124,25 @@ describe('web e2e: inline-code mentions of produced files', () => {
   let page: Page
   let tripwire: ReturnType<typeof watchConsole>
   let onlyOffice: Server | undefined
+  let embedUrl: string
 
   beforeAll(async () => {
-    onlyOffice = createServer((_request, response) => {
+    const server = createServer((request, response) => {
+      if (request.url === '/embed') {
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+        response.end('<!doctype html><html><body><h1>Remote embed ready</h1></body></html>')
+        return
+      }
       response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' })
       response.end('window.DocsAPI={DocEditor:function(id,config){var root=document.getElementById(id);'
         + 'var button=document.createElement(\'button\');button.textContent=\'Edit \'+config.document.title;'
         + 'root.append(button);return{destroyEditor:function(){root.replaceChildren()}}}}')
     })
-    await new Promise<void>((resolve) => { onlyOffice.listen(0, '127.0.0.1', resolve) })
-    const address = onlyOffice.address()
+    onlyOffice = server
+    await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve) })
+    const address = server.address()
     if (address === null || typeof address === 'string') throw new Error('ONLYOFFICE test server did not bind TCP')
+    embedUrl = `http://127.0.0.1:${String(address.port)}/embed`
     scaffold = await launchWebScaffold({
       onlyOffice: {
         browserUrl: `http://127.0.0.1:${String(address.port)}`,
@@ -161,9 +170,10 @@ describe('web e2e: inline-code mentions of produced files', () => {
   afterAll(async () => {
     await browser?.close()
     await scaffold?.close()
-    if (onlyOffice !== undefined) {
+    const server = onlyOffice
+    if (server !== undefined) {
       await new Promise<void>((resolve, reject) => {
-        onlyOffice.close((error) => { if (error === undefined) resolve(); else reject(error) })
+        server.close((error) => { if (error === undefined) resolve(); else reject(error) })
       })
     }
   })
@@ -208,9 +218,17 @@ describe('web e2e: inline-code mentions of produced files', () => {
       timeout: 10_000,
     }).toBe(1)
 
-    await page.getByRole('button', { name: 'Open site/report.docx', exact: true }).click()
+    await page.getByRole('button', { name: 'Open site/report.docx', exact: true }).first().click()
     await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(3)
     await expect.poll(() => preview.getByRole('button', { name: 'Edit report.docx', exact: true }).count(), {
+      timeout: 10_000,
+    }).toBe(1)
+
+    await preview.getByRole('button', { name: 'New tab', exact: true }).click()
+    await preview.getByLabel('Enter a website address', { exact: true }).fill(embedUrl)
+    await preview.getByRole('button', { name: 'Open', exact: true }).click()
+    const remoteFrame = page.frameLocator(`iframe[src="${embedUrl}"]`)
+    await expect.poll(() => remoteFrame.getByText('Remote embed ready', { exact: true }).count(), {
       timeout: 10_000,
     }).toBe(1)
 

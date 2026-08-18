@@ -29,4 +29,4 @@ Host 持有本地路径并签发一个不透明的内存 grant。ONLYOFFICE 从�
 
 ## 后果
 
-完成配置的 Web 部署会在不转换 PDF 的情况下，以兼容 Word 的可编辑 UI 打开 DOCX 工件，并把完成的保存写回原工作区路径。浏览器到 ONLYOFFICE、ONLYOFFICE 到 Harness 都必须可达；Docker 通常需要为两者使用不同 origin。grant 只存在于当前进程，编辑会替换源文件；这条本地优先路径不提供 JWT 认证、修订历史、冲突解决或 Host 重启后的恢复。Host 测试固定配置、文件提供、callback 状态处理与写回，client 测试固定 DOCX 接管与 `DocEditor` 生命周期。
+完成配置的 Web 部署会在不转换 PDF 的情况下，以兼容 Word 的可编辑 UI 打开 DOCX 工件，并把完成的保存写回原工作区路径。浏览器到 ONLYOFFICE、ONLYOFFICE 到 Harness 都必须可达；Docker 通常需要为两者使用不同 origin。grant 只存在于当前进程，编辑会替换源文件；这条本地优先路径不提供 JWT 认证、修订历史、冲突解决或 Host 重启后的恢复。共享 RPC 错误 schema 包含两个工件预览错误码，使未配置的部署保持为业务错误，而不会变成 client 端响应校验失败。Host 测试固定配置、文件提供、callback 状态处理、写回与错误解析，client 测试固定 DOCX 接管与 `DocEditor` 生命周期。

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-18-web-docx-onlyoffice-editing.md
-2026-08-18-web-docx-onlyoffice-editing.md: 7c47d283da62583639b14b1a224186e49ec10227
-2026-08-18-web-docx-onlyoffice-editing.zh.md: 12fbdadfa8b0cdc11118470b65ee5fa3162f6a9b
+2026-08-18-web-docx-onlyoffice-editing.md: 97ed54b9b64f216ea4fff92c2ee773d55a4387fb
+2026-08-18-web-docx-onlyoffice-editing.zh.md: 160e0eb877e17a8b73e7323e157ce3ebf3b926f6
