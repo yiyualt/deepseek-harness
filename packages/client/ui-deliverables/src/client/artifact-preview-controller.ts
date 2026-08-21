@@ -1,4 +1,4 @@
-/** HTML and DOCX interception with Host preparation for the preview panel. */
+/** HTML, Markdown, and DOCX interception with Host preparation for the preview panel. */
 
 import type { IApiClient, SessionId } from '@deepseek-ai/dsh-client-connection/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
@@ -9,6 +9,7 @@ import {
 } from './artifact-preview-store.ts'
 
 const HTML_EXTENSION = /\.(?:html?|xhtml)$/i
+const MARKDOWN_EXTENSION = /\.(?:md|markdown)$/i
 const OFFICE_EXTENSION = /\.docx$/i
 
 function basename(path: string): string {
@@ -122,9 +123,83 @@ export class ArtifactPreviewController implements ChatFilePreview {
     if (store.getSnapshot().tabs.length === 0) this.layout.closeDetails()
   }
 
+  /**
+   * Replace one Markdown tab's draft.
+   * @param sessionId Session that owns the tab.
+   * @param id Markdown tab id.
+   * @param content Complete Markdown source from the editor.
+   */
+  editMarkdown(sessionId: SessionId, id: string, content: string): void {
+    this.sourceFor(sessionId).update((state) => {
+      const tab = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'markdown')
+      if (tab === undefined) return
+      tab.markdownContent = content
+      delete tab.markdownConflict
+      delete tab.markdownError
+    })
+  }
+
+  /**
+   * Save one Markdown draft through its Host grant.
+   * @param sessionId Session that owns the tab.
+   * @param id Markdown tab id.
+   */
+  async saveMarkdown(sessionId: SessionId, id: string): Promise<void> {
+    const store = this.sourceFor(sessionId)
+    const tab = store.getSnapshot().tabs.find(candidate => candidate.id === id && candidate.kind === 'markdown')
+    if (
+      tab?.markdownGrantId === undefined
+      || tab.markdownContent === undefined
+      || tab.markdownRevision === undefined
+      || tab.markdownSaving === true
+    ) return
+    const content = tab.markdownContent
+    const revision = tab.markdownRevision
+    store.update((state) => {
+      const target = state.tabs.find(candidate => candidate.id === id)
+      if (target === undefined) return
+      target.markdownSaving = true
+      delete target.markdownConflict
+      delete target.markdownError
+    })
+    try {
+      const response = await this.api.host.saveMarkdownArtifact({
+        grantId: tab.markdownGrantId,
+        content,
+        revision,
+      })
+      const result = response.result
+      store.update((state) => {
+        const target = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'markdown')
+        if (target === undefined) return
+        target.markdownSaving = false
+        if (result.ok) {
+          target.markdownSavedContent = content
+          target.markdownRevision = result.value.revision
+          delete target.markdownConflict
+          delete target.markdownError
+        } else {
+          target.markdownConflict = result.error.code === 'artifact-preview-conflict'
+          target.markdownError = result.error.message
+        }
+      })
+    } catch (error: unknown) {
+      store.update((state) => {
+        const target = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'markdown')
+        if (target === undefined) return
+        target.markdownSaving = false
+        target.markdownError = error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
   /** Claim supported paths, add or activate their tab, and prepare its renderer. */
   async open(request: ChatFilePreviewRequest): Promise<boolean> {
-    if (!HTML_EXTENSION.test(request.path) && !OFFICE_EXTENSION.test(request.path)) return false
+    if (
+      !HTML_EXTENSION.test(request.path)
+      && !MARKDOWN_EXTENSION.test(request.path)
+      && !OFFICE_EXTENSION.test(request.path)
+    ) return false
     const store = this.sourceFor(request.sessionId)
     const existing = store.getSnapshot().tabs.find(tab => tab.path === request.path)
     if (existing !== undefined && existing.kind !== 'office') {
@@ -167,12 +242,31 @@ export class ArtifactPreviewController implements ChatFilePreview {
           tab.kind = prepared.kind
           if (prepared.kind === 'html') {
             tab.url = prepared.url
+            delete tab.markdownGrantId
+            delete tab.markdownContent
+            delete tab.markdownSavedContent
+            delete tab.markdownRevision
+            delete tab.officeApiUrl
+            delete tab.officeConfig
+          } else if (prepared.kind === 'markdown') {
+            tab.markdownGrantId = prepared.grantId
+            tab.markdownContent = prepared.content
+            tab.markdownSavedContent = prepared.content
+            tab.markdownRevision = prepared.revision
+            tab.markdownSaving = false
+            delete tab.markdownConflict
+            delete tab.markdownError
+            delete tab.url
             delete tab.officeApiUrl
             delete tab.officeConfig
           } else {
             tab.officeApiUrl = prepared.apiUrl
             tab.officeConfig = prepared.config
             delete tab.url
+            delete tab.markdownGrantId
+            delete tab.markdownContent
+            delete tab.markdownSavedContent
+            delete tab.markdownRevision
           }
           delete tab.error
         })
@@ -186,6 +280,10 @@ export class ArtifactPreviewController implements ChatFilePreview {
           delete tab.url
           delete tab.officeApiUrl
           delete tab.officeConfig
+          delete tab.markdownGrantId
+          delete tab.markdownContent
+          delete tab.markdownSavedContent
+          delete tab.markdownRevision
         })
       }
     } catch (error: unknown) {
@@ -198,6 +296,10 @@ export class ArtifactPreviewController implements ChatFilePreview {
         delete tab.url
         delete tab.officeApiUrl
         delete tab.officeConfig
+        delete tab.markdownGrantId
+        delete tab.markdownContent
+        delete tab.markdownSavedContent
+        delete tab.markdownRevision
       })
     }
     return true

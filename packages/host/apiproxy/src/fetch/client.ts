@@ -16,7 +16,7 @@ import { hostFrameSchema, muxFrameSchema } from '../api/events.schema.ts'
 import {
   hostCreateDirectoryValueSchema, hostDescribeValueSchema,
   hostListDirectoryValueSchema, hostOpenPathValueSchema, hostPickDirectoryValueSchema,
-  hostPrepareArtifactPreviewValueSchema,
+  hostPrepareArtifactPreviewValueSchema, hostSaveMarkdownArtifactValueSchema,
 } from '../api/host.schema.ts'
 import {
   sessionCancelValueSchema,
@@ -113,6 +113,7 @@ export interface IApiClient {
     createDirectory(payload: RequestPayload<'host.createDirectory'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'host.createDirectory'>>>
     openPath(payload: RequestPayload<'host.openPath'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'host.openPath'>>>
     prepareArtifactPreview(payload: RequestPayload<'host.prepareArtifactPreview'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'host.prepareArtifactPreview'>>>
+    saveMarkdownArtifact(payload: RequestPayload<'host.saveMarkdownArtifact'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'host.saveMarkdownArtifact'>>>
   }
   workspace: {
     list(payload: RequestPayload<'workspace.list'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'workspace.list'>>>
@@ -194,6 +195,7 @@ const UNARY_VALUE_SCHEMAS: { [K in keyof RpcMethodMap]: z.ZodType<Wire<ResponseV
   'host.createDirectory': hostCreateDirectoryValueSchema,
   'host.openPath': hostOpenPathValueSchema,
   'host.prepareArtifactPreview': hostPrepareArtifactPreviewValueSchema,
+  'host.saveMarkdownArtifact': hostSaveMarkdownArtifactValueSchema,
   'workspace.list': workspaceListValueSchema,
   'workspace.create': workspaceCreateValueSchema,
   'workspace.rename': workspaceRenameValueSchema,
@@ -445,6 +447,7 @@ export abstract class AbstractApiClient implements IApiClient {
     createDirectory: (payload, signal) => this.callUnary('host.createDirectory', payload, signal),
     openPath: (payload, signal) => this.callUnary('host.openPath', payload, signal),
     prepareArtifactPreview: (payload, signal) => this.callUnary('host.prepareArtifactPreview', payload, signal),
+    saveMarkdownArtifact: (payload, signal) => this.callUnary('host.saveMarkdownArtifact', payload, signal),
   }
 
   readonly workspace: IApiClient['workspace'] = {

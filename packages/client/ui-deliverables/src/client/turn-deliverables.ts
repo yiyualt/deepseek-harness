@@ -15,7 +15,7 @@ interface ProducedPath {
   readonly path: string
 }
 
-const INDIRECT_DOCX_PATH = /\.docx$/i
+const INDIRECT_PREVIEW_PATH = /\.(?:docx|md|markdown)$/i
 
 /** Immutable produced-file facts published against one Turn. */
 export interface DeliverablesTurnData {
@@ -155,9 +155,9 @@ export function basename(path: string): string {
  * message's prose: an inline-code token opens the file it names. A token
  * resolves by exact path, or by being exactly the basename of exactly one
  * produced path — a basename two paths share stays inert rather than
- * guessing. An exact DOCX token is also accepted when the turn has no
- * mutation location for it, because binary documents are commonly created by
- * a terminal process; the Host validates that path when it is opened.
+ * guessing. An exact DOCX or Markdown token is also accepted when the turn
+ * has no mutation location for it, because a terminal process may create
+ * either format; the Host validates that path when it is opened.
  * @param paths - The turn's produced paths (tool order, already deduped).
  * @param openFile - The chat view's file opener.
  * @param label - Localizes the accessible open-label for a resolved path.
@@ -173,7 +173,7 @@ export function producedFileMentions(
     resolve(value) {
       const path = paths.includes(value)
         ? value
-        : onlyPathWithBasename(paths, value) ?? (INDIRECT_DOCX_PATH.test(value) ? value : undefined)
+        : onlyPathWithBasename(paths, value) ?? (INDIRECT_PREVIEW_PATH.test(value) ? value : undefined)
       if (path === undefined) return undefined
       return { open: () => { openFile(path) }, label: label(path), title: path }
     },

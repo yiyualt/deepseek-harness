@@ -29,7 +29,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 declare module '@deepseek-ai/dsh-client-ui-layout/client' {
   interface DetailsPanelMap {
-    /** Sandboxed HTML artifact preview. */
+    /** HTML, Markdown, and DOCX artifact preview. */
     'artifact-preview': unknown
   }
 }
@@ -72,6 +72,8 @@ export function apply(ctx: ClientContext): void {
         activatePreview: (id) => { preview.activate(sessionId, id) },
         newPreviewTab: () => { preview.newTab(sessionId) },
         openPreviewUrl: (id, url) => preview.openUrl(sessionId, id, url),
+        editMarkdown: (id, content) => { preview.editMarkdown(sessionId, id, content) },
+        saveMarkdown: (id) => { void preview.saveMarkdown(sessionId, id) },
         closePreviewTab: (id) => { preview.close(sessionId, id) },
         closePreview: () => { ctx.layout.closeDetails() },
       }),
@@ -83,8 +85,8 @@ export function apply(ctx: ClientContext): void {
   const mentions: ChatFileMentions = {
     forClosing(owner) {
       // The row remains mutation-location based. The prose resolver also
-      // accepts exact DOCX paths because terminal-created binary output has no
-      // mutation location to contribute.
+      // accepts exact DOCX and Markdown paths because terminal-created output
+      // has no mutation location to contribute.
       const paths = selectProducedFiles(owner) ?? []
       return producedFileMentions(paths, owner.openFile, path => t('produced.open', { name: path }))
     },

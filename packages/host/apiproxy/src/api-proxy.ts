@@ -112,6 +112,7 @@ import {
 } from '@deepseek-ai/dsh-api-remotes'
 import { canOpenNativePath, openNativePath, openNativeTextFile } from './native-path-opener.ts'
 import { ArtifactPreviewError, ArtifactPreviewGrants } from './artifact-preview.ts'
+import { MarkdownPreviewError, MarkdownPreviewGrants } from './markdown-preview.ts'
 
 /** Page size when history is called without maxMessages. */
 const DEFAULT_MAX_MESSAGES = 50
@@ -1114,6 +1115,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   const coldBlankProbeMaxBytes = defaults.coldBlankProbeMaxBytes
     ?? DEFAULT_COLD_BLANK_PROBE_MAX_BYTES
   const artifactPreviews = new ArtifactPreviewGrants()
+  const markdownPreviews = new MarkdownPreviewGrants()
   const officePreviews = new OfficePreviewGrants(defaults.onlyOffice)
   /** The seed model each create/resume declares; re-read so it never goes stale. */
   const agentOptions = (): AgentOptions => {
@@ -3021,15 +3023,41 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           if (/\.docx$/i.test(request.payload.path)) {
             return ok(request, await officePreviews.prepare(request.payload.path))
           }
+          if (/\.(?:md|markdown)$/i.test(request.payload.path)) {
+            return ok(request, await markdownPreviews.prepare(request.payload.path))
+          }
           return ok(request, await artifactPreviews.prepare(request.payload.path))
         } catch (error: unknown) {
-          if (!(error instanceof ArtifactPreviewError) && !(error instanceof OfficePreviewError)) throw error
+          if (
+            !(error instanceof ArtifactPreviewError)
+            && !(error instanceof MarkdownPreviewError)
+            && !(error instanceof OfficePreviewError)
+          ) throw error
           return err(request, {
             code: error.reason === 'unsupported'
               ? 'artifact-preview-unsupported'
-              : 'artifact-preview-unavailable',
+              : error.reason === 'conflict'
+                ? 'artifact-preview-conflict'
+                : 'artifact-preview-unavailable',
             message: error.message,
-            details: { path: request.payload.path },
+            details: { path: error instanceof MarkdownPreviewError ? error.path : request.payload.path },
+          })
+        }
+      },
+
+      async saveMarkdownArtifact(request) {
+        try {
+          return ok(request, await markdownPreviews.save(
+            request.payload.grantId,
+            request.payload.content,
+            request.payload.revision,
+          ))
+        } catch (error: unknown) {
+          if (!(error instanceof MarkdownPreviewError)) throw error
+          return err(request, {
+            code: error.reason === 'conflict' ? 'artifact-preview-conflict' : 'artifact-preview-unavailable',
+            message: error.message,
+            details: { path: error.path },
           })
         }
       },

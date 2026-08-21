@@ -189,6 +189,9 @@ export class FakeApiClient implements IApiClient {
         url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html',
       })),
     ),
+    saveMarkdownArtifact: (payload: { revision: string }) => this.record(
+      'host.saveMarkdownArtifact', payload, Promise.resolve(ok({ revision: payload.revision })),
+    ),
   }
 
   // The archive-set field defaults at the binding below so list stubs keep

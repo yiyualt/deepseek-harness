@@ -172,6 +172,9 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
           },
         }
       },
+      async saveMarkdownArtifact(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { revision: request.payload.revision } } }
+      },
     },
     workspace: {
       async list(request) {

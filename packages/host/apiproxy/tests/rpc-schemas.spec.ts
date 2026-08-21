@@ -79,6 +79,7 @@ describe('rpcErrorSchema', () => {
     expect(rpcErrorSchema.parse({ code: 'title-invalid', message: 'm', details: { sessionId: 's' } }).code).toBe('title-invalid')
     expect(rpcErrorSchema.parse({ code: 'artifact-preview-unsupported', message: 'm', details: { path: '/x' } }).code).toBe('artifact-preview-unsupported')
     expect(rpcErrorSchema.parse({ code: 'artifact-preview-unavailable', message: 'm', details: { path: '/x' } }).code).toBe('artifact-preview-unavailable')
+    expect(rpcErrorSchema.parse({ code: 'artifact-preview-conflict', message: 'm', details: { path: '/x' } }).code).toBe('artifact-preview-conflict')
     // The credentials producer still emits this code, so the branch has to stay.
     expect(rpcErrorSchema.parse({ code: 'credential-rejected', message: 'm', details: { ref: 'r' } }).code).toBe('credential-rejected')
     expect(rpcErrorSchema.parse({ code: 'internal', message: 'm', details: {} }).code).toBe('internal')

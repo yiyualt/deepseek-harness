@@ -33,4 +33,4 @@ Status: implemented
 
 ## 后果
 
-现有的每一处文件交互都同时改变了：write、edit、read 与通用单文件卡片都汇到 `openFile`，因此链接修复与浏览器优先策略无需逐行改动。组装层 Web 测试覆盖溢出几何和单次点击的 Host 交接，且不会启动原生应用。产出的 `file://` 文档无法 `fetch` 同级文件（但 `<script src>`、`<img>` 和 CSS `@import` 可用），这是 HTTP 提供曾有、而此处没有的能力。远程客户端保留 chip，但省略文件夹操作；每个 chip 的 `title` 仍保留完整路径。Markdown 仍由平台的 `.md` 应用打开；产品内渲染属于另一项工作。
+现有的每一处文件交互都同时改变了：write、edit、read 与通用单文件卡片都汇到 `openFile`，因此链接修复与浏览器优先策略无需逐行改动。组装层 Web 测试覆盖溢出几何和单次点击的 Host 交接，且不会启动原生应用。产出的 `file://` 文档无法 `fetch` 同级文件（但 `<script src>`、`<img>` 和 CSS `@import` 可用），这是 HTTP 提供曾有、而此处没有的能力。远程客户端保留 chip，但省略文件夹操作；每个 chip 的 `title` 仍保留完整路径。HTML 家族、Markdown 与 DOCX 路径现在可以先由可选的产品内预览 provider 接管，再回退到此处的原生打开；Markdown 路径由[本地 Markdown 编辑](2026-08-18-web-markdown-artifact-editing.md)决定。

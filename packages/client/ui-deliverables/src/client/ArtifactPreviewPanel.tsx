@@ -1,4 +1,4 @@
-/** Right-column renderer for one sandboxed HTML artifact preview. */
+/** Right-column renderer for HTML, Markdown, and DOCX artifacts. */
 
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -8,6 +8,7 @@ import type { ArtifactPreviewState } from './artifact-preview-store.ts'
 import type { NS } from './locales.ts'
 import css from './ArtifactPreviewPanel.module.css'
 import { OnlyOfficeEditor } from './OnlyOfficeEditor.tsx'
+import { MarkdownEditor } from './MarkdownEditor.tsx'
 
 /** Layout action injected into the preview entry. */
 export interface ArtifactPreviewPanelInjected {
@@ -21,6 +22,10 @@ export interface ArtifactPreviewPanelInjected {
   newPreviewTab: () => void
   /** Navigate an empty preview tab to an HTTP(S) URL. */
   openPreviewUrl: (id: string, url: string) => boolean
+  /** Replace one Markdown tab's draft source. */
+  editMarkdown: (id: string, content: string) => void
+  /** Save one Markdown tab's current draft. */
+  saveMarkdown: (id: string) => void
   /** Close one preview tab. */
   closePreviewTab: (id: string) => void
   /** Close the shared right column without discarding its tabs. */
@@ -73,9 +78,10 @@ function UrlEntry({ id, openPreviewUrl, t }: {
   )
 }
 
-/** Render retained HTML and Office previews as a browser-style tab strip. */
+/** Render retained artifact previews as a browser-style tab strip. */
 export function ArtifactPreviewPanel({
-  usePreview, activatePreview, newPreviewTab, openPreviewUrl, closePreviewTab, closePreview, t,
+  usePreview, activatePreview, newPreviewTab, openPreviewUrl,
+  editMarkdown, saveMarkdown, closePreviewTab, closePreview, t,
 }: ArtifactPreviewPanelProps) {
   const preview = usePreview(state => state)
   const active = preview.tabs.find(tab => tab.id === preview.activeId)
@@ -156,6 +162,27 @@ export function ArtifactPreviewPanel({
               referrerPolicy="no-referrer"
             />
           </div>
+        ))}
+        {preview.tabs.map(tab => (
+          tab.status === 'ready'
+          && tab.kind === 'markdown'
+          && tab.markdownGrantId !== undefined
+          && tab.markdownContent !== undefined
+          && (
+            <div
+              key={tab.id}
+              className={css.framePane}
+              role="tabpanel"
+              hidden={tab.id !== preview.activeId}
+            >
+              <MarkdownEditor
+                tab={tab}
+                edit={(content) => { editMarkdown(tab.id, content) }}
+                save={() => { saveMarkdown(tab.id) }}
+                t={t}
+              />
+            </div>
+          )
         ))}
         {preview.tabs.map(tab => (
           tab.status === 'ready'

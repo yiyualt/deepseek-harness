@@ -155,6 +155,9 @@ export class FakeApiClient implements IApiClient {
         url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html',
       })),
     ),
+    saveMarkdownArtifact: payload => this.record(
+      'host.saveMarkdownArtifact', payload, Promise.resolve(ok({ revision: payload.revision })),
+    ),
   }
 
   readonly workspace: IApiClient['workspace'] = {

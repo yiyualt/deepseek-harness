@@ -433,16 +433,17 @@ describe('producedFileMentions resolver', () => {
     // A basename two paths share stays unresolved rather than guessing,
     // and so does a token naming nothing the turn wrote.
     expect(resolver.resolve('style.css')).toBeUndefined()
-    expect(resolver.resolve('notes.md')).toBeUndefined()
+    expect(resolver.resolve('notes.md')).toMatchObject({ title: 'notes.md' })
     expect(resolver.resolve('generated.docx')).toMatchObject({ title: 'generated.docx' })
     expect(basename('a\\b\\c.txt')).toBe('c.txt')
   })
 
-  it('opens an exact DOCX mention without produced mutation locations', () => {
+  it('opens exact DOCX and Markdown mentions without produced mutation locations', () => {
     const openFile = vi.fn()
     const resolver = producedFileMentions([], openFile, label)
     resolver.resolve('专注的力量.docx')?.open()
-    expect(openFile).toHaveBeenCalledWith('专注的力量.docx')
+    resolver.resolve('notes.markdown')?.open()
+    expect(openFile.mock.calls).toEqual([['专注的力量.docx'], ['notes.markdown']])
     expect(resolver.resolve('力量.docx.bak')).toBeUndefined()
   })
 })
@@ -486,8 +487,11 @@ describe('plugin registration', () => {
         },
       },
     }))
+    const saveMarkdownArtifact = vi.fn(async (payload: { revision: string }) => ({
+      rpcId: 'save', result: { ok: true as const, value: { revision: payload.revision } },
+    }))
     ctx.provide('connection', {
-      api: { host: { prepareArtifactPreview }, settings: {} },
+      api: { host: { prepareArtifactPreview, saveMarkdownArtifact }, settings: {} },
       isLoopback: false,
       hostDescription,
     } as never)

@@ -28,6 +28,7 @@ export interface OfficeEditorConfig {
 /** Prepared renderer selected from the artifact's file type. */
 export type ArtifactPreviewValue =
   | { kind: 'html'; name: string; url: string }
+  | { kind: 'markdown'; name: string; grantId: string; content: string; revision: string }
   | { kind: 'office'; name: string; apiUrl: string; config: OfficeEditorConfig }
 
 /** One directory row of a listing: a child entry or a breadcrumb ancestor. */
@@ -120,11 +121,21 @@ export interface HostApi {
   ): Promise<RpcResponse<{ opened: true }>>
 
   /**
-   * Prepare one existing HTML or DOCX file for the Web preview column. HTML
-   * returns a same-origin iframe URL; DOCX returns a Host-issued ONLYOFFICE
-   * editor configuration when that integration is configured.
+   * Prepare one existing HTML, Markdown, or DOCX file for the Web preview
+   * column. HTML returns a same-origin iframe URL; Markdown returns UTF-8
+   * source and an edit grant; DOCX returns a Host-issued ONLYOFFICE editor
+   * configuration when that integration is configured.
    */
   prepareArtifactPreview(
     request: RpcRequest<{ path: string }>,
   ): Promise<RpcResponse<ArtifactPreviewValue>>
+
+  /**
+   * Save complete Markdown source through a preparation grant. The save
+   * fails with `artifact-preview-conflict` when the file changed since the
+   * revision supplied by the caller.
+   */
+  saveMarkdownArtifact(
+    request: RpcRequest<{ grantId: string; content: string; revision: string }>,
+  ): Promise<RpcResponse<{ revision: string }>>
 }

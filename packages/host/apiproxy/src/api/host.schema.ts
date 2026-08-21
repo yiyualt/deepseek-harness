@@ -78,12 +78,26 @@ export const hostPrepareArtifactPreviewRequestSchema = z.object({
   path: z.string().min(1),
 }) satisfies z.ZodType<Wire<RequestPayload<'host.prepareArtifactPreview'>>>
 
+/** host.saveMarkdownArtifact request payload. */
+export const hostSaveMarkdownArtifactRequestSchema = z.object({
+  grantId: z.uuid(),
+  content: z.string(),
+  revision: z.string().length(64),
+}) satisfies z.ZodType<Wire<RequestPayload<'host.saveMarkdownArtifact'>>>
+
 /** host.prepareArtifactPreview response value. */
 export const hostPrepareArtifactPreviewValueSchema = z.union([
   z.object({
     kind: z.literal('html'),
     name: z.string().min(1),
     url: z.string().startsWith('/api/artifact-preview/'),
+  }),
+  z.object({
+    kind: z.literal('markdown'),
+    name: z.string().min(1),
+    grantId: z.uuid(),
+    content: z.string(),
+    revision: z.string().length(64),
   }),
   z.object({
     kind: z.literal('office'),
@@ -112,3 +126,8 @@ export const hostPrepareArtifactPreviewValueSchema = z.union([
     }),
   }),
 ]) satisfies z.ZodType<Wire<ResponseValue<'host.prepareArtifactPreview'>>>
+
+/** host.saveMarkdownArtifact response value. */
+export const hostSaveMarkdownArtifactValueSchema = z.object({
+  revision: z.string().length(64),
+}) satisfies z.ZodType<Wire<ResponseValue<'host.saveMarkdownArtifact'>>>

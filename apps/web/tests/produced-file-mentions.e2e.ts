@@ -5,8 +5,8 @@
 // resolver in isolation; only the assembled application shows a real write's
 // locations reaching the prose as an opener. The HTML click exercises the
 // assembled artifact-preview RPC, right-column entry, local iframe resource,
-// and the empty-tab HTTP URL flow.
-import { mkdir, writeFile } from 'node:fs/promises'
+// Markdown editing, and the empty-tab HTTP URL flow.
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
@@ -29,8 +29,10 @@ function text(value: string): { type: 'text'; text: string }[] {
   return [{ type: 'text', text: value }]
 }
 
-/** The files the built turn writes; `notes.md` is named in prose but never written. */
-const WRITES = ['site/report.html', 'site/other.html', 'site/report.docx', 'a/style.css', 'b/style.css']
+/** The files the built turn writes. */
+const WRITES = [
+  'site/report.html', 'site/other.html', 'site/report.docx', 'site/notes.md', 'a/style.css', 'b/style.css',
+]
 
 /** Build a settled write turn whose closing prose mentions files in inline code. */
 function mentionFixture(): string {
@@ -91,7 +93,7 @@ function mentionFixture(): string {
       content: [{
         type: 'text',
         text: [
-          'Wrote `report.html`, `report.docx`, plus two `style.css` copies; `notes.md` untouched.',
+          'Wrote `report.html`, `report.docx`, `notes.md`, plus two `style.css` copies.',
           '',
           DONE,
         ].join('\n'),
@@ -159,6 +161,7 @@ describe('web e2e: inline-code mentions of produced files', () => {
       '<!doctype html><html><body><h1>Second HTML preview</h1></body></html>',
     )
     await writeFile(join(scaffold.workspaceCwd, 'site', 'report.docx'), 'fixture-docx')
+    await writeFile(join(scaffold.workspaceCwd, 'site', 'notes.md'), '# Markdown ready\n\nInitial text.\n')
     await seedSession(scaffold, mentionFixture(), SEED_ID)
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
@@ -188,14 +191,13 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await sessionRow.click()
     await expect.poll(() => page.getByText(DONE, { exact: true }).count(), { timeout: 15_000 }).toBe(1)
 
-    // Exactly two prose mentions link: the unique HTML and DOCX basenames
-    // path; the shared `style.css` basename and unwritten `notes.md` stay code.
+    // Exactly three prose mentions link; the shared `style.css` basename stays code.
     const mentions = page.locator('[class*="markdown"] code button')
-    await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(2)
+    await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(3)
     expect(await mentions.first().innerText()).toBe('report.html')
     expect(await mentions.first().getAttribute('aria-label')).toBe('Open site/report.html')
     expect(await mentions.first().getAttribute('title')).toBe('site/report.html')
-    // The turn still ends with its produced-files row (all four writes).
+    // The turn still ends with its produced-files row.
     expect(await page.getByText('Produced', { exact: true }).count()).toBe(1)
 
     await mentions.first().click()
@@ -223,6 +225,20 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await expect.poll(() => preview.getByRole('button', { name: 'Edit report.docx', exact: true }).count(), {
       timeout: 10_000,
     }).toBe(1)
+
+    await page.getByRole('button', { name: 'Open site/notes.md', exact: true }).first().click()
+    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(4)
+    const source = preview.getByLabel('Markdown source', { exact: true })
+    await source.fill('# Markdown updated\n\nSaved from Web.\n')
+    await expect.poll(() => preview.getByRole('heading', { name: 'Markdown updated' }).count(), {
+      timeout: 10_000,
+    }).toBe(1)
+    await preview.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect.poll(() => preview.getByRole('status').filter({ hasText: 'Saved' }).count(), {
+      timeout: 10_000,
+    }).toBe(1)
+    expect(await readFile(join(scaffold.workspaceCwd, 'site', 'notes.md'), 'utf8'))
+      .toBe('# Markdown updated\n\nSaved from Web.\n')
 
     await preview.getByRole('button', { name: 'New tab', exact: true }).click()
     await preview.getByLabel('Enter a website address', { exact: true }).fill(embedUrl)

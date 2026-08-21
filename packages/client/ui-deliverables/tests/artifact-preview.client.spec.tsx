@@ -35,11 +35,30 @@ function successApi() {
             },
           }
         }
+        if (/\.(?:md|markdown)$/i.test(path)) {
+          return {
+            rpcId: 'preview',
+            result: {
+              ok: true as const,
+              value: {
+                kind: 'markdown' as const,
+                name,
+                grantId: '00000000-0000-4000-8000-000000000001',
+                content: '# Draft\n',
+                revision: 'a'.repeat(64),
+              },
+            },
+          }
+        }
         return {
           rpcId: 'preview',
           result: { ok: true as const, value: { kind: 'html' as const, name, url: `${PREVIEW_URL}/${name}` } },
         }
       }),
+      saveMarkdownArtifact: vi.fn(async () => ({
+        rpcId: 'save',
+        result: { ok: true as const, value: { revision: 'b'.repeat(64) } },
+      })),
     },
   }
 }
@@ -71,7 +90,7 @@ describe('ArtifactPreviewController', () => {
     const layout = { openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn() }
     const controller = new ArtifactPreviewController(api as never, layout)
 
-    await expect(controller.open({ sessionId: SID, path: '/workspace/readme.md' })).resolves.toBe(false)
+    await expect(controller.open({ sessionId: SID, path: '/workspace/readme.txt' })).resolves.toBe(false)
     expect(api.host.prepareArtifactPreview).not.toHaveBeenCalled()
 
     await expect(controller.open({ sessionId: SID, path: '/workspace/report.html' })).resolves.toBe(true)
@@ -84,6 +103,45 @@ describe('ArtifactPreviewController', () => {
       tabs: [{
         status: 'ready', name: 'report.html', path: '/workspace/report.html',
       }],
+    })
+  })
+
+  it('edits and conflict-safely saves a Markdown tab', async () => {
+    const api = successApi()
+    const controller = new ArtifactPreviewController(api as never, {
+      openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn(),
+    })
+
+    await expect(controller.open({ sessionId: SID, path: '/workspace/notes.md' })).resolves.toBe(true)
+    const tab = controller.sourceFor(SID).getSnapshot().tabs[0]
+    expect(tab).toMatchObject({
+      status: 'ready', kind: 'markdown', name: 'notes.md',
+      markdownContent: '# Draft\n', markdownSavedContent: '# Draft\n',
+    })
+    controller.editMarkdown(SID, tab?.id ?? '', '# Updated\n')
+    await controller.saveMarkdown(SID, tab?.id ?? '')
+    expect(api.host.saveMarkdownArtifact).toHaveBeenCalledWith({
+      grantId: '00000000-0000-4000-8000-000000000001',
+      content: '# Updated\n',
+      revision: 'a'.repeat(64),
+    })
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
+      markdownSavedContent: '# Updated\n', markdownRevision: 'b'.repeat(64), markdownSaving: false,
+    })
+
+    api.host.saveMarkdownArtifact.mockResolvedValueOnce({
+      rpcId: 'save',
+      result: {
+        ok: false,
+        error: {
+          code: 'artifact-preview-conflict', message: 'changed on disk', details: { path: '/workspace/notes.md' },
+        },
+      },
+    } as never)
+    controller.editMarkdown(SID, tab?.id ?? '', '# Conflicting\n')
+    await controller.saveMarkdown(SID, tab?.id ?? '')
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
+      markdownConflict: true, markdownError: 'changed on disk', markdownSaving: false,
     })
   })
 
@@ -203,6 +261,8 @@ function panelProps(
     openPreviewUrl?: (id: string, url: string) => boolean
     closePreviewTab?: (id: string) => void
     closePreview?: () => void
+    editMarkdown?: (id: string, content: string) => void
+    saveMarkdown?: (id: string) => void
   } = {},
 ): ArtifactPreviewPanelProps {
   return {
@@ -219,6 +279,8 @@ function panelProps(
     openPreviewUrl: actions.openPreviewUrl ?? vi.fn(() => true),
     closePreviewTab: actions.closePreviewTab ?? vi.fn(),
     closePreview: actions.closePreview ?? vi.fn(),
+    editMarkdown: actions.editMarkdown ?? vi.fn(),
+    saveMarkdown: actions.saveMarkdown ?? vi.fn(),
     t: (key: string, params?: Record<string, string>) => {
       if (key === 'preview.frameTitle') return `${params?.name ?? ''} preview`
       if (key === 'preview.closeTab') return `Close ${params?.name ?? ''}`
@@ -314,5 +376,34 @@ describe('ArtifactPreviewPanel', () => {
     view.unmount()
     expect(destroyEditor).toHaveBeenCalledTimes(1)
     delete (window as Window & { DocsAPI?: unknown }).DocsAPI
+  })
+
+  it('renders, edits, and saves a ready Markdown tab', () => {
+    const editMarkdown = vi.fn()
+    const saveMarkdown = vi.fn()
+    const state: ArtifactPreviewState = {
+      activeId: 'markdown',
+      tabs: [{
+        id: 'markdown', status: 'ready', requestId: 1, kind: 'markdown',
+        name: 'notes.md', path: '/notes.md',
+        markdownGrantId: 'grant', markdownContent: '# Title\n',
+        markdownSavedContent: '# Title\n', markdownRevision: 'a'.repeat(64),
+        markdownSaving: false,
+      }],
+    }
+    const view = render(<ArtifactPreviewPanel {...panelProps(state, { editMarkdown, saveMarkdown })} />)
+    expect(view.getByRole('heading', { name: 'Title' })).toBeDefined()
+    expect(view.getByRole('button', { name: 'preview.markdownSave' }).hasAttribute('disabled')).toBe(true)
+
+    fireEvent.change(view.getByLabelText('preview.markdownSource'), { target: { value: '# Updated\n' } })
+    expect(editMarkdown).toHaveBeenCalledWith('markdown', '# Updated\n')
+    state.tabs[0]!.markdownContent = '# Updated\n'
+    view.rerender(<ArtifactPreviewPanel {...panelProps(state, { editMarkdown, saveMarkdown })} />)
+    fireEvent.click(view.getByRole('button', { name: 'preview.markdownSave' }))
+    expect(saveMarkdown).toHaveBeenCalledWith('markdown')
+
+    state.tabs[0]!.markdownConflict = true
+    view.rerender(<ArtifactPreviewPanel {...panelProps(state, { editMarkdown, saveMarkdown })} />)
+    expect(view.getByRole('alert').textContent).toBe('preview.markdownConflict')
   })
 })

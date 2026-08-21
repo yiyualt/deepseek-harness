@@ -102,6 +102,8 @@ export interface RpcErrorDetailsMap {
   'artifact-preview-unsupported': { path: string }
   /** The requested HTML entry is missing, unreadable, not regular, or exceeds the configured size limit. */
   'artifact-preview-unavailable': { path: string }
+  /** A Markdown save lost its optimistic revision race with another writer. */
+  'artifact-preview-conflict': { path: string }
   'internal': {}
 }
 

@@ -2567,6 +2567,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         name: request.payload.path.split('/').at(-1) ?? request.payload.path,
         url: `/api/artifact-preview/00000000-0000-4000-8000-000000000000/${encodeURIComponent(request.payload.path.split('/').at(-1) ?? 'index.html')}`,
       }),
+      saveMarkdownArtifact: request => ok(request, { revision: request.payload.revision }),
     },
     workspace: {
       list: request => ok(request, {
@@ -3107,6 +3108,7 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'host.createDirectory': return this.api.host.createDirectory(request)
       case 'host.openPath': return this.api.host.openPath(request, new AbortController().signal)
       case 'host.prepareArtifactPreview': return this.api.host.prepareArtifactPreview(request)
+      case 'host.saveMarkdownArtifact': return this.api.host.saveMarkdownArtifact(request)
       case 'workspace.list': return this.api.workspace.list(request)
       case 'workspace.create': return this.api.workspace.create(request)
       case 'workspace.rename': return this.api.workspace.rename(request)
