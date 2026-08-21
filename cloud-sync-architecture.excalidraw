@@ -1,0 +1,120 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "type": "text", "id": "title", "x": 90, "y": 40, "width": 900, "height": 40,
+      "text": "DeepSeek Harness：同一账号共享聊天记录与用户记忆", "originalText": "DeepSeek Harness：同一账号共享聊天记录与用户记忆",
+      "fontSize": 28, "fontFamily": 3, "textAlign": "left", "verticalAlign": "top", "containerId": null, "lineHeight": 1.25,
+      "strokeColor": "#1e40af", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 10001, "version": 1, "versionNonce": 20001, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false
+    },
+    {
+      "type": "ellipse", "id": "account", "x": 465, "y": 115, "width": 290, "height": 100,
+      "strokeColor": "#b45309", "backgroundColor": "#fef3c7", "fillStyle": "solid", "strokeWidth": 3, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 10002, "version": 1, "versionNonce": 20002, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false
+    },
+    {
+      "type": "text", "id": "account_text", "x": 505, "y": 140, "width": 210, "height": 50,
+      "text": "登录同一个账号\nUserId = user-123", "originalText": "登录同一个账号\nUserId = user-123",
+      "fontSize": 18, "fontFamily": 3, "textAlign": "center", "verticalAlign": "middle", "containerId": null, "lineHeight": 1.25,
+      "strokeColor": "#374151", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 10003, "version": 1, "versionNonce": 20003, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false
+    },
+    {
+      "type": "rectangle", "id": "device", "x": 90, "y": 310, "width": 310, "height": 180,
+      "strokeColor": "#6d28d9", "backgroundColor": "#ddd6fe", "fillStyle": "solid", "strokeWidth": 3, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 20001, "version": 1, "versionNonce": 30001, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false, "roundness": {"type": 3}
+    },
+    {
+      "type": "text", "id": "device_text", "x": 130, "y": 345, "width": 230, "height": 105,
+      "text": "电脑端 Harness\n本地 Agent Runtime\n本地可重建缓存\nDevice Sync Provider", "originalText": "电脑端 Harness\n本地 Agent Runtime\n本地可重建缓存\nDevice Sync Provider",
+      "fontSize": 17, "fontFamily": 3, "textAlign": "center", "verticalAlign": "middle", "containerId": null, "lineHeight": 1.25,
+      "strokeColor": "#374151", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 20002, "version": 1, "versionNonce": 30002, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false
+    },
+    {
+      "type": "rectangle", "id": "cloud", "x": 620, "y": 285, "width": 500, "height": 250,
+      "strokeColor": "#1e3a5f", "backgroundColor": "#3b82f6", "fillStyle": "solid", "strokeWidth": 3, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 30001, "version": 1, "versionNonce": 40001, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false, "roundness": {"type": 3}
+    },
+    {
+      "type": "text", "id": "cloud_text", "x": 670, "y": 315, "width": 400, "height": 170,
+      "text": "云端 Harness：共享数据权威\n\nAccount Authentication + Sync API\nSession owner + revision + writer lease\nUserMemory expectedRevision\n所有读写按认证 UserId 授权", "originalText": "云端 Harness：共享数据权威\n\nAccount Authentication + Sync API\nSession owner + revision + writer lease\nUserMemory expectedRevision\n所有读写按认证 UserId 授权",
+      "fontSize": 18, "fontFamily": 3, "textAlign": "center", "verticalAlign": "middle", "containerId": null, "lineHeight": 1.25,
+      "strokeColor": "#ffffff", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 30002, "version": 1, "versionNonce": 40002, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false
+    },
+    {
+      "type": "arrow", "id": "account_device", "x": 500, "y": 205, "width": 190, "height": 105,
+      "strokeColor": "#b45309", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "dashed", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 40001, "version": 1, "versionNonce": 50001, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false,
+      "points": [[0, 0], [-190, 105]], "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "type": "arrow", "id": "account_cloud", "x": 720, "y": 205, "width": 110, "height": 80,
+      "strokeColor": "#b45309", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "dashed", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 40002, "version": 1, "versionNonce": 50002, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false,
+      "points": [[0, 0], [110, 80]], "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "type": "arrow", "id": "sync", "x": 405, "y": 400, "width": 210, "height": 0,
+      "strokeColor": "#6d28d9", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 3, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 40003, "version": 1, "versionNonce": 50003, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false,
+      "points": [[0, 0], [210, 0]], "startBinding": null, "endBinding": null, "startArrowhead": "arrow", "endArrowhead": "arrow"
+    },
+    {
+      "type": "text", "id": "sync_text", "x": 420, "y": 355, "width": 180, "height": 35,
+      "text": "HTTPS + Bearer Token", "originalText": "HTTPS + Bearer Token",
+      "fontSize": 15, "fontFamily": 3, "textAlign": "center", "verticalAlign": "top", "containerId": null, "lineHeight": 1.25,
+      "strokeColor": "#64748b", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 40004, "version": 1, "versionNonce": 50004, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false
+    },
+    {
+      "type": "ellipse", "id": "sessions", "x": 350, "y": 650, "width": 250, "height": 120,
+      "strokeColor": "#047857", "backgroundColor": "#a7f3d0", "fillStyle": "solid", "strokeWidth": 3, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 50001, "version": 1, "versionNonce": 60001, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false
+    },
+    {
+      "type": "text", "id": "sessions_text", "x": 385, "y": 680, "width": 180, "height": 65,
+      "text": "共享聊天记录\nSessionEvent 日志\nownerId + revision", "originalText": "共享聊天记录\nSessionEvent 日志\nownerId + revision",
+      "fontSize": 16, "fontFamily": 3, "textAlign": "center", "verticalAlign": "middle", "containerId": null, "lineHeight": 1.2,
+      "strokeColor": "#374151", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 50002, "version": 1, "versionNonce": 60002, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false
+    },
+    {
+      "type": "ellipse", "id": "memories", "x": 680, "y": 650, "width": 250, "height": 120,
+      "strokeColor": "#047857", "backgroundColor": "#a7f3d0", "fillStyle": "solid", "strokeWidth": 3, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 50003, "version": 1, "versionNonce": 60003, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false
+    },
+    {
+      "type": "text", "id": "memories_text", "x": 715, "y": 680, "width": 180, "height": 65,
+      "text": "共享用户记忆\nUserMemory\nownerId + revision", "originalText": "共享用户记忆\nUserMemory\nownerId + revision",
+      "fontSize": 16, "fontFamily": 3, "textAlign": "center", "verticalAlign": "middle", "containerId": null, "lineHeight": 1.2,
+      "strokeColor": "#374151", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 50004, "version": 1, "versionNonce": 60004, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false
+    },
+    {
+      "type": "arrow", "id": "cloud_sessions", "x": 790, "y": 535, "width": 230, "height": 115,
+      "strokeColor": "#1e3a5f", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 3, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 60001, "version": 1, "versionNonce": 70001, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false,
+      "points": [[0, 0], [-230, 115]], "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "type": "arrow", "id": "cloud_memories", "x": 900, "y": 535, "width": 0, "height": 115,
+      "strokeColor": "#1e3a5f", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 3, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 60002, "version": 1, "versionNonce": 70002, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false,
+      "points": [[0, 0], [0, 115]], "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "type": "text", "id": "result", "x": 250, "y": 825, "width": 720, "height": 35,
+      "text": "结果：任一设备登录同一账号，都读取云端权威的相同会话与用户记忆", "originalText": "结果：任一设备登录同一账号，都读取云端权威的相同会话与用户记忆",
+      "fontSize": 18, "fontFamily": 3, "textAlign": "center", "verticalAlign": "top", "containerId": null, "lineHeight": 1.25,
+      "strokeColor": "#047857", "backgroundColor": "transparent", "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 70001, "version": 1, "versionNonce": 80001, "isDeleted": false, "groupIds": [], "boundElements": null, "link": null, "locked": false
+    }
+  ],
+  "appState": {"viewBackgroundColor": "#ffffff", "gridSize": 20, "gridModeEnabled": false},
+  "files": {}
+}
