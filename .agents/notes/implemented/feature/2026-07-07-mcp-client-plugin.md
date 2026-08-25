@@ -14,7 +14,7 @@ The `ToolRuntime` already accepts raw JSON Schema tool definitions (documented i
 
 ### Package
 
-A single package `@deepseek-ai/dsh-mcp-client` at `packages/mcp/mcp-client/`. No capability-seam three-package split — there is no foreseeable second MCP client implementation, and the convention is "don't split preemptively" ([capability seams Agent Note](../architecture/2026-06-13-capability-seams.md)).
+The package-root `@deepseek-ai/dsh-mcp-client` entry at `packages/mcp/mcp-client/` remains the static bridge. It does not split its configured transport and direct tool registration into three packages. Product-managed connections have independent Host and preset consumers, so the [dynamic MCP connector seam](../architecture/2026-08-25-dynamic-mcp-connectors.md) uses the package's separate `./runtime` provider with `dsh-mcp` and `dsh-tool-mcp`.
 
 ### SDK
 
@@ -26,7 +26,7 @@ MCP Client only (no server side — ACP already covers the "expose harness as an
 
 ### Plugin shape
 
-Namespace plugin (named exports `name`/`inject`/`Config`/`apply`, no `export default`). `inject: ['tools']`. Each MCP server is one plugin instance in `cordis.yml` — the same package loaded N times with different configs, like `dsh-tool-subagent`.
+The package-root entry is a namespace plugin (named exports `name`/`inject`/`Config`/`apply`, no `export default`). `inject: ['tools']`. Each MCP server is one plugin instance in `cordis.yml` — the same package loaded N times with different configs, like `dsh-tool-subagent`.
 
 ### Configuration
 
@@ -83,7 +83,7 @@ The model sees `mcp__github__create_issue`, `mcp__github__search_code`, `mcp__we
 
 ### Lifecycle
 
-Boot-time from `cordis.yml`. HMR (`@cordisjs/plugin-hmr`) provides hot-swap: editing the yml entry triggers dispose of the old instance (disconnects, unregisters tools) and creation of a new one (connects, discovers, registers). No runtime-dynamic API for now. Public names are pure functions of `(serverName, rawName)`, so an HMR swap that keeps `serverName` recreates identical model-facing names — session history and permission rules stay valid — and adding or removing an unrelated server never renames an existing tool.
+The package-root entry connects at boot from `cordis.yml`. HMR (`@cordisjs/plugin-hmr`) provides hot-swap: editing the yml entry triggers dispose of the old instance (disconnects, unregisters tools) and creation of a new one (connects, discovers, registers). Runtime-dynamic connections use the separately composed [dynamic MCP connector seam](../architecture/2026-08-25-dynamic-mcp-connectors.md). Public names are pure functions of `(serverName, rawName)`, so an HMR swap that keeps `serverName` recreates identical model-facing names — session history and permission rules stay valid — and adding or removing an unrelated server never renames an existing tool.
 
 ### Tool discovery and registration
 
@@ -94,7 +94,7 @@ Every MCP tool has two names:
 
       mcp__<serverName>__<rawName>
 
-This server-qualified shape is the de-facto standard among multi-server agent clients — every surveyed end-user product qualifies MCP tools by server ([Claude Code](https://code.claude.com/docs/en/agent-sdk/mcp#tool-naming-convention) `mcp__github__list_issues`, [Codex](https://openai.com/index/unrolling-the-codex-agent-loop/) `mcp__weather__get-forecast`, [Gemini CLI](https://geminicli.com/docs/tools/mcp-server/#3-tool-naming-and-namespaces), [VS Code](https://github.com/microsoft/vscode/blob/ab9ec62c6a61e429a9abd612ff220c3f4834c9ea/src/vs/workbench/contrib/mcp/common/mcpServer.ts#L217-L260), [Cline](https://github.com/cline/cline/blob/52fdbb1d72f7324a28142a7ba7678d4b53c902f4/sdk/packages/core/src/extensions/mcp/name-transform.ts#L20-L35), [Roo Code](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/utils/mcp-name.ts#L117-L140), [Goose](https://github.com/block/goose/blob/b3a012cbdde854b0fe14f95b1c48543bf6517c0a/crates/goose/src/agents/extension_manager.rs#L1391-L1441), [OpenCode](https://github.com/anomalyco/opencode/blob/d199b1bff90282a4f9cd6251b5fc7b16875a52f6/packages/opencode/src/mcp/catalog.ts#L117-L120)); the exact `mcp__<server>__<tool>` spelling follows Claude Code and Codex. The `mcp__` marker keeps MCP registrations out of the native tools' namespace and gives permission/telemetry rules a stable shape (`mcp__*`, `mcp__github__*`).
+This server-qualified shape is the de-facto standard among multi-server agent clients — every surveyed end-user product qualifies MCP tools by server ([Claude Code](https://code.claude.com/docs/en/agent-sdk/mcp#tool-naming-convention) `mcp__github__list_issues`, [Codex](https://openai.com/index/unrolling-the-codex-agent-loop/) `mcp__weather__get-forecast`, [Gemini CLI](https://geminicli.com/docs/tools/mcp-server/#3-tool-naming-and-namespaces), [VS Code](https://github.com/microsoft/vscode/blob/ab9ec62c6a61e429a9abd612ff220c3f4834c9ea/src/vs/workbench/contrib/mcp/common/mcpServer.ts#L217-L260), [Roo Code](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/utils/mcp-name.ts#L117-L140), [Goose](https://github.com/block/goose/blob/b3a012cbdde854b0fe14f95b1c48543bf6517c0a/crates/goose/src/agents/extension_manager.rs#L1391-L1441)); the exact `mcp__<server>__<tool>` spelling follows Claude Code and Codex. The `mcp__` marker keeps MCP registrations out of the native tools' namespace and gives permission/telemetry rules a stable shape (`mcp__*`, `mcp__github__*`).
 
 1. On connect: drain `client.listTools()` pagination, derive every tool's `publicName`, then register each as a raw `ToolDefinition` via `ctx.tools.register()`. The MCP JSON Schema and description pass through unchanged (no `defineTool` DSL conversion); only the model-facing `name` is replaced.
 2. Listen for `notifications/tools/list_changed` → re-run the same sync (dispose previous generation, register new). Deterministic names mean unchanged tools keep their names across re-syncs.
@@ -161,9 +161,9 @@ A per-instance connection supervisor reconnects automatically after a lost conne
 
 Deferred. The ACP bridge already exposes the harness as an agent server. Adding an MCP server layer would duplicate that with a different protocol, and the primary user need is consuming external tools, not exposing them.
 
-### Capability-seam three-package split (interface / impl / consumer)
+### Capability-seam three-package split for the static bridge (interface / impl / consumer)
 
-Rejected. There is no foreseeable alternative MCP client implementation — MCP has one protocol, one SDK. The convention is "don't split preemptively" until a second implementation appears.
+Rejected for the package-root bridge: its configured transport and direct tool registration still have one consumer and one lifecycle. The product-managed path has distinct Host and preset consumers and therefore forms the separate [dynamic MCP connector seam](../architecture/2026-08-25-dynamic-mcp-connectors.md).
 
 ### Auto-reconnect with exponential backoff
 

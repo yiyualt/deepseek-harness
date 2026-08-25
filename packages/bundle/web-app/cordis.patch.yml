@@ -100,6 +100,12 @@
       name: '@deepseek-ai/dsh-host-meeting-presence'
       config: {}
 
+    # Fixed Tencent Docs hosted-MCP connector. Credentials stay behind the
+    # Host credential-reference service; its Remote exposes only safe state.
+    - id: tencent-docs-connector
+      name: '@deepseek-ai/dsh-host-tencent-docs-connector'
+      config: {}
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway
@@ -206,6 +212,9 @@
 
     - id: ui-meeting
       name: '@deepseek-ai/dsh-client-ui-meeting'
+
+    - id: ui-connectors
+      name: '@deepseek-ai/dsh-client-ui-connectors'
 
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'

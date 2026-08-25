@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -14,6 +15,7 @@ import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { resolveSessionPreset, SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-agent-presets'
 import { applyChildComposition, childSessionMeta } from '@deepseek-ai/dsh-subagent'
 import { CallId } from '@deepseek-ai/dsh-llm'
+import { mcpServerName } from '@deepseek-ai/dsh-mcp'
 import type {} from '@deepseek-ai/dsh-compaction-basic'
 import type {} from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-tools'
@@ -127,6 +129,74 @@ async function bootWeb(
 
 const toolNames = (ctx: Context, agent?: Agent): string[] =>
   ctx.tools.schemas(agent).map(schema => schema.name).sort()
+
+interface McpCatalogFixture {
+  readonly url: string
+  close(): Promise<void>
+}
+
+async function readMcpMessage(request: IncomingMessage): Promise<{
+  id?: number | string
+  method: string
+}> {
+  let payload = ''
+  for await (const chunk of request) payload += String(chunk)
+  return JSON.parse(payload) as { id?: number | string; method: string }
+}
+
+function sendMcpResult(response: ServerResponse, id: number | string, result: unknown): void {
+  response.writeHead(200, { 'content-type': 'application/json' })
+  response.end(JSON.stringify({ jsonrpc: '2.0', id, result }))
+}
+
+async function launchMcpCatalogFixture(): Promise<McpCatalogFixture> {
+  const server = createServer((request, response) => {
+    void (async () => {
+      if (request.method === 'DELETE') {
+        response.writeHead(405).end()
+        return
+      }
+      const message = await readMcpMessage(request)
+      if (message.id === undefined) {
+        response.writeHead(202).end()
+        return
+      }
+      if (message.method === 'initialize') {
+        sendMcpResult(response, message.id, {
+          protocolVersion: '2025-06-18',
+          capabilities: { tools: {} },
+          serverInfo: { name: 'preset-catalog-fixture', version: '1.0.0' },
+        })
+        return
+      }
+      if (message.method === 'tools/list') {
+        sendMcpResult(response, message.id, {
+          tools: [{
+            name: 'catalog_probe',
+            description: 'Prove the connected MCP catalog reaches eligible presets.',
+            inputSchema: { type: 'object', properties: {} },
+          }],
+        })
+        return
+      }
+      response.writeHead(404).end()
+    })().catch(() => { response.writeHead(500).end() })
+  })
+  const listening: PromiseWithResolvers<void> = Promise.withResolvers()
+  server.listen(0, '127.0.0.1', listening.resolve)
+  await listening.promise
+  const address = server.address()
+  if (address === null || typeof address === 'string') throw new Error('MCP catalog fixture did not bind TCP')
+  return {
+    url: `http://127.0.0.1:${address.port}/mcp`,
+    close: async () => {
+      const closed: PromiseWithResolvers<void> = Promise.withResolvers()
+      server.close(() => { closed.resolve() })
+      server.closeAllConnections()
+      await closed.promise
+    },
+  }
+}
 
 function enablePresetTool(composition: string, id: string): string {
   const row = `    - id: ${id}\n`
@@ -326,6 +396,35 @@ describe('the shipped Web composition', () => {
       expect(toolNames(ctx, handle.agent)).not.toContain('cordis_define')
     } finally {
       await handle.dispose()
+    }
+  })
+
+  it('projects a connected MCP catalog into full presets while minimal stays isolated', async () => {
+    const fixture = await launchMcpCatalogFixture()
+    const serverName = mcpServerName('preset_fixture')
+    const handles: Array<Awaited<ReturnType<typeof ctx.agents.create>>> = []
+    try {
+      const connected = await ctx.mcp.connect({
+        serverName,
+        transport: { kind: 'streamable-http', url: fixture.url },
+      })
+      expect(connected.status).toBe('connected')
+
+      for (const preset of ['standard', 'code', 'cordis', 'minimal'] as const) {
+        handles.push(await ctx.agents.create({
+          sessionId: SessionId(`preset-mcp-${preset}`),
+          setup: agentCtx => ctx.agentPresets.mount(agentCtx, preset).then(() => undefined),
+        }))
+      }
+
+      for (const handle of handles.slice(0, 3)) {
+        expect(toolNames(ctx, handle.agent)).toContain('mcp__preset_fixture__catalog_probe')
+      }
+      expect(toolNames(ctx, handles[3]?.agent)).not.toContain('mcp__preset_fixture__catalog_probe')
+    } finally {
+      await Promise.all(handles.map(handle => handle.dispose()))
+      await ctx.mcp.disconnect(serverName)
+      await fixture.close()
     }
   })
 

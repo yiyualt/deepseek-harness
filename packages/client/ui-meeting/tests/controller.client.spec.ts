@@ -52,10 +52,13 @@ describe('MeetingPanelController', () => {
   it('publishes domain refusals and carrier failures as visible errors', async () => {
     const denied = remote({
       join: vi.fn(async () => ({
-        ok: true,
-        value: { ok: false, code: 'UNSUPPORTED_MEETING_URL', message: 'bad link', snapshot: IDLE },
+        ok: true as const,
+        value: { ok: false as const, code: 'UNSUPPORTED_MEETING_URL', message: 'bad link', snapshot: IDLE },
       })),
-      leave: vi.fn(async () => ({ ok: false, error: { code: 'offline', message: 'connection lost', details: {} } })),
+      leave: vi.fn(async () => ({
+        ok: false as const,
+        error: { code: 'offline', message: 'connection lost', details: {} },
+      })),
     })
     const controller = new MeetingPanelController(denied)
     controller.setDraft('bad')
@@ -68,7 +71,9 @@ describe('MeetingPanelController', () => {
   it('accepts pushed snapshots and ignores late work after disposal', async () => {
     let resolveGet: ((value: Awaited<ReturnType<ClientRemote['meetingPresence']['get']>>) => void) | undefined
     const api = remote({
-      get: vi.fn(() => new Promise((resolve) => { resolveGet = resolve })),
+      get: vi.fn(() => new Promise<Awaited<ReturnType<ClientRemote['meetingPresence']['get']>>>((resolve) => {
+        resolveGet = resolve
+      })),
     })
     const controller = new MeetingPanelController(api)
     controller.accept({ ...IDLE, status: 'joined' })

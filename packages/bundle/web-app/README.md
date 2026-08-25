@@ -6,6 +6,10 @@ The dsh browser-surface bundle. [`cordis.patch.yml`](cordis.patch.yml) rides ove
 
 The shipped browser roster includes a Meetings action backed by [`meeting-presence`](../../host/meeting-presence/README.md). It starts one anonymous Google Meet or Zoom participant in local Chrome, reports admission state and platform in the sidebar panel, and stops the complete browser process tree when the user leaves or the plugin unloads. The participant does not record, transcribe, or upload meeting content.
 
+The roster also includes a Connectors action with a Tencent Docs card backed by [`tencent-docs-connector`](../../host/tencent-docs-connector/README.md). On the Mac's loopback page, the user obtains a [space MCP Token from Tencent's official tutorial](https://docs.qq.com/open/document/mcp/get-token/), pastes it into the password field, and clicks Connect; Tencent binds the Token to the space selected during issuance. The browser writes the Token through the loopback-only credential API, then the Host connects Tencent's fixed MCP endpoint and reports the discovered tool count. Disconnect waits for the transport to stop and removes the Token only when its active credential source is writable. A page reached through a non-loopback address can inspect state but cannot submit, replace, or remove credentials.
+
+Connected Tencent Docs tools appear only in presets that mount [`dsh-tool-mcp`](../../mcp/tool-mcp/README.md). Every MCP tool requests user approval before the external call because remote annotations are untrusted and never grant a confirmation exemption.
+
 ## Model Experience
 
 ### Harness-source and Web-surface context

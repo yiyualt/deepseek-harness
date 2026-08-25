@@ -8,6 +8,8 @@ English | [中文](2026-08-06-mcp-client-auto-reconnect.zh.md)
 
 The [MCP client](2026-07-07-mcp-client-plugin.md) connected once at plugin load. When a stdio server crashed or was killed, its registered tools stayed visible but every call failed with `Not connected` until a human edited the config (HMR) or restarted the Host — v1 explicitly deferred reconnection. Long-running hosts (ACP automation, web) cannot be bounced because a child process died, and for stdio the harness composition is the only party that can respawn it. External feedback escalated this as a real operational gap (issue #1746).
 
+This note governs the package-root static bridge and its direct tool registrations. The [dynamic MCP connector seam](../architecture/2026-08-25-dynamic-mcp-connectors.md) gives the `./runtime` Host provider a separate recovery lifecycle and lets preset-scoped Consumers own tool visibility.
+
 ## Decision
 
 `packages/mcp/mcp-client/src/connection.ts` owns a per-instance connection supervisor; `apply()` shrinks to config resolution plus two effects (the `serverName` reservation and the supervisor's lifecycle). The supervisor owns the client/transport generations, the live tool registrations, and the reconnect loop.

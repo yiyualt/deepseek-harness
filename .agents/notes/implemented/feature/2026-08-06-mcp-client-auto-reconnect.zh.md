@@ -8,6 +8,8 @@ Status: implemented
 
 [MCP 客户端](2026-07-07-mcp-client-plugin.md)在插件加载时仅连接一次。stdio 服务器崩溃或被终止后，其已注册的工具仍然可见，但每次调用均以 `Not connected` 失败，直到人工编辑配置触发 HMR（热模块替换）重载，或重启 Host——v1 明确推迟了重连机制。长时间运行的 Host（ACP 自动化、Web）不能因为子进程死亡就被重启；而对于 stdio 传输，harness 组合层是唯一能重新拉起子进程的一方。外部反馈将此升级为真实的运维缺口（issue #1746）。
 
+本 Note 约束包根静态桥接插件及其直接工具注册。[动态 MCP 连接器 seam](../architecture/2026-08-25-dynamic-mcp-connectors.md)为 `./runtime` Host 提供方提供独立的恢复生命周期，并让限定在 preset 内的 Consumer 持有工具可见性。
+
 ## 决策
 
 `packages/mcp/mcp-client/src/connection.ts` 拥有一个逐实例的连接监督器；`apply()` 收缩为配置解析加两个副作用（`serverName` 预留和监督器的生命周期）。监督器负责管理 client/transport 代、活跃的工具注册以及重连循环。

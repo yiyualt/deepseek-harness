@@ -23,8 +23,11 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { CallId } from '@deepseek-ai/dsh-llm'
 import { apply } from '@deepseek-ai/dsh-mcp-client/src/index.ts'
+import McpClientRuntime from '@deepseek-ai/dsh-mcp-client/src/runtime.ts'
 import { publicToolName } from '@deepseek-ai/dsh-mcp-client/src/tools.ts'
 import type { Config } from '@deepseek-ai/dsh-mcp-client'
+import { CredentialProvider, credentialRef, type CredentialInfo, type CredentialRef } from '@deepseek-ai/dsh-credentials'
+import { mcpServerName } from '@deepseek-ai/dsh-mcp'
 
 const testToolSignal = new AbortController().signal
 
@@ -519,5 +522,155 @@ describe('streamable-http — in-process MCP server', () => {
   it('sends configured headers on every HTTP request', () => {
     expect(seenAuth.length).toBeGreaterThan(0)
     for (const auth of seenAuth) expect(auth).toBe('Bearer e2e-test-token')
+  })
+})
+
+describe('dynamic runtime — credential-backed Streamable HTTP', () => {
+  const ref = credentialRef('MCP_RUNTIME_TEST_TOKEN')
+  const serverName = mcpServerName('runtime')
+  let credentialValue: string | undefined = 'runtime-token-one'
+  let ctx: Context
+  let httpServer: Server
+  let baseUrl: string
+  const seenAuth: Array<string | undefined> = []
+  const acceptedTokens = new Set(['runtime-token-one', 'runtime-token-two'])
+
+  class TestCredentials extends CredentialProvider {
+    async resolve(requested: CredentialRef) {
+      return requested === ref && credentialValue !== undefined
+        ? { value: credentialValue, source: 'test' }
+        : undefined
+    }
+
+    async describe(requested: CredentialRef): Promise<CredentialInfo> {
+      return { configured: requested === ref && credentialValue !== undefined, source: 'test', writable: true }
+    }
+
+    async set(_requested: CredentialRef, value: string): Promise<void> {
+      credentialValue = value
+    }
+
+    async unset(): Promise<void> {
+      credentialValue = undefined
+    }
+  }
+
+  async function handleMcpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const authorization = req.headers.authorization
+    seenAuth.push(authorization)
+    if (authorization === undefined || !acceptedTokens.has(authorization)) {
+      res.writeHead(401, {
+        'content-type': 'application/json',
+        'www-authenticate': 'Bearer',
+      }).end(JSON.stringify({ error: 'invalid_token' }))
+      return
+    }
+    const server = new McpServer(
+      { name: 'runtime-fixture', version: '1.0.0' },
+      { capabilities: { tools: {} } },
+    )
+    server.registerTool('read_status', {
+      description: 'Returns a harmless status.',
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    }, async () => ({ content: [{ type: 'text', text: 'ready' }] }))
+    server.registerTool('echo_secret', {
+      description: 'Fixture that incorrectly echoes its authorization value.',
+      inputSchema: {},
+    }, async () => ({ content: [{ type: 'text', text: `header=${authorization}` }] }))
+    const transport = new StreamableHTTPServerTransport({})
+    res.on('close', () => { void transport.close(); void server.close() })
+    await server.connect(transport as Transport)
+    await transport.handleRequest(req, res)
+  }
+
+  beforeAll(async () => {
+    httpServer = createServer((req, res) => {
+      handleMcpRequest(req, res).catch(() => { res.writeHead(500).end('fixture failure') })
+    })
+    const listening: PromiseWithResolvers<void> = Promise.withResolvers()
+    httpServer.listen(0, '127.0.0.1', listening.resolve)
+    await listening.promise
+    const address = httpServer.address()
+    if (address === null || typeof address === 'string') throw new Error('expected TCP address')
+    baseUrl = `http://127.0.0.1:${address.port}/mcp`
+
+    ctx = new Context()
+    await ctx.plugin(TestCredentials)
+    await ctx.plugin(McpClientRuntime, {
+      connectTimeoutMs: 15_000,
+      reconnectInitialDelayMs: 50,
+      reconnectMaxDelayMs: 500,
+      reconnectMaxAttempts: 2,
+    })
+  })
+
+  afterAll(async () => {
+    await ctx.fiber.dispose()
+    const closed: PromiseWithResolvers<void> = Promise.withResolvers()
+    httpServer.close(() => { closed.resolve() })
+    await closed.promise
+  })
+
+  it('discovers annotated tools and sends the resolved credential verbatim', async () => {
+    const server = await ctx.mcp.connect({
+      serverName,
+      transport: {
+        kind: 'streamable-http',
+        url: baseUrl,
+        authorization: { kind: 'credential', ref, scheme: 'raw' },
+      },
+    })
+    expect(server.status).toBe('connected')
+    expect(server.tools.map(tool => tool.name)).toEqual(['read_status', 'echo_secret'])
+    expect(server.tools[0]?.annotations?.readOnlyHint).toBe(true)
+    expect(seenAuth.every(value => value === 'runtime-token-one')).toBe(true)
+  })
+
+  it('calls through the current generation, redacts echoed secrets, and resolves a rotated credential per request', async () => {
+    const signal = new AbortController().signal
+    await expect(ctx.mcp.callTool({
+      serverName, name: 'read_status', args: {}, signal, timeoutMs: 15_000,
+    })).resolves.toMatchObject({ content: [{ type: 'text', text: 'ready' }] })
+    await expect(ctx.mcp.callTool({
+      serverName, name: 'echo_secret', args: {}, signal, timeoutMs: 15_000,
+    })).resolves.toMatchObject({ content: [{ type: 'text', text: 'header=[REDACTED]' }] })
+
+    credentialValue = 'runtime-token-two'
+    await expect(ctx.mcp.callTool({
+      serverName, name: 'read_status', args: {}, signal, timeoutMs: 15_000,
+    })).resolves.toMatchObject({ content: [{ type: 'text', text: 'ready' }] })
+    expect(seenAuth.at(-1)).toBe('runtime-token-two')
+  })
+
+  it('disconnects quiescently, and reports missing or rejected credentials without exposing them', async () => {
+    await ctx.mcp.disconnect(serverName)
+    expect(ctx.mcp.snapshot().servers).toEqual([])
+
+    credentialValue = undefined
+    const missing = await ctx.mcp.connect({
+      serverName,
+      transport: {
+        kind: 'streamable-http',
+        url: baseUrl,
+        authorization: { kind: 'credential', ref, scheme: 'raw' },
+      },
+    })
+    expect(missing).toMatchObject({ status: 'failed', errorCode: 'CREDENTIAL_MISSING', tools: [] })
+    expect(JSON.stringify(missing)).not.toContain('runtime-token')
+    await ctx.mcp.disconnect(serverName)
+
+    credentialValue = 'invalid-runtime-token'
+    const rejected = await ctx.mcp.connect({
+      serverName,
+      transport: {
+        kind: 'streamable-http',
+        url: baseUrl,
+        authorization: { kind: 'credential', ref, scheme: 'raw' },
+      },
+    })
+    expect(rejected).toMatchObject({ status: 'failed', errorCode: 'AUTH_REJECTED', tools: [] })
+    expect(JSON.stringify(ctx.mcp.snapshot())).not.toContain('invalid-runtime-token')
+    await ctx.mcp.disconnect(serverName)
   })
 })

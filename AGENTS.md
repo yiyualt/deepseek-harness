@@ -14,18 +14,19 @@ packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
   core/        product API spine: session, system-prompt, tools, agent, agent-loop
   api/         Remote BFF assembly and Typert RPC gateway
   typert/      type graph generator, loader, and runtime registry
-  llm/         LLM capability: Service Definition/Consumer + DeepSeek providers
+  llm/         LLM seam + DeepSeek providers
   e2b/         E2B POC: sandbox + FS/subprocess adapters
-  shell/        bash capability: Service Definition + local/pwsh providers + shell Consumers
+  shell/        bash seam + local/pwsh providers + Consumers
   subprocess/  subprocess capability + local process-tree provider
   terminal/         persistent sessions
   fs/          filesystem capability + policy
   lsp/         language-server capability
   skill/       skill provider registry + local impl + catalog/loader tool
-  web/         web capability: Service Definition + search/fetch providers + tool Consumer
+  web/         web seam + search/fetch providers + tool Consumer
+  mcp/         MCP seam + runtime provider + tool Consumer
   compaction/     compaction capability + basic provider
   context/     request-context plugins
-  subagent/    subagent capability: Service Definition + providers + delegation Consumers
+  subagent/    seam + providers + delegation Consumers
   bundle/      installable dsh --profile patch-layer bundles
   workflow/    workflow capability + worker-thread provider + tool Consumer
   todo/        todo_write tool

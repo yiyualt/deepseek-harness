@@ -99,6 +99,9 @@
       "path": "../meeting-presence"
     },
     {
+      "path": "../tencent-docs-connector"
+    },
+    {
       "path": "../../runtime-diagnostics/invariants"
     },
     {

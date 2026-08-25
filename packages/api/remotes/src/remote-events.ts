@@ -26,5 +26,6 @@ export const API_REMOTE_FORWARDED_EVENTS = [
   'cordis/inspect-query-resolved',
   'llm/adapters-updated',
   'meeting-presence/change',
+  'tencent-docs-connector/change',
   'settings/document-updated',
 ] as const

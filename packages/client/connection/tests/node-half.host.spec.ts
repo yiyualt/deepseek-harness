@@ -173,6 +173,7 @@ describe('connection node half', () => {
       'settings.describe', 'settings.openDocument', 'settings.update', 'settings.replace', 'settings.mutate',
       'credentials.describe', 'credentials.set', 'credentials.unset',
       'llm.discoverModels',
+      'tencentDocsConnector.get', 'tencentDocsConnector.connect', 'tencentDocsConnector.disconnect',
       // A composition names the plugins a session runs: reading one is
       // reconnaissance, and copy/remove/openDocument manage the roster and
       // drive the host desktop.
@@ -187,8 +188,11 @@ describe('connection node half', () => {
       expect(denied.state.body).toBe('forbidden')
     }
     const read = fakeResponse()
-    await routes[0]!.handler(fakeRequest({ host: 'harness.example' }), read.response)
-    expect(read.state.status).not.toBe(403)
+    await routes[0]!.handler(
+      fakeRequest({ host: 'harness.example' }, `${API_PATH}/tencentDocsConnector.publicGet`),
+      read.response,
+    )
+    expect(read.state.status).toBe(404)
     await dispose()
   })
 
@@ -470,6 +474,7 @@ describe('connection node half over a real HTTP server', () => {
         // Carries a draft credential and turns the host into a fetcher for a
         // URL the caller picked: an anonymous LAN caller must not reach it.
         'llm.discoverModels',
+        'tencentDocsConnector.get', 'tencentDocsConnector.connect', 'tencentDocsConnector.disconnect',
         'agentPreset.read', 'agentPreset.copy', 'agentPreset.openDocument', 'agentPreset.remove',
       ]) {
         expect([method, await call(port, method, 'harness.example')]).toEqual([method, 403])
@@ -482,7 +487,10 @@ describe('connection node half over a real HTTP server', () => {
       // reachable too: `session.create` already takes an `agentPreset`, and the
       // deployment's own default already carries bash, so pinning the switch
       // would be a fence beside an open gate.
-      for (const method of ['llm.providers', 'llm.models', 'agentPreset.list', 'agentPreset.select']) {
+      for (const method of [
+        'llm.providers', 'llm.models', 'agentPreset.list', 'agentPreset.select',
+        'tencentDocsConnector.publicGet',
+      ]) {
         expect([method, await call(port, method, 'harness.example')]).toEqual([method, 404])
       }
       // Loopback reaches everything, configuration included.

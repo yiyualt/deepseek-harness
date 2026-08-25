@@ -115,4 +115,27 @@ onGraphChanged(listener: () => void): () => void
 ```
 
 Source: [`packages/client/modules/src/index.ts:184`](../../packages/client/modules/src/index.ts)
+
+<a id="meeting-presence-events"></a>
+
+### `meeting-presence/*` events
+
+<a id="meeting-presencechange--parallel"></a>
+
+#### `meeting-presence/change` — parallel
+
+A process-wide meeting participant changed state.
+
+```ts cordis-catalog
+/**
+ * A process-wide meeting participant changed state.
+ * @mode parallel
+ * @param snapshot Current complete state after the transition.
+ */
+'meeting-presence/change'(snapshot: MeetingPresenceSnapshot): void
+```
+
+Types: [MeetingPresenceSnapshot](../../packages/host/meeting-presence/README.md)
+
+Source: [`packages/host/meeting-presence/src/types.ts:46`](../../packages/host/meeting-presence/src/types.ts)
 <!-- END GENERATED cordis-surface -->

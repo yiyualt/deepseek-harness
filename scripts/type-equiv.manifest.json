@@ -1924,6 +1924,81 @@
       "doc": "docs/subsystems/feedback.md",
       "symbol": "MessageFeedbackDeleteResult",
       "source": "packages/feedback/message-feedback/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpServerName",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpServerStatus",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpCredentialAuthorizationConfig",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpAuthorizationConfig",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpStdioTransportConfig",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpStreamableHttpTransportConfig",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpTransportConfig",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpConnectRequest",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpTaskSupport",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpToolAnnotations",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpToolDescriptor",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpServerSnapshot",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpRuntimeSnapshot",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpCallToolRequest",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpResult",
+      "source": "packages/mcp/mcp/src/types.ts"
     }
   ]
 }

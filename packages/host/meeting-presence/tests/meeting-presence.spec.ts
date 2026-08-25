@@ -224,7 +224,7 @@ describe('MeetingPresenceGateway', () => {
     const ctx = new Context()
     contexts.push(ctx)
     await ctx.plugin(FakeSubprocess)
-    await ctx.plugin(MeetingPresenceGateway, {})
+    await ctx.plugin(MeetingPresenceGateway, CONFIG)
     const gateway = ctx.get('meetingPresence') as MeetingPresenceGateway
 
     expect(gateway.get()).toMatchObject({

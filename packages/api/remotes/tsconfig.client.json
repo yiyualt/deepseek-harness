@@ -40,6 +40,9 @@
       "path": "../../host/meeting-presence"
     },
     {
+      "path": "../../host/tencent-docs-connector"
+    },
+    {
       "path": "../../interaction/commands"
     },
     {

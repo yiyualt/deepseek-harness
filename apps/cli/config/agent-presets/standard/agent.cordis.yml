@@ -249,3 +249,9 @@
   config:
     fetch: false
     searchTimeoutMs: 60000
+
+# MCP connections are owned once by the host. This consumer projects their
+# discovered tools only into agents using this preset; disconnected servers
+# contribute nothing.
+- id: tool-mcp
+  name: '@deepseek-ai/dsh-tool-mcp'

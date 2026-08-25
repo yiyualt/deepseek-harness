@@ -79,6 +79,7 @@ const GROUP_ORDER = [
   'tasks',
   'workflow',
   'web',
+  'mcp',
   'spill',
   'todo',
   'plan',
@@ -486,6 +487,15 @@ const SERVICE_ROLES: ServiceRole[] = [
     implementations: ['web-search-exa', 'web-search-perplexity', 'web-search-deepseek', 'web-fetch-http'],
     consumers: ['tool-web'],
     note: 'Search and fetch providers register into one ctx.web seam; tool-web owns the stable model-facing names.',
+  },
+  {
+    key: 'mcp',
+    pkg: 'mcp',
+    title: 'Dynamic MCP connection registry',
+    mode: 'seam',
+    implementations: ['mcp-client'],
+    consumers: ['tool-mcp', 'host-tencent-docs-connector'],
+    note: 'The Host provider owns process-wide transports and safe catalogs; connector packages request lifecycle changes, while preset-scoped Consumers project tools and own last-mile approval.',
   },
   {
     key: 'spillStore',

@@ -882,6 +882,37 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'mcp',
+    summary: 'Abstract runtime for a dynamic registry of MCP server connections.',
+    description: 'Abstract runtime for a dynamic registry of MCP server connections. Providers mutate their state before calling notifyChange; snapshots and diagnostics must never contain resolved credential values.',
+    methods: [
+      {
+        signature: 'abstract connect(request: McpConnectRequest): Promise<McpServerSnapshot>',
+        description: 'Start one connection and resolve after its initial attempt commits a snapshot. A name still present in snapshot, including a failed or disconnecting connection, is a duplicate and must be rejected. Retrying or replacing a connection is therefore an explicit `disconnect` then `connect` sequence.',
+        parameters: [{ name: 'request', description: 'stable name and transport configuration.' }],
+        returns: 'the committed initial server state.',
+      },
+      {
+        signature: 'abstract disconnect(serverName: McpServerName): Promise<void>',
+        description: 'Remove one connection. Providers first publish `disconnecting` with an empty tool catalog, close listeners, abort owned work, await transport quiescence, then remove the server from the next snapshot. An unknown name is a no-op.',
+        parameters: [{ name: 'serverName', description: 'connection to remove.' }],
+        returns: 'completion after the connection is absent and owned work is quiescent.',
+      },
+      {
+        signature: 'abstract snapshot(): McpRuntimeSnapshot',
+        description: 'Read the complete safe registry state synchronously.',
+        parameters: [],
+        returns: 'the current immutable snapshot.',
+      },
+      {
+        signature: 'abstract callTool(request: McpCallToolRequest): Promise<McpResult>',
+        description: 'Invoke a raw MCP tool on the named connection\'s current generation. The implementation propagates cancellation, enforces the per-call timeout, and rejects when no connected generation currently advertises the name.',
+        parameters: [{ name: 'request', description: 'connection, raw name, JSON arguments, signal, and timeout.' }],
+        returns: 'the canonical MCP tool result.',
+      },
+    ],
+  },
+  {
     key: 'messageFeedback',
     summary: 'Storage-domain sidecar service.',
     description: 'Storage-domain sidecar service. It inspects persisted Session history and never creates or resumes an Agent or Session.',
@@ -2398,6 +2429,22 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'options', description: 'the full request. A LOOP-built request carries the process-local {@link markAgentLoopRequest} identity and arrives deep-frozen (mutation throws): its content is a pure function of the session log (the reconstructability Agent Note), so listeners read it, never rewrite it. Hand-built calls do not carry that marker; their messages already obey the immutable creation contract.' }],
   },
   {
+    name: 'mcp/change',
+    mode: 'emit',
+    signature: '\'mcp/change\'(snapshot: McpRuntimeSnapshot): void',
+    summary: 'Complete safe MCP registry snapshot after a connection status or catalog commit.',
+    description: 'Complete safe MCP registry snapshot after a connection status or catalog commit. Listener failures are contained by the emitting runtime, except synchronous `INVARIANT` failures, which rethrow after every listener ran. This is an unfiltered registry notification rather than an agent event.',
+    parameters: [{ name: 'snapshot', description: 'complete state at the committed revision.' }],
+  },
+  {
+    name: 'meeting-presence/change',
+    mode: 'parallel',
+    signature: '\'meeting-presence/change\'(snapshot: MeetingPresenceSnapshot): void',
+    summary: 'A process-wide meeting participant changed state.',
+    description: 'A process-wide meeting participant changed state.',
+    parameters: [{ name: 'snapshot', description: 'Current complete state after the transition.' }],
+  },
+  {
     name: 'session-telemetry/record',
     mode: 'waterfall',
     signature: '\'session-telemetry/record\'(record: SessionTelemetryRecord, next: () => SessionTelemetryRecord): SessionTelemetryRecord',
@@ -2508,6 +2555,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Emitted when any prompt provider changes.',
     description: 'Emitted when any prompt provider changes. This registry notification is unfiltered because a global change affects every scope.',
     parameters: [],
+  },
+  {
+    name: 'tencent-docs-connector/change',
+    mode: 'emit',
+    signature: '\'tencent-docs-connector/change\'(snapshot: TencentDocsConnectorEventSnapshot): void',
+    summary: 'The process-wide Tencent Docs connector changed public state.',
+    description: 'The process-wide Tencent Docs connector changed public state.',
+    parameters: [{ name: 'snapshot', description: 'Current value-free state after the transition.' }],
   },
   {
     name: 'tools/change',
@@ -3360,6 +3415,74 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ManualCompactAgentContext',
     declaration: 'export interface ManualCompactAgentContext extends CompactionAgentContext {\n    runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>;\n}',
+  },
+  {
+    name: 'McpAuthorizationConfig',
+    declaration: 'export type McpAuthorizationConfig = McpCredentialAuthorizationConfig;',
+  },
+  {
+    name: 'McpCallToolRequest',
+    declaration: 'export interface McpCallToolRequest {\n    readonly serverName: McpServerName;\n    readonly name: string;\n    readonly args: Readonly<Record<string, JsonValue>>;\n    readonly signal: AbortSignal;\n    readonly timeoutMs: number;\n}',
+  },
+  {
+    name: 'McpConnectRequest',
+    declaration: 'export interface McpConnectRequest {\n    readonly serverName: McpServerName;\n    readonly transport: McpTransportConfig;\n}',
+  },
+  {
+    name: 'McpCredentialAuthorizationConfig',
+    declaration: 'export interface McpCredentialAuthorizationConfig {\n    readonly kind: \'credential\';\n    readonly ref: CredentialRef;\n    readonly scheme: \'raw\';\n}',
+  },
+  {
+    name: 'McpRuntimeSnapshot',
+    declaration: 'export interface McpRuntimeSnapshot {\n    readonly revision: number;\n    readonly servers: readonly McpServerSnapshot[];\n}',
+  },
+  {
+    name: 'McpServerName',
+    declaration: 'export type McpServerName = Branded<\'McpServerName\'>;',
+  },
+  {
+    name: 'McpServerSnapshot',
+    declaration: 'export interface McpServerSnapshot {\n    readonly serverName: McpServerName;\n    readonly status: McpServerStatus;\n    readonly generation: number;\n    readonly tools: readonly McpToolDescriptor[];\n    readonly errorCode?: string;\n    readonly errorMessage?: string;\n}',
+  },
+  {
+    name: 'McpServerStatus',
+    declaration: 'export type McpServerStatus = \'connecting\' | \'connected\' | \'reconnecting\' | \'failed\' | \'disconnecting\';',
+  },
+  {
+    name: 'McpStdioTransportConfig',
+    declaration: 'export interface McpStdioTransportConfig {\n    readonly kind: \'stdio\';\n    readonly command: string;\n    readonly args?: readonly string[];\n    readonly env?: Readonly<Record<string, string>>;\n    readonly cwd?: string;\n}',
+  },
+  {
+    name: 'McpStreamableHttpTransportConfig',
+    declaration: 'export interface McpStreamableHttpTransportConfig {\n    readonly kind: \'streamable-http\';\n    readonly url: string;\n    readonly headers?: Readonly<Record<string, string>>;\n    readonly authorization?: McpAuthorizationConfig;\n}',
+  },
+  {
+    name: 'McpTaskSupport',
+    declaration: 'export type McpTaskSupport = \'forbidden\' | \'optional\' | \'required\';',
+  },
+  {
+    name: 'McpToolAnnotations',
+    declaration: 'export interface McpToolAnnotations {\n    readonly readOnlyHint?: boolean;\n    readonly destructiveHint?: boolean;\n    readonly idempotentHint?: boolean;\n    readonly openWorldHint?: boolean;\n}',
+  },
+  {
+    name: 'McpToolDescriptor',
+    declaration: 'export interface McpToolDescriptor {\n    readonly name: string;\n    readonly description: string;\n    readonly inputSchema: Readonly<Record<string, unknown>>;\n    readonly outputSchema?: Readonly<Record<string, unknown>>;\n    readonly taskSupport?: McpTaskSupport;\n    readonly annotations?: McpToolAnnotations;\n}',
+  },
+  {
+    name: 'McpTransportConfig',
+    declaration: 'export type McpTransportConfig = McpStdioTransportConfig | McpStreamableHttpTransportConfig;',
+  },
+  {
+    name: 'MeetingPresenceSnapshot',
+    declaration: 'export interface MeetingPresenceSnapshot {\n    status: MeetingPresenceStatus;\n    meetingUrl: string | null;\n    provider: MeetingProvider | null;\n    botName: string;\n    errorCode: string | null;\n    errorMessage: string | null;\n    updatedAt: string;\n}',
+  },
+  {
+    name: 'MeetingPresenceStatus',
+    declaration: 'export type MeetingPresenceStatus = \'idle\' | \'starting\' | \'waiting-admission\' | \'joined\' | \'leaving\' | \'left\' | \'failed\';',
+  },
+  {
+    name: 'MeetingProvider',
+    declaration: 'export type MeetingProvider = \'google-meet\' | \'zoom\';',
   },
   {
     name: 'Message',
@@ -4240,6 +4363,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TableValueOf',
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
+  },
+  {
+    name: 'TencentDocsConnectorEventSnapshot',
+    declaration: 'export type TencentDocsConnectorEventSnapshot = Omit<TencentDocsConnectorSnapshot, \'credentialConfigured\' | \'credentialSource\' | \'credentialWritable\'>;',
+  },
+  {
+    name: 'TencentDocsConnectorSnapshot',
+    declaration: 'export interface TencentDocsConnectorSnapshot {\n    readonly status: TencentDocsConnectorStatus;\n    readonly credentialConfigured: boolean;\n    readonly credentialSource: string | null;\n    readonly credentialWritable: boolean;\n    readonly toolCount: number;\n    readonly errorCode: string | null;\n    readonly errorMessage: string | null;\n    readonly updatedAt: string;\n}',
+  },
+  {
+    name: 'TencentDocsConnectorStatus',
+    declaration: 'export type TencentDocsConnectorStatus = \'disconnected\' | \'connecting\' | \'connected\' | \'reconnecting\' | \'disconnecting\' | \'failed\';',
   },
   {
     name: 'TerminalBackend',

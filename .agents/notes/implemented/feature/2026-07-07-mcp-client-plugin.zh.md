@@ -14,7 +14,7 @@ harness 此前无法消费 MCP（Model Context Protocol）生态中的工具。M
 
 ### 包
 
-单个包 `@deepseek-ai/dsh-mcp-client`，位于 `packages/mcp/mcp-client/`。不做能力 seam 的三包拆分——可预见范围内不会有第二种 MCP 客户端实现，且约定是「不要预防性拆分」（[能力 seam Agent Note](../architecture/2026-06-13-capability-seams.md)）。
+位于 `packages/mcp/mcp-client/` 的包根入口 `@deepseek-ai/dsh-mcp-client` 仍是静态桥接插件，不把已配置传输与直接工具注册拆成三个包。产品管理的连接具有独立的 Host 与 preset 消费方，因此[动态 MCP 连接器 seam](../architecture/2026-08-25-dynamic-mcp-connectors.md)使用该包独立的 `./runtime` 提供方，并配合 `dsh-mcp` 与 `dsh-tool-mcp`。
 
 ### SDK
 
@@ -26,7 +26,7 @@ harness 此前无法消费 MCP（Model Context Protocol）生态中的工具。M
 
 ### 插件形态
 
-命名空间插件（具名导出 `name`/`inject`/`Config`/`apply`，无 `export default`）。`inject: ['tools']`。每个 MCP 服务器对应 `cordis.yml` 中的一个插件实例——同一个包以不同配置加载 N 次，与 `dsh-tool-subagent` 相同。
+包根入口是命名空间插件（具名导出 `name`/`inject`/`Config`/`apply`，无 `export default`）。`inject: ['tools']`。每个 MCP 服务器对应 `cordis.yml` 中的一个插件实例——同一个包以不同配置加载 N 次，与 `dsh-tool-subagent` 相同。
 
 ### 配置
 
@@ -83,7 +83,7 @@ type Config = StdioConfig | StreamableHttpConfig
 
 ### 生命周期
 
-启动时从 `cordis.yml` 加载。HMR（热模块替换）（`@cordisjs/plugin-hmr`）提供热替换：编辑 yml 条目触发旧实例的 dispose（资源释放）（断开连接、注销工具），并创建新实例（连接、发现、注册）。目前不提供运行时动态 API。公开名称是 `(serverName, rawName)` 的纯函数，因此保持 `serverName` 不变的 HMR 替换会重建完全相同的模型可见名称——会话历史和权限规则保持有效——而添加或移除不相关的服务器永远不会重命名已有工具。
+包根入口在启动时从 `cordis.yml` 连接。HMR（热模块替换）（`@cordisjs/plugin-hmr`）提供热替换：编辑 yml 条目触发旧实例的 dispose（资源释放）（断开连接、注销工具），并创建新实例（连接、发现、注册）。运行时动态连接使用独立组合的[动态 MCP 连接器 seam](../architecture/2026-08-25-dynamic-mcp-connectors.md)。公开名称是 `(serverName, rawName)` 的纯函数，因此保持 `serverName` 不变的 HMR 替换会重建完全相同的模型可见名称——会话历史和权限规则保持有效——而添加或移除不相关的服务器永远不会重命名已有工具。
 
 ### 工具发现与注册
 
@@ -94,7 +94,7 @@ type Config = StdioConfig | StreamableHttpConfig
 
       mcp__<serverName>__<rawName>
 
-这种按服务器限定的形式是多服务器 agent 客户端事实上的标准——所有被调研的终端用户产品都按服务器限定 MCP 工具名（[Claude Code](https://code.claude.com/docs/en/agent-sdk/mcp#tool-naming-convention) `mcp__github__list_issues`、[Codex](https://openai.com/index/unrolling-the-codex-agent-loop/) `mcp__weather__get-forecast`、[Gemini CLI](https://geminicli.com/docs/tools/mcp-server/#3-tool-naming-and-namespaces)、[VS Code](https://github.com/microsoft/vscode/blob/ab9ec62c6a61e429a9abd612ff220c3f4834c9ea/src/vs/workbench/contrib/mcp/common/mcpServer.ts#L217-L260)、[Cline](https://github.com/cline/cline/blob/52fdbb1d72f7324a28142a7ba7678d4b53c902f4/sdk/packages/core/src/extensions/mcp/name-transform.ts#L20-L35)、[Roo Code](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/utils/mcp-name.ts#L117-L140)、[Goose](https://github.com/block/goose/blob/b3a012cbdde854b0fe14f95b1c48543bf6517c0a/crates/goose/src/agents/extension_manager.rs#L1391-L1441)、[OpenCode](https://github.com/anomalyco/opencode/blob/d199b1bff90282a4f9cd6251b5fc7b16875a52f6/packages/opencode/src/mcp/catalog.ts#L117-L120)）；`mcp__<server>__<tool>` 的拼写方式与 Claude Code 和 Codex 一致。`mcp__` 前缀将 MCP 注册与原生工具的命名空间隔离，并为权限/遥测规则提供稳定的匹配模式（`mcp__*`、`mcp__github__*`）。
+这种按服务器限定的形式是多服务器 agent 客户端事实上的标准——所有被调研的终端用户产品都按服务器限定 MCP 工具名（[Claude Code](https://code.claude.com/docs/en/agent-sdk/mcp#tool-naming-convention) `mcp__github__list_issues`、[Codex](https://openai.com/index/unrolling-the-codex-agent-loop/) `mcp__weather__get-forecast`、[Gemini CLI](https://geminicli.com/docs/tools/mcp-server/#3-tool-naming-and-namespaces)、[VS Code](https://github.com/microsoft/vscode/blob/ab9ec62c6a61e429a9abd612ff220c3f4834c9ea/src/vs/workbench/contrib/mcp/common/mcpServer.ts#L217-L260)、[Roo Code](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/utils/mcp-name.ts#L117-L140)、[Goose](https://github.com/block/goose/blob/b3a012cbdde854b0fe14f95b1c48543bf6517c0a/crates/goose/src/agents/extension_manager.rs#L1391-L1441)）；`mcp__<server>__<tool>` 的拼写方式与 Claude Code 和 Codex 一致。`mcp__` 前缀将 MCP 注册与原生工具的命名空间隔离，并为权限/遥测规则提供稳定的匹配模式（`mcp__*`、`mcp__github__*`）。
 
 1. 连接时：遍历 `client.listTools()` 的分页结果，推导每个工具的 `publicName`，然后通过 `ctx.tools.register()` 将其注册为原始 `ToolDefinition`。MCP 的 JSON Schema 和描述原样透传（不做 `defineTool` DSL 转换）；仅替换模型可见的 `name`。
 2. 监听 `notifications/tools/list_changed` → 重新执行同步（dispose 上一代、注册新一代）。确定性命名意味着未变化的工具在重新同步后保持原名。
@@ -161,9 +161,9 @@ MCP 仅保证工具名在[单个服务器内](https://modelcontextprotocol.io/sp
 
 延后。ACP 桥接已将 harness 暴露为 agent 服务器。再加一层 MCP server 会以不同协议重复这一功能，而用户的首要需求是消费外部工具，而非暴露自身工具。
 
-### 能力 seam 三包拆分（接口 / 实现 / 消费方）
+### 对静态桥接插件做能力 seam 三包拆分（接口 / 实现 / 消费方）
 
-否决。可预见范围内不会有替代的 MCP 客户端实现——MCP 只有一个协议、一个 SDK。约定是「不要预防性拆分」，直到出现第二种实现。
+对包根桥接插件予以否决：其已配置传输与直接工具注册仍只有一个消费方和一种生命周期。产品管理的路径具有独立的 Host 与 preset 消费方，因此形成单独的[动态 MCP 连接器 seam](../architecture/2026-08-25-dynamic-mcp-connectors.md)。
 
 ### 指数退避自动重连
 

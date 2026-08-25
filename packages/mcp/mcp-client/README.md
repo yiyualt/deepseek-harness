@@ -2,7 +2,14 @@
 
 English | [中文](README.zh.md)
 
-MCP client bridge plugin: connects to external [Model Context Protocol](https://modelcontextprotocol.io/) servers and registers their tools on `ctx.tools`, making them available to the model as native tools under server-qualified names (`mcp__<serverName>__<rawName>`).
+MCP client transports for external [Model Context Protocol](https://modelcontextprotocol.io/) servers. The package root is a static, one-server bridge that registers directly on `ctx.tools`; `@deepseek-ai/dsh-mcp-client/runtime` is the Host-owned provider for dynamic `ctx.mcp` connections and publishes only safe catalogs for preset-scoped consumers.
+
+## Entry points
+
+| Entry point | Ownership | Tool visibility |
+|---|---|---|
+| Package root | One Cordis plugin instance owns one configured server and its `ctx.tools` registrations. | Global to that plugin's scope. |
+| `./runtime` | One Host service owns every dynamic transport generation and implements [`ctx.mcp`](../mcp/README.md). | None directly; [`dsh-tool-mcp`](../tool-mcp/README.md) projects catalogs inside selected agent presets. |
 
 ## Usage
 
@@ -33,6 +40,8 @@ The model sees `mcp__github__create_issue`, `mcp__web__search`, … — the same
 
 ## Config
 
+The following fields configure the static package-root bridge:
+
 | Field | Transport | Required | Description |
 |---|---|---|---|
 | `transport` | both | yes | `"stdio"` or `"streamable-http"` |
@@ -49,6 +58,16 @@ The model sees `mcp__github__create_issue`, `mcp__web__search`, … — the same
 | `reconnect.initialDelayMs` | both | no | First reconnect delay in ms; doubles per consecutive failed attempt (default 500) |
 | `reconnect.maxDelayMs` | both | no | Backoff ceiling in ms; also the uptime after which the attempt budget resets (default 30000) |
 | `reconnect.maxAttempts` | both | no | Consecutive failed attempts per outage before giving up for good (default 10) |
+
+The dynamic `./runtime` entry accepts only lifecycle budgets: `connectTimeoutMs` (default 30000), `reconnectInitialDelayMs` (500), `reconnectMaxDelayMs` (30000), and `reconnectMaxAttempts` (10). `connectTimeoutMs` bounds each initialize attempt, each complete paginated `tools/list` discovery, and best-effort HTTP session termination. Individual connections arrive through `ctx.mcp.connect(...)`; they are not Cordis config rows.
+
+## Dynamic runtime credentials and lifecycle
+
+Streamable HTTP authorization uses a credential reference, never a literal `Authorization` header. For `scheme: 'raw'`, the runtime resolves the reference for every HTTP request and sends the value verbatim; it does not prepend `Bearer `. Literal `Authorization` entries in `headers`, URL credentials, non-HTTP(S) URLs, and URL fragments are rejected before connection.
+
+Snapshots, events, and diagnostics contain no transport headers or credential values. Every non-empty explicit stdio env or HTTP header value and every credential value resolved during a connection remain in its redaction history until disconnect, so old in-flight responses stay covered after credential rotation. The runtime recursively replaces those values in tool catalogs and results with `[REDACTED]`; a catalog generation fails with a safe error if redaction would change a tool name or task-support enum. Stdio children receive the scrubbed parent environment plus explicit connection env values.
+
+`connect` reserves the server name, initializes one transport generation, and drains at most 100 `tools/list` pages without accepting a repeated cursor before it commits `connected` or a safe `failed` snapshot. A failed name is not replaced implicitly: callers disconnect it before retrying. `notifications/tools/list_changed` refreshes the catalog; a failed refresh keeps the current tools and records a safe error. An established transport close starts bounded exponential recovery, while authentication rejection and missing credentials fail without retrying. `disconnect` removes the catalog, attempts bounded HTTP session termination, closes every established or initializing client, and waits for connection, catalog, and tool-call work before removing the server snapshot.
 
 ## Tool naming
 
@@ -74,7 +93,10 @@ Every MCP tool has two names: the raw MCP name (sent on the wire in `tools/call`
 
 | Service | Usage |
 |---|---|
-| `ctx.tools` | Register/unregister MCP tools |
+| `ctx.tools` | Static package root: register/unregister MCP tools. |
+| `ctx.credentials` | Dynamic runtime: resolve credential references without publishing values. |
+
+The dynamic runtime provides `ctx.mcp`; it does not consume `ctx.tools`.
 
 ## Model Experience
 
@@ -106,10 +128,25 @@ Arguments and mapped text are retained until compaction. Binary and resource pay
 
 Append-only; newly visible content follows the reusable request prefix and does not invalidate existing KV-cache entries.
 
+### Dynamic runtime state
+
+#### What the model sees
+
+Nothing directly. `ctx.mcp` snapshots and lifecycle events remain Host state; a preset-scoped consumer decides which descriptors and results enter a model request.
+
+#### Token effect
+
+None until a consumer projects a connected catalog or tool result.
+
+#### KV Cache effect
+
+None from runtime state alone.
+
 ## Known Limitations and Deferred Work
 
 - **Tools are the only bridged MCP capability** — Resources and Prompts have no harness consumer and are deferred.
-- **Startup timeout is inherited from the MCP SDK** — DSH does not yet expose a connection/discovery timeout. Each initialize or paginated `tools/list` request uses the SDK's 60-second default, so an unresponsive server or cursor chain can delay both activation and teardown while the initial synchronization settles.
+- **The two entry points have separate composition contracts** — the package root remains the static bridge documented above; `./runtime` requires the `dsh-mcp` Service Definition and a separate Consumer before any dynamic catalog is model-visible.
+- **Dynamic HTTP authorization supports credential-backed raw values only** — OAuth and additional schemes require new `dsh-mcp` transport discriminants.
 - **Reconnect triggers on transport close** — a crashed stdio child fires it; Streamable HTTP failures surface per request and through the SDK transport's own SSE-stream recovery, so an unreachable HTTP server is retried per call rather than respawned by the supervisor.
 - **Native non-text rendering is lossy** — image, audio, and resource payloads become placeholders in model context even though the execution-local canonical value preserves their JSON blocks. Richer Native multimedia projection is deferred.
 - **Unsupported MCP output schemas are not enforced** — `structuredContent` falls back to `JsonValue` when the advertised schema uses vocabulary outside the harness subset.

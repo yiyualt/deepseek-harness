@@ -19,6 +19,15 @@
       "path": "../../llm/llm"
     },
     {
+      "path": "../mcp"
+    },
+    {
+      "path": "../../credentials/credentials"
+    },
+    {
+      "path": "../../core/session"
+    },
+    {
       "path": "../../core/tools"
     },
     {

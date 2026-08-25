@@ -1,0 +1,15 @@
+- dialog "连接器":
+  - heading "连接器" [level=2]
+  - button "关闭连接器面板":
+    - img
+  - paragraph: 连接外部服务，让 AI 可以使用它们提供的工具。
+  - article:
+    - heading "腾讯文档" [level=3]
+    - paragraph: 读取、创建和编辑所选空间里的腾讯文档。
+    - text: 未连接 空间 MCP Token
+    - textbox "空间 MCP Token":
+      - /placeholder: 粘贴腾讯文档空间 MCP Token
+    - text: 尚未配置空间 MCP Token
+    - link "前往腾讯文档获取空间 MCP Token":
+      - /url: https://docs.qq.com/open/document/mcp/get-token/
+    - button "连接" [disabled]

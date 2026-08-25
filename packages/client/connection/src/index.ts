@@ -118,6 +118,9 @@ const PRIVILEGED_METHODS = new Set([
   'credentials.set',
   'credentials.unset',
   'llm.discoverModels',
+  'tencentDocsConnector.get',
+  'tencentDocsConnector.connect',
+  'tencentDocsConnector.disconnect',
 ])
 
 /**
