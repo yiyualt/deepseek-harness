@@ -2,16 +2,15 @@
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "lib/types"
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/types.tsbuildinfo"
   },
-  "include": ["src"],
+  "include": ["src/**/*.ts"],
   "references": [
-    { "path": "../../../vendor/cosmokit" },
     { "path": "../../../vendor/cordis" },
     { "path": "../../credentials/credentials" },
-    { "path": "../mcp-connector" },
+    { "path": "../../core/session" },
     { "path": "../../mcp/mcp" },
-    { "path": "../../typert/protocol" },
     { "path": "../../runtime-diagnostics/invariants" }
   ]
 }

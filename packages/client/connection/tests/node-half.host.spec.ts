@@ -173,6 +173,7 @@ describe('connection node half', () => {
       'settings.describe', 'settings.openDocument', 'settings.update', 'settings.replace', 'settings.mutate',
       'credentials.describe', 'credentials.set', 'credentials.unset',
       'llm.discoverModels',
+      'kingsoftDocsConnector.get', 'kingsoftDocsConnector.connect', 'kingsoftDocsConnector.disconnect',
       'tencentDocsConnector.get', 'tencentDocsConnector.connect', 'tencentDocsConnector.disconnect',
       // A composition names the plugins a session runs: reading one is
       // reconnaissance, and copy/remove/openDocument manage the roster and
@@ -189,7 +190,7 @@ describe('connection node half', () => {
     }
     const read = fakeResponse()
     await routes[0]!.handler(
-      fakeRequest({ host: 'harness.example' }, `${API_PATH}/tencentDocsConnector.publicGet`),
+      fakeRequest({ host: 'harness.example' }, `${API_PATH}/kingsoftDocsConnector.publicGet`),
       read.response,
     )
     expect(read.state.status).toBe(404)
@@ -474,6 +475,7 @@ describe('connection node half over a real HTTP server', () => {
         // Carries a draft credential and turns the host into a fetcher for a
         // URL the caller picked: an anonymous LAN caller must not reach it.
         'llm.discoverModels',
+        'kingsoftDocsConnector.get', 'kingsoftDocsConnector.connect', 'kingsoftDocsConnector.disconnect',
         'tencentDocsConnector.get', 'tencentDocsConnector.connect', 'tencentDocsConnector.disconnect',
         'agentPreset.read', 'agentPreset.copy', 'agentPreset.openDocument', 'agentPreset.remove',
       ]) {
@@ -489,6 +491,7 @@ describe('connection node half over a real HTTP server', () => {
       // would be a fence beside an open gate.
       for (const method of [
         'llm.providers', 'llm.models', 'agentPreset.list', 'agentPreset.select',
+        'kingsoftDocsConnector.publicGet',
         'tencentDocsConnector.publicGet',
       ]) {
         expect([method, await call(port, method, 'harness.example')]).toEqual([method, 404])

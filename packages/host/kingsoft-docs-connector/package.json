@@ -1,12 +1,12 @@
 {
-  "name": "@deepseek-ai/dsh-host-tencent-docs-connector",
-  "description": "Tencent Docs MCP connection lifecycle exposed through the Web Remote API",
+  "name": "@deepseek-ai/dsh-host-kingsoft-docs-connector",
+  "description": "Kingsoft Docs MCP connection lifecycle exposed through the Web Remote API",
   "version": "0.1.0-rc.5",
   "publishConfig": { "access": "public" },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
-    "directory": "packages/host/tencent-docs-connector"
+    "directory": "packages/host/kingsoft-docs-connector"
   },
   "type": "module",
   "main": "lib/index.js",
@@ -32,6 +32,7 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "@deepseek-ai/schemastery": "workspace:^",
     "zod": "^4.4.3"
   },
   "peerDependencies": {
@@ -40,6 +41,7 @@
     "@deepseek-ai/dsh-host-mcp-connector": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",
     "@deepseek-ai/dsh-mcp": "workspace:^",
+    "@deepseek-ai/dsh-timeout": "workspace:^",
     "@deepseek-ai/dsh-typert-protocol": "workspace:^"
   },
   "devDependencies": {
@@ -48,6 +50,7 @@
     "@deepseek-ai/dsh-host-mcp-connector": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",
     "@deepseek-ai/dsh-mcp": "workspace:^",
+    "@deepseek-ai/dsh-timeout": "workspace:^",
     "@deepseek-ai/dsh-typert-protocol": "workspace:^"
   }
 }

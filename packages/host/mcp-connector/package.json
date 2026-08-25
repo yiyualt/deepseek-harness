@@ -1,12 +1,12 @@
 {
-  "name": "@deepseek-ai/dsh-host-tencent-docs-connector",
-  "description": "Tencent Docs MCP connection lifecycle exposed through the Web Remote API",
+  "name": "@deepseek-ai/dsh-host-mcp-connector",
+  "description": "Shared Host lifecycle for user-managed MCP connectors",
   "version": "0.1.0-rc.5",
   "publishConfig": { "access": "public" },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
-    "directory": "packages/host/tencent-docs-connector"
+    "directory": "packages/host/mcp-connector"
   },
   "type": "module",
   "main": "lib/index.js",
@@ -15,39 +15,23 @@
     ".": { "types": "./lib/types/index.d.ts", "default": "./lib/index.js" },
     "./invariant": { "types": "./lib/types/invariant.d.ts", "default": "./lib/invariant.js" },
     "./types": { "types": "./lib/types/types.d.ts", "default": "./lib/types/types.js" },
-    "./typert": { "types": "./lib/typert.host.d.ts", "default": "./lib/typert.host.js" },
-    "./remote": { "types": "./lib/typert.remote-client.d.ts", "default": "./lib/typert.remote-client.js" },
     "./src/*": "./src/*",
     "./package.json": "./package.json"
   },
-  "files": [
-    "lib/index.js",
-    "lib/invariant.js",
-    "lib/types/**/*.js",
-    "lib/types/**/*.d.ts",
-    "lib/typert.host.js",
-    "lib/typert.host.d.ts",
-    "lib/typert.remote-client.js",
-    "lib/typert.remote-client.d.ts"
-  ],
+  "files": ["lib/index.js", "lib/invariant.js", "lib/types/**/*.js", "lib/types/**/*.d.ts"],
   "license": "MIT",
-  "dependencies": {
-    "zod": "^4.4.3"
-  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-credentials": "workspace:^",
-    "@deepseek-ai/dsh-host-mcp-connector": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",
     "@deepseek-ai/dsh-mcp": "workspace:^",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:^"
+    "@deepseek-ai/dsh-session": "workspace:^"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-credentials": "workspace:^",
-    "@deepseek-ai/dsh-host-mcp-connector": "workspace:^",
     "@deepseek-ai/dsh-invariants": "workspace:^",
     "@deepseek-ai/dsh-mcp": "workspace:^",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:^"
+    "@deepseek-ai/dsh-session": "workspace:^"
   }
 }

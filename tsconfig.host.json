@@ -292,6 +292,8 @@
     { "path": "./packages/host/frontend-static" },
     { "path": "./packages/host/plugin-inventory" },
     { "path": "./packages/host/meeting-presence" },
+    { "path": "./packages/host/mcp-connector" },
+    { "path": "./packages/host/kingsoft-docs-connector" },
     { "path": "./packages/host/tencent-docs-connector" },
     { "path": "./packages/host/webserver" },
     { "path": "./packages/sdk/client" },

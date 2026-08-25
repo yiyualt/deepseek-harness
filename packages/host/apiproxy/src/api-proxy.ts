@@ -76,6 +76,7 @@ import type {} from '@deepseek-ai/dsh-commands'
 // rebuild the api-remotes cycle this direction exists to avoid.
 import type {} from '@deepseek-ai/dsh-cordis-host-runner/types'
 import type {} from '@deepseek-ai/dsh-host-meeting-presence/types'
+import type {} from '@deepseek-ai/dsh-host-kingsoft-docs-connector/types'
 import type {} from '@deepseek-ai/dsh-host-tencent-docs-connector/types'
 import type {} from '@deepseek-ai/dsh-skill'
 // The settings/credentials seams: brand guards run at this wire boundary; the

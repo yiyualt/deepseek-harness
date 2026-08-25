@@ -577,8 +577,11 @@ export class McpClientRuntime extends McpRuntime {
             const resolved = await this.ctx.credentials.resolve(transport.authorization.ref)
             if (resolved === undefined) throw new CredentialUnavailableError()
             this.rememberSecret(connection, resolved.value)
-            headers.set('Authorization', resolved.value)
-            this.rememberSecret(connection, headers.get('Authorization') as string)
+            const authorization = transport.authorization.scheme === 'bearer'
+              ? `Bearer ${resolved.value}`
+              : resolved.value
+            headers.set('Authorization', authorization)
+            this.rememberSecret(connection, authorization)
           }
           return fetch(input, { ...init, headers })
         }

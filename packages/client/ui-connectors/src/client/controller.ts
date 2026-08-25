@@ -3,6 +3,8 @@
 import type {
   ClientRemote,
   IApiClient,
+  KingsoftDocsConnectorEventSnapshot,
+  KingsoftDocsConnectorSnapshot,
   RpcResponse,
   TencentDocsConnectorEventSnapshot,
   TencentDocsConnectorSnapshot,
@@ -12,6 +14,13 @@ import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client
 /** Credential reference used by the Tencent Docs MCP connector. */
 export const TENCENT_DOCS_CREDENTIAL_REF = 'TENCENT_DOCS_MCP_TOKEN'
 
+/** Credential reference used by the Kingsoft Docs MCP connector. */
+export const KINGSOFT_DOCS_CREDENTIAL_REF = 'KINGSOFT_DOCS_TOKEN'
+
+type ConnectorSnapshot = TencentDocsConnectorSnapshot | KingsoftDocsConnectorSnapshot
+type ConnectorEventSnapshot = TencentDocsConnectorEventSnapshot | KingsoftDocsConnectorEventSnapshot
+type ConnectorRemote = ClientRemote['tencentDocsConnector'] | ClientRemote['kingsoftDocsConnector']
+
 /** Browser-local panel and mutation state joined with the Host snapshot. */
 export interface ConnectorsPanelState {
   open: boolean
@@ -19,7 +28,7 @@ export interface ConnectorsPanelState {
   pending: 'connect' | 'disconnect' | null
   error: string | null
   loopback: boolean
-  connector: TencentDocsConnectorSnapshot
+  connector: ConnectorSnapshot
 }
 
 type MutationKind = Exclude<ConnectorsPanelState['pending'], null>
@@ -29,7 +38,7 @@ interface ActiveMutation {
   kind: MutationKind
 }
 
-const INITIAL_CONNECTOR: TencentDocsConnectorSnapshot = {
+const INITIAL_CONNECTOR: ConnectorSnapshot = {
   status: 'disconnected',
   credentialConfigured: false,
   credentialSource: null,
@@ -40,7 +49,7 @@ const INITIAL_CONNECTOR: TencentDocsConnectorSnapshot = {
   updatedAt: new Date(0).toISOString(),
 }
 
-const ACTIVE_AFTER_DISCONNECT = new Set<TencentDocsConnectorSnapshot['status']>([
+const ACTIVE_AFTER_DISCONNECT = new Set<ConnectorSnapshot['status']>([
   'connecting',
   'connected',
   'reconnecting',
@@ -58,7 +67,7 @@ function unwrapRpc<T>(response: RpcResponse<T>): T {
   return response.result.value
 }
 
-/** Owns the panel state, connector Remote calls, and write-only Token transport. */
+/** Owns one connector card's Remote calls and write-only Token transport. */
 export class ConnectorsPanelController {
   /** Observable complete state rendered by the slot contribution. */
   readonly store: SnapshotStore<ConnectorsPanelState>
@@ -72,12 +81,14 @@ export class ConnectorsPanelController {
   private carrierFailedMutation: MutationKind | null = null
 
   /**
-   * @param remote - Tencent Docs connector Remote namespace.
+   * @param remote - one document connector Remote namespace.
    * @param credentials - loopback-only credential wire face; absent makes the controller read-only.
+   * @param credentialRef - Host credential reference owned by this connector.
    */
   constructor(
-    private readonly remote: ClientRemote['tencentDocsConnector'],
+    private readonly remote: ConnectorRemote,
     private readonly credentials: Pick<IApiClient, 'credentials'> | undefined,
+    private readonly credentialRef: string,
   ) {
     this.store = createSnapshotStore({
       open: false,
@@ -132,7 +143,7 @@ export class ConnectorsPanelController {
     if (this.disposed
       || this.credentials === undefined
       || !this.store.getSnapshot().open
-      || ref !== TENCENT_DOCS_CREDENTIAL_REF) return
+      || ref !== this.credentialRef) return
     void this.refreshCredential(this.credentials)
   }
 
@@ -140,7 +151,7 @@ export class ConnectorsPanelController {
    * Merge one Host-pushed value-free connector snapshot into locally known credential metadata.
    * @param snapshot - latest public Host state, or a full Remote response with the same public fields.
    */
-  accept(snapshot: TencentDocsConnectorEventSnapshot): void {
+  accept(snapshot: ConnectorEventSnapshot): void {
     if (this.disposed || this.isSettledPrecursor(snapshot.status)) return
     this.lifecycleSequence += 1
     this.applyLifecycle(snapshot)
@@ -157,7 +168,7 @@ export class ConnectorsPanelController {
     let connectorRequested = false
     try {
       if (token !== '') {
-        unwrapRpc(await this.credentials.credentials.set({ ref: TENCENT_DOCS_CREDENTIAL_REF, value: token }))
+        unwrapRpc(await this.credentials.credentials.set({ ref: this.credentialRef, value: token }))
         if (!this.isActive(mutation)) return
         this.credentialSequence += 1
         this.applyCredential({ configured: true, source: null, writable: true })
@@ -190,7 +201,7 @@ export class ConnectorsPanelController {
       this.commitMutation(mutation, response.value)
       connectorSettled = true
       if (response.value.credentialWritable) {
-        unwrapRpc(await this.credentials.credentials.unset({ ref: TENCENT_DOCS_CREDENTIAL_REF }))
+        unwrapRpc(await this.credentials.credentials.unset({ ref: this.credentialRef }))
         if (!this.isActive(mutation)) return
         await this.refreshCredential(this.credentials)
       }
@@ -266,7 +277,7 @@ export class ConnectorsPanelController {
     return !this.disposed && this.activeMutation?.id === mutation.id
   }
 
-  private commitMutation(mutation: ActiveMutation, snapshot: TencentDocsConnectorSnapshot): void {
+  private commitMutation(mutation: ActiveMutation, snapshot: ConnectorSnapshot): void {
     this.lifecycleSequence += 1
     this.credentialSequence += 1
     this.settledMutation = mutation.kind
@@ -282,7 +293,7 @@ export class ConnectorsPanelController {
     this.store.update((state) => { state.pending = null })
   }
 
-  private isSettledPrecursor(status: TencentDocsConnectorSnapshot['status']): boolean {
+  private isSettledPrecursor(status: ConnectorSnapshot['status']): boolean {
     const current = this.store.getSnapshot().connector.status
     if (this.settledMutation === 'connect' && status === 'connecting') {
       return current !== 'disconnected'
@@ -293,13 +304,13 @@ export class ConnectorsPanelController {
     return false
   }
 
-  private advanceSettledMutation(status: TencentDocsConnectorSnapshot['status']): void {
+  private advanceSettledMutation(status: ConnectorSnapshot['status']): void {
     const reachedNewState = (this.settledMutation === 'connect' && status === 'disconnected')
       || (this.settledMutation === 'disconnect' && ACTIVE_AFTER_DISCONNECT.has(status))
     if (reachedNewState) this.settledMutation = null
   }
 
-  private applyLifecycle(snapshot: TencentDocsConnectorEventSnapshot): void {
+  private applyLifecycle(snapshot: ConnectorEventSnapshot): void {
     if (this.carrierFailedMutation !== null) {
       const failedKind = this.carrierFailedMutation
       if (snapshot.status === this.expectedStatus(failedKind)) {
@@ -314,7 +325,7 @@ export class ConnectorsPanelController {
     })
   }
 
-  private expectedStatus(kind: MutationKind): TencentDocsConnectorSnapshot['status'] {
+  private expectedStatus(kind: MutationKind): ConnectorSnapshot['status'] {
     return kind === 'connect' ? 'connecting' : 'disconnecting'
   }
 
@@ -335,11 +346,11 @@ export class ConnectorsPanelController {
     try {
       const [response, credentialResponse] = await Promise.all([
         this.remote.get(),
-        credentials.credentials.describe({ refs: [TENCENT_DOCS_CREDENTIAL_REF] }),
+        credentials.credentials.describe({ refs: [this.credentialRef] }),
       ])
       if (!response.ok) throw new Error(response.error.message)
       const described = unwrapRpc(credentialResponse)
-      const credential = described.credentials[TENCENT_DOCS_CREDENTIAL_REF]
+      const credential = described.credentials[this.credentialRef]
       if (this.disposed) return
       if (lifecycleSequence === this.lifecycleSequence) this.applyLifecycle(response.value)
       if (credentialSequence === this.credentialSequence) {
@@ -373,10 +384,10 @@ export class ConnectorsPanelController {
     const sequence = ++this.credentialSequence
     try {
       const described = unwrapRpc(
-        await credentials.credentials.describe({ refs: [TENCENT_DOCS_CREDENTIAL_REF] }),
+        await credentials.credentials.describe({ refs: [this.credentialRef] }),
       )
       if (this.disposed || sequence !== this.credentialSequence) return
-      const credential = described.credentials[TENCENT_DOCS_CREDENTIAL_REF]
+      const credential = described.credentials[this.credentialRef]
       this.applyCredential(credential ?? {
         configured: false,
         writable: this.store.getSnapshot().connector.credentialWritable,

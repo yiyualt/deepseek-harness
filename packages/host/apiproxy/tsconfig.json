@@ -99,6 +99,9 @@
       "path": "../meeting-presence"
     },
     {
+      "path": "../kingsoft-docs-connector"
+    },
+    {
       "path": "../tencent-docs-connector"
     },
     {

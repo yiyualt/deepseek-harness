@@ -20,14 +20,14 @@ export type McpServerStatus =
   | 'failed'
   | 'disconnecting'
 
-/** Credential reference used as an HTTP `Authorization` header value. */
+/** Credential reference used to construct an HTTP `Authorization` header value. */
 export interface McpCredentialAuthorizationConfig {
   /** Selects credential-reference resolution. */
   readonly kind: 'credential'
   /** Reference resolved through `ctx.credentials` for each HTTP request. */
   readonly ref: CredentialRef
-  /** Send the resolved value verbatim; this mode never prepends `Bearer `. */
-  readonly scheme: 'raw'
+  /** Send the resolved value verbatim, or prepend the standard `Bearer ` scheme. */
+  readonly scheme: 'raw' | 'bearer'
 }
 
 /** Extensible authorization configuration for an MCP transport. */
