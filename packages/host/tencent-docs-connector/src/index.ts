@@ -83,8 +83,8 @@ export class TencentDocsConnectorGateway extends TypertRemoteService {
    * @returns a detached snapshot containing only value-free public fields.
    */
   @Remote('publicGet')
-  async publicGet(): Promise<TencentDocsConnectorEventSnapshot> {
-    return this.lifecycle.publicGet()
+  publicGet(): Promise<TencentDocsConnectorEventSnapshot> {
+    return Promise.resolve(this.lifecycle.publicGet())
   }
 
   /**

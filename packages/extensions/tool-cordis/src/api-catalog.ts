@@ -784,6 +784,55 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'kingsoftDocsConnector',
+    summary: 'Remote service and same-process provider for authenticated Kingsoft Docs CLI operations.',
+    description: 'Remote service and same-process provider for authenticated Kingsoft Docs CLI operations.',
+    methods: [
+      {
+        signature: '@Remote(\'get\') get(): Promise<KingsoftDocsConnectorSnapshot>',
+        description: 'Read the complete credential-free connector state.',
+        parameters: [],
+        returns: 'a detached snapshot of the current login lifecycle.',
+      },
+      {
+        signature: '@Remote(\'publicGet\') publicGet(): Promise<KingsoftDocsConnectorEventSnapshot>',
+        description: 'Read the connector state approved for trusted non-loopback Web clients.',
+        parameters: [],
+        returns: 'a detached snapshot containing only credential-free fields.',
+      },
+      {
+        signature: '@Remote(\'connect\') connect(): Promise<KingsoftDocsConnectorSnapshot>',
+        description: 'Reuse an existing keychain login or open the official browser authorization flow.',
+        parameters: [],
+        returns: 'the settled connector state after authentication is verified.',
+      },
+      {
+        signature: '@Remote(\'disconnect\') disconnect(): Promise<KingsoftDocsConnectorSnapshot>',
+        description: 'Remove the saved login from the system keychain after active CLI calls settle.',
+        parameters: [],
+        returns: 'the settled connector state after logout.',
+      },
+      {
+        signature: 'current(): KingsoftDocsConnectorSnapshot',
+        description: 'Read the current in-process state without starting authentication work.',
+        parameters: [],
+        returns: 'a detached credential-free snapshot.',
+      },
+      {
+        signature: 'runHelp(service: KdocsCliService | undefined, action: string | undefined, signal: AbortSignal): Promise<string>',
+        description: 'Render current CLI help for the scoped model tool without contacting the document API.',
+        parameters: [{ name: 'service', description: 'optional supported service to inspect.' }, { name: 'action', description: 'optional action under `service` to inspect.' }, { name: 'signal', description: 'cancellation owned by the calling tool execution.' }],
+        returns: 'bounded help text from the installed CLI.',
+      },
+      {
+        signature: 'runAction(request: KdocsCliActionRequest): Promise<JsonValue>',
+        description: 'Execute one authenticated document operation through the official CLI.',
+        parameters: [{ name: 'request', description: 'validated service, action, JSON params, and caller cancellation.' }],
+        returns: 'the CLI\'s parsed JSON result.',
+      },
+    ],
+  },
+  {
     key: 'llm',
     summary: 'The abstract `llm` service: an adapter registry plus a streaming model-call API, interceptable via the `llm/stream` waterfall.',
     description: 'The abstract `llm` service: an adapter registry plus a streaming model-call API, interceptable via the `llm/stream` waterfall.',
@@ -2413,6 +2462,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'payload', description: '.change - fresh current projection or clear tombstone.' }],
   },
   {
+    name: 'kingsoft-docs-connector/change',
+    mode: 'emit',
+    signature: '\'kingsoft-docs-connector/change\'(snapshot: KingsoftDocsConnectorEventSnapshot): void',
+    summary: 'The process-wide Kingsoft Docs CLI connector changed public state.',
+    description: 'The process-wide Kingsoft Docs CLI connector changed public state.',
+    parameters: [{ name: 'snapshot', description: 'Current credential-free state after the transition.' }],
+  },
+  {
     name: 'llm/adapters-updated',
     mode: 'emit',
     signature: '\'llm/adapters-updated\'(): void',
@@ -3297,6 +3354,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type JsonValue = null | boolean | number | string | JsonValue[] | {\n    [key: string]: JsonValue;\n};',
   },
   {
+    name: 'KdocsCliActionRequest',
+    declaration: 'export interface KdocsCliActionRequest {\n    readonly service: KdocsCliService;\n    readonly action: string;\n    readonly params: Readonly<Record<string, JsonValue>>;\n    readonly signal: AbortSignal;\n}',
+  },
+  {
+    name: 'KdocsCliService',
+    declaration: 'export type KdocsCliService = typeof KDOCS_CLI_SERVICES[number];',
+  },
+  {
+    name: 'KingsoftDocsConnectorEventSnapshot',
+    declaration: 'export type KingsoftDocsConnectorEventSnapshot = KingsoftDocsConnectorSnapshot;',
+  },
+  {
+    name: 'KingsoftDocsConnectorSnapshot',
+    declaration: 'export interface KingsoftDocsConnectorSnapshot {\n    readonly status: KingsoftDocsConnectorStatus;\n    readonly toolCount: number;\n    readonly errorCode: string | null;\n    readonly errorMessage: string | null;\n    readonly updatedAt: string;\n}',
+  },
+  {
+    name: 'KingsoftDocsConnectorStatus',
+    declaration: 'export type KingsoftDocsConnectorStatus = \'disconnected\' | \'connecting\' | \'connected\' | \'disconnecting\' | \'failed\';',
+  },
+  {
     name: 'KnobState',
     declaration: 'export interface KnobState {\n    preset: string | null;\n    sandbox: SandboxMode | null;\n    approval: ApprovalPolicy | null;\n}',
   },
@@ -3417,6 +3494,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ManualCompactAgentContext extends CompactionAgentContext {\n    runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>;\n}',
   },
   {
+    name: 'McpActivationCheck',
+    declaration: 'export interface McpActivationCheck {\n    readonly toolName: string;\n    readonly args: Readonly<Record<string, JsonValue>>;\n    readonly timeoutMs: number;\n    readonly classify: (result: McpResult) => McpActivationCheckOutcome;\n}',
+  },
+  {
+    name: 'McpActivationCheckOutcome',
+    declaration: 'export type McpActivationCheckOutcome = \'accepted\' | \'auth-rejected\' | \'failed\';',
+  },
+  {
     name: 'McpAuthorizationConfig',
     declaration: 'export type McpAuthorizationConfig = McpCredentialAuthorizationConfig;',
   },
@@ -3425,12 +3510,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface McpCallToolRequest {\n    readonly serverName: McpServerName;\n    readonly name: string;\n    readonly args: Readonly<Record<string, JsonValue>>;\n    readonly signal: AbortSignal;\n    readonly timeoutMs: number;\n}',
   },
   {
+    name: 'McpConnectorEventSnapshot',
+    declaration: 'export type McpConnectorEventSnapshot = Omit<McpConnectorSnapshot, \'credentialConfigured\' | \'credentialSource\' | \'credentialWritable\'>;',
+  },
+  {
+    name: 'McpConnectorSnapshot',
+    declaration: 'export interface McpConnectorSnapshot {\n    readonly status: McpConnectorStatus;\n    readonly credentialConfigured: boolean;\n    readonly credentialSource: string | null;\n    readonly credentialWritable: boolean;\n    readonly toolCount: number;\n    readonly errorCode: string | null;\n    readonly errorMessage: string | null;\n    readonly updatedAt: string;\n}',
+  },
+  {
+    name: 'McpConnectorStatus',
+    declaration: 'export type McpConnectorStatus = \'disconnected\' | \'connecting\' | \'connected\' | \'reconnecting\' | \'disconnecting\' | \'failed\';',
+  },
+  {
     name: 'McpConnectRequest',
-    declaration: 'export interface McpConnectRequest {\n    readonly serverName: McpServerName;\n    readonly transport: McpTransportConfig;\n}',
+    declaration: 'export interface McpConnectRequest {\n    readonly serverName: McpServerName;\n    readonly transport: McpTransportConfig;\n    readonly activationCheck?: McpActivationCheck;\n}',
   },
   {
     name: 'McpCredentialAuthorizationConfig',
-    declaration: 'export interface McpCredentialAuthorizationConfig {\n    readonly kind: \'credential\';\n    readonly ref: CredentialRef;\n    readonly scheme: \'raw\';\n}',
+    declaration: 'export interface McpCredentialAuthorizationConfig {\n    readonly kind: \'credential\';\n    readonly ref: CredentialRef;\n    readonly scheme: \'raw\' | \'bearer\';\n}',
   },
   {
     name: 'McpRuntimeSnapshot',
@@ -4366,15 +4463,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'TencentDocsConnectorEventSnapshot',
-    declaration: 'export type TencentDocsConnectorEventSnapshot = Omit<TencentDocsConnectorSnapshot, \'credentialConfigured\' | \'credentialSource\' | \'credentialWritable\'>;',
-  },
-  {
-    name: 'TencentDocsConnectorSnapshot',
-    declaration: 'export interface TencentDocsConnectorSnapshot {\n    readonly status: TencentDocsConnectorStatus;\n    readonly credentialConfigured: boolean;\n    readonly credentialSource: string | null;\n    readonly credentialWritable: boolean;\n    readonly toolCount: number;\n    readonly errorCode: string | null;\n    readonly errorMessage: string | null;\n    readonly updatedAt: string;\n}',
-  },
-  {
-    name: 'TencentDocsConnectorStatus',
-    declaration: 'export type TencentDocsConnectorStatus = \'disconnected\' | \'connecting\' | \'connected\' | \'reconnecting\' | \'disconnecting\' | \'failed\';',
+    declaration: 'export type TencentDocsConnectorEventSnapshot = McpConnectorEventSnapshot;',
   },
   {
     name: 'TerminalBackend',

@@ -7,6 +7,10 @@
     - heading "腾讯文档" [level=3]
     - paragraph: 读取、创建和编辑所选空间里的腾讯文档。
     - text: 未连接
-    - paragraph:
-      - img
-      - text: 当前页面不是本机 loopback 地址，只能查看连接状态。请在运行 Harness 的 Mac 上管理连接。
+  - article:
+    - heading "金山文档" [level=3]
+    - paragraph: 读取、创建和编辑个人账号里的金山文档。
+    - text: 未连接
+  - paragraph:
+    - img
+    - text: 当前页面不是本机 loopback 地址，只能查看连接状态。请在运行 Harness 的 Mac 上管理连接。

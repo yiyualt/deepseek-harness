@@ -1,6 +1,6 @@
 - banner:
   - navigation "会话层级":
-    - button "请调用 mcp__tencent_docs__list_docume" [disabled]
+    - button "请调用 kingsoft_docs_call，service=d" [disabled]
   - img
   - text: 标准模式
   - button "Session log":
@@ -9,18 +9,18 @@
   - tablist:
     - tab "对话" [selected]
     - tab "轨迹"
-- text: 请调用 mcp__tencent_docs__list_documents，参数为空对象。成功后只回复 DOCS_MCP_DONE。 {{clock}}
+- text: "请调用 kingsoft_docs_call，service=drive，action=list-files，params={}。成功后只回复 KINGSOFT_DOCS_DONE。 {{clock}}"
 - button "复制":
   - img
 - button "上下文注入 @deepseek-ai/dsh-system-prompt":
   - img
   - img
   - text: 上下文注入 @deepseek-ai/dsh-system-prompt
-- 'button "Tool call mcp__tencent_docs__list_documents · {}"':
+- button "Tool call kingsoft_docs_call · drive":
   - img
   - img
-  - text: "Tool call mcp__tencent_docs__list_documents · {}"
-- paragraph: DOCS_MCP_DONE
+  - text: Tool call kingsoft_docs_call · drive
+- paragraph: KINGSOFT_DOCS_DONE
 - button "复制":
   - img
 - button "好的回答":

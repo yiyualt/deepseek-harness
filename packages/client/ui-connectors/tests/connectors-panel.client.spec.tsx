@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { ConnectorsPanelState } from '../src/client/controller.ts'
+import type { BrowserLoginConnectorState, ConnectorsPanelState } from '../src/client/controller.ts'
 import { CONNECTOR_REQUEST_FAILED } from '../src/client/controller.ts'
 import { ConnectorsPanel } from '../src/client/ConnectorsPanel.tsx'
 import { en, zh } from '../src/client/locales.ts'
@@ -25,6 +25,20 @@ const BASE: ConnectorsPanelState = {
   },
 }
 
+const KINGSOFT_BASE: BrowserLoginConnectorState = {
+  open: true,
+  pending: null,
+  error: null,
+  loopback: true,
+  connector: {
+    status: 'disconnected',
+    toolCount: 0,
+    errorCode: null,
+    errorMessage: null,
+    updatedAt: '2026-08-26T00:00:00.000Z',
+  },
+}
+
 afterEach(cleanup)
 
 function renderPanel(state: ConnectorsPanelState, actions: {
@@ -35,17 +49,19 @@ function renderPanel(state: ConnectorsPanelState, actions: {
   connect?: () => Promise<void>
   disconnect?: () => Promise<void>
 } = {}, wide = true) {
+  const kingsoftState = { ...KINGSOFT_BASE, open: state.open, loopback: false }
   return render(<ConnectorsPanel
     wide={wide}
     useSessions={(() => undefined) as never}
     useWorkspaces={(() => undefined) as never}
-    useConnectors={selector => selector(state)}
+    useTencentDocs={selector => selector(state)}
+    useKingsoftDocs={selector => selector(kingsoftState)}
     open={actions.open ?? vi.fn()}
     close={actions.close ?? vi.fn()}
-    setDraft={actions.setDraft ?? vi.fn()}
-    clearDraft={actions.clearDraft ?? vi.fn()}
-    connect={actions.connect ?? vi.fn(async () => {})}
-    disconnect={actions.disconnect ?? vi.fn(async () => {})}
+    setTencentDraft={(value) => { actions.setDraft?.(value) }}
+    clearTencentDraft={() => { actions.clearDraft?.() }}
+    connect={async (id) => { if (id === 'tencentDocs') await actions.connect?.() }}
+    disconnect={async (id) => { if (id === 'tencentDocs') await actions.disconnect?.() }}
     t={((key: keyof typeof en): string => en[key]) as never}
   />)
 }
@@ -54,18 +70,44 @@ function renderPanelWithCopy(
   state: ConnectorsPanelState,
   copy: Record<keyof typeof en, string>,
 ) {
+  const kingsoftState = { ...KINGSOFT_BASE, open: state.open, loopback: false }
   return render(<ConnectorsPanel
     wide={true}
     useSessions={(() => undefined) as never}
     useWorkspaces={(() => undefined) as never}
-    useConnectors={selector => selector(state)}
+    useTencentDocs={selector => selector(state)}
+    useKingsoftDocs={selector => selector(kingsoftState)}
     open={vi.fn()}
     close={vi.fn()}
-    setDraft={vi.fn()}
-    clearDraft={vi.fn()}
+    setTencentDraft={vi.fn()}
+    clearTencentDraft={vi.fn()}
     connect={vi.fn(async () => {})}
     disconnect={vi.fn(async () => {})}
     t={((key: keyof typeof en): string => copy[key]) as never}
+  />)
+}
+
+function renderKingsoftPanel(
+  state: BrowserLoginConnectorState,
+  actions: {
+    connect?: () => Promise<void>
+    disconnect?: () => Promise<void>
+  } = {},
+) {
+  const tencentState = { ...BASE, open: state.open, loopback: false }
+  return render(<ConnectorsPanel
+    wide={true}
+    useSessions={(() => undefined) as never}
+    useWorkspaces={(() => undefined) as never}
+    useTencentDocs={selector => selector(tencentState)}
+    useKingsoftDocs={selector => selector(state)}
+    open={vi.fn()}
+    close={vi.fn()}
+    setTencentDraft={vi.fn()}
+    clearTencentDraft={vi.fn()}
+    connect={async (id) => { if (id === 'kingsoftDocs') await actions.connect?.() }}
+    disconnect={async (id) => { if (id === 'kingsoftDocs') await actions.disconnect?.() }}
+    t={((key: keyof typeof en): string => en[key]) as never}
   />)
 }
 
@@ -86,6 +128,66 @@ describe('ConnectorsPanel', () => {
     const link = screen.getByRole('link', { name: en.getToken })
     expect(link.getAttribute('href')).toBe('https://docs.qq.com/open/document/mcp/get-token/')
     expect(link.getAttribute('target')).toBe('_blank')
+  })
+
+  it('renders an independent Kingsoft Docs browser-login card without a Token field', () => {
+    const connect = vi.fn(async () => {})
+    const tencentState = { ...BASE, loopback: false }
+    const kingsoftState = KINGSOFT_BASE
+    render(<ConnectorsPanel
+      wide={true}
+      useSessions={(() => undefined) as never}
+      useWorkspaces={(() => undefined) as never}
+      useTencentDocs={selector => selector(tencentState)}
+      useKingsoftDocs={selector => selector(kingsoftState)}
+      open={vi.fn()}
+      close={vi.fn()}
+      setTencentDraft={vi.fn()}
+      clearTencentDraft={vi.fn()}
+      connect={connect}
+      disconnect={vi.fn(async () => {})}
+      t={((key: keyof typeof en): string => en[key]) as never}
+    />)
+    const card = document.querySelector('[data-connector-id="kingsoftDocs"]')
+    expect(card).not.toBeNull()
+    expect(within(card as HTMLElement).getByText(en.kingsoftDocsName)).toBeTruthy()
+    expect(within(card as HTMLElement).queryByRole('textbox')).toBeNull()
+    expect(within(card as HTMLElement).getByText(en.kingsoftCredentialStorage)).toBeTruthy()
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: en.kingsoftWebLogin }))
+    expect(connect).toHaveBeenCalledWith('kingsoftDocs')
+    expect(within(card as HTMLElement).getByRole('link', { name: en.kingsoftAuthHelp }).getAttribute('href'))
+      .toBe('https://github.com/kdocs-app/kdocs-skill/blob/master/references/auth.md')
+  })
+
+  it('renders Kingsoft logout, retry, and busy browser-login actions', () => {
+    const disconnect = vi.fn(async () => {})
+    renderKingsoftPanel({
+      ...KINGSOFT_BASE,
+      connector: { ...KINGSOFT_BASE.connector, status: 'connected', toolCount: 2 },
+    }, { disconnect })
+    fireEvent.click(screen.getByRole('button', { name: en.kingsoftLogout }))
+    expect(disconnect).toHaveBeenCalledOnce()
+
+    cleanup()
+    renderKingsoftPanel({
+      ...KINGSOFT_BASE,
+      pending: 'disconnect',
+      connector: { ...KINGSOFT_BASE.connector, status: 'connected', toolCount: 2 },
+    })
+    expect(screen.getByRole('button', { name: en.working }).hasAttribute('disabled')).toBe(true)
+
+    cleanup()
+    renderKingsoftPanel({ ...KINGSOFT_BASE, pending: 'connect' })
+    expect(screen.getByRole('button', { name: en.working }).hasAttribute('disabled')).toBe(true)
+
+    cleanup()
+    const retry = vi.fn(async () => {})
+    renderKingsoftPanel({
+      ...KINGSOFT_BASE,
+      connector: { ...KINGSOFT_BASE.connector, status: 'failed', errorCode: 'LOGIN_FAILED' },
+    }, { connect: retry })
+    fireEvent.click(screen.getByRole('button', { name: en.kingsoftRetryLogin }))
+    expect(retry).toHaveBeenCalledOnce()
   })
 
   it('clears the draft explicitly and renders configured credential metadata without a value', () => {
@@ -140,7 +242,7 @@ describe('ConnectorsPanel', () => {
 
   it('keeps a read-only credential on disconnect and presents retry failures', () => {
     const disconnect = vi.fn(async () => {})
-    const { rerender } = renderPanel({
+    renderPanel({
       ...BASE,
       connector: {
         ...BASE.connector,
@@ -154,23 +256,12 @@ describe('ConnectorsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: en.disconnectKeepToken }))
     expect(disconnect).toHaveBeenCalledOnce()
 
-    rerender(<ConnectorsPanel
-      wide={true}
-      useSessions={(() => undefined) as never}
-      useWorkspaces={(() => undefined) as never}
-      useConnectors={selector => selector({
-        ...BASE,
-        error: 'Token refused',
-        connector: { ...BASE.connector, status: 'failed', credentialConfigured: true },
-      })}
-      open={vi.fn()}
-      close={vi.fn()}
-      setDraft={vi.fn()}
-      clearDraft={vi.fn()}
-      connect={vi.fn(async () => {})}
-      disconnect={vi.fn(async () => {})}
-      t={((key: keyof typeof en): string => en[key]) as never}
-    />)
+    cleanup()
+    renderPanel({
+      ...BASE,
+      error: 'Token refused',
+      connector: { ...BASE.connector, status: 'failed', credentialConfigured: true },
+    })
     expect(screen.getByRole('alert').textContent).toBe('Token refused')
     expect(screen.getByRole('button', { name: en.retry })).toBeTruthy()
   })

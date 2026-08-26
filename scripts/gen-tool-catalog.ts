@@ -54,6 +54,23 @@ import * as ToolGoal from '@deepseek-ai/dsh-tool-goal'
 import * as ToolSchedule from '@deepseek-ai/dsh-schedule'
 import Lsp from '@deepseek-ai/dsh-lsp'
 import * as ToolLsp from '@deepseek-ai/dsh-tool-lsp'
+import {
+  McpRuntime,
+  mcpServerName,
+  type McpCallToolRequest,
+  type McpConnectRequest,
+  type McpResult,
+  type McpRuntimeSnapshot,
+  type McpServerName,
+  type McpServerSnapshot,
+} from '@deepseek-ai/dsh-mcp'
+import * as ToolMcp from '@deepseek-ai/dsh-tool-mcp'
+import type {
+  KdocsCliActionRequest,
+  KingsoftDocsConnectorGateway,
+  KingsoftDocsConnectorSnapshot,
+} from '@deepseek-ai/dsh-host-kingsoft-docs-connector'
+import * as ToolKingsoftDocs from '@deepseek-ai/dsh-host-kingsoft-docs-connector/tool'
 import * as ToolSkill from '@deepseek-ai/dsh-tool-skill'
 import * as ToolSessionQuery from '@deepseek-ai/dsh-tool-session-query'
 import * as ToolTasks from '@deepseek-ai/dsh-tool-jobs'
@@ -85,6 +102,47 @@ class CatalogAttachmentStore extends AttachmentStore {
 
   override readImage(_ref: ImageAttachmentRef): Promise<StoredImageAttachment> {
     return Promise.reject(new Error('gen-tool-catalog: attachment reads are unreachable during schema harvest'))
+  }
+}
+
+const CATALOG_MCP_SERVER_NAME = mcpServerName('catalog')
+const CATALOG_MCP_SNAPSHOT: McpRuntimeSnapshot = {
+  revision: 1,
+  servers: [{
+    serverName: CATALOG_MCP_SERVER_NAME,
+    status: 'connected',
+    generation: 1,
+    tools: [{
+      name: 'sample',
+      description: 'Representative dynamic MCP tool supplied by a connected server.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input: { type: 'string', description: 'Representative server-defined input.' },
+        },
+        additionalProperties: false,
+      },
+      taskSupport: 'forbidden',
+    }],
+  }],
+}
+
+/** MCP seam fixture exposing one deterministic raw server descriptor for schema harvest. */
+class CatalogMcpRuntime extends McpRuntime {
+  override connect(_request: McpConnectRequest): Promise<McpServerSnapshot> {
+    return Promise.reject(new Error('tool-catalog MCP fixture cannot connect'))
+  }
+
+  override disconnect(_serverName: McpServerName): Promise<void> {
+    return Promise.reject(new Error('tool-catalog MCP fixture cannot disconnect'))
+  }
+
+  override snapshot(): McpRuntimeSnapshot {
+    return CATALOG_MCP_SNAPSHOT
+  }
+
+  override callTool(_request: McpCallToolRequest): Promise<McpResult> {
+    return Promise.reject(new Error('tool-catalog MCP fixture cannot execute tools'))
   }
 }
 
@@ -389,6 +447,54 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'The lsp tool keeps provider selection and language-server subprocesses behind ctx.lsp, so its model-visible schema stays stable across providers. Requires a registered provider (e.g. `@deepseek-ai/dsh-lsp-stdio`) at runtime; without one, a query returns the structured `LSP_UNAVAILABLE` error rather than changing the schema.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-mcp',
+    dir: 'tool-mcp',
+    source: 'packages/mcp/tool-mcp/src/index.ts',
+    requires: ['ctx.tools', 'ctx.mcp', 'ctx.approval at execution time', 'a calling Agent at execution time'],
+    writes: ['tool/call', 'external MCP effects', 'tool/result'],
+    async mount(ctx) {
+      await ctx.plugin(CatalogMcpRuntime)
+      await ctx.plugin(ToolMcp)
+    },
+    note:
+      'The catalog boots one deterministic `mcp__catalog__sample` descriptor only to expose the dynamic raw-schema projection. Real names, descriptions, and schemas come from each connected server, appear only in presets that mount this Consumer, and require one executor-owned approval before every call. The representative name is not shipped.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-host-kingsoft-docs-connector',
+    dir: 'kingsoft-docs-connector',
+    source: 'packages/host/kingsoft-docs-connector/src/tool.ts',
+    requires: [
+      'ctx.tools',
+      'ctx.kingsoftDocsConnector',
+      'ctx.approval at action execution time',
+      'a calling Agent at action execution time',
+    ],
+    writes: ['tool/call', 'external Kingsoft Docs effects for kingsoft_docs_call', 'tool/result'],
+    async mount(ctx) {
+      const snapshot: KingsoftDocsConnectorSnapshot = {
+        status: 'connected',
+        toolCount: 2,
+        errorCode: null,
+        errorMessage: null,
+        updatedAt: new Date(0).toISOString(),
+      }
+      const gateway = {
+        toolCallTimeoutMs: 60_000,
+        current: () => snapshot,
+        runHelp: () => Promise.reject(new Error('tool-catalog Kingsoft fixture cannot read help')),
+        runAction: (_request: KdocsCliActionRequest) =>
+          Promise.reject(new Error('tool-catalog Kingsoft fixture cannot execute actions')),
+      }
+      ctx.effect(
+        () => ctx.provide('kingsoftDocsConnector', gateway as unknown as KingsoftDocsConnectorGateway),
+        'tool-catalog: Kingsoft Docs connected gateway fixture',
+      )
+      await ctx.plugin(ToolKingsoftDocs)
+    },
+    note:
+      'The standard, code, and Cordis presets mount this provider-owned Consumer only while its browser-login gateway reports connected. Help inspects the installed CLI without a document API call; every authenticated action requires one executor-owned approval.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-ralph',

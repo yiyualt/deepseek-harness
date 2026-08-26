@@ -494,8 +494,15 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Dynamic MCP connection registry',
     mode: 'seam',
     implementations: ['mcp-client'],
-    consumers: ['tool-mcp', 'host-tencent-docs-connector'],
+    consumers: ['tool-mcp', 'host-mcp-connector', 'host-tencent-docs-connector'],
     note: 'The Host provider owns process-wide transports and safe catalogs; connector packages request lifecycle changes, while preset-scoped Consumers project tools and own last-mile approval.',
+  },
+  {
+    key: 'kingsoftDocsConnector',
+    pkg: 'host-kingsoft-docs-connector',
+    title: 'Kingsoft Docs browser-login CLI gateway',
+    mode: 'bundle',
+    note: 'The package-root Remote and its preset-scoped tool subpath share one concrete kdocs-cli login, process, and teardown owner; it is provider-specific rather than a replaceable seam.',
   },
   {
     key: 'spillStore',

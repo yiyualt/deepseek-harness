@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-25-dynamic-mcp-connectors.md
-2026-08-25-dynamic-mcp-connectors.md: a34673ff75dd60e075bc23250e0bf553bf29e2e7
-2026-08-25-dynamic-mcp-connectors.zh.md: 43f2276dfb7203236506fab757fa3d6161a643cd
+2026-08-25-dynamic-mcp-connectors.md: 023aece6405809268b93edf0f9a7195b68c69177
+2026-08-25-dynamic-mcp-connectors.zh.md: 23d2a8d1367d50be3a8a9724726fba5ad51d64f9

@@ -14,6 +14,9 @@ dsh Web GUI 的宿主侧：所有客户端形态共享的 API 网关，以及承
 | [`directory-picker-browse/`](directory-picker-browse/README.md) | 应用内目录浏览器后端和交互 | 注册 `ctx.directoryPicker` |
 | [`directory-picker-auto/`](directory-picker-auto/README.md) | 宿主自适应选择器组合 | 挂载一个后端 |
 | [`plugin-inventory/`](plugin-inventory/README.md) | 当前 Loader 条目的只读投影 | Remote `pluginInventory/list` |
+| [`mcp-connector/`](mcp-connector/README.md) | 用户管理的 Streamable HTTP MCP 连接器共享生命周期 | 消费 `ctx.credentials` 与 `ctx.mcp` |
+| [`tencent-docs-connector/`](tencent-docs-connector/README.md) | 腾讯文档托管 MCP 连接网关 | Remote `tencentDocsConnector/*` |
+| [`kingsoft-docs-connector/`](kingsoft-docs-connector/README.md) | 金山文档网页登录与 CLI 网关 | Remote `kingsoftDocsConnector/*` |
 | [`meeting-presence/`](meeting-presence/README.md) | 仅参会的 Google Meet 和 Zoom 浏览器参与者 | Remote `meetingPresence/*` |
 
 `apiproxy` 保持传输无关；[`client/connection`](../client/connection/README.md) 提供浏览器／HTTP 载体。选择器实现可在共享 seam 后互相替换。

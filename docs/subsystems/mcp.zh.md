@@ -27,17 +27,17 @@ type McpServerStatus =
   | 'disconnecting'
 ```
 
-授权与普通 HTTP header 分开配置。唯一的授权 variant 会为每个 HTTP 请求解析 credential reference，并原样发送其值；`raw` 绝不添加 `Bearer `。替换凭据会影响下一次请求，但不会自行重连传输。
+授权与普通 HTTP header 分开配置。凭据支持的 variant 会为每个 HTTP 请求解析其引用。`raw` 原样发送值，`bearer` 添加标准 `Bearer ` 前缀。替换凭据会影响下一次请求，但不会自行重连传输。
 
 ```ts type-equiv
-/** Credential reference used as an HTTP `Authorization` header value. */
+/** Credential reference used to construct an HTTP `Authorization` header value. */
 interface McpCredentialAuthorizationConfig {
   /** Selects credential-reference resolution. */
   readonly kind: 'credential'
   /** Reference resolved through `ctx.credentials` for each HTTP request. */
   readonly ref: CredentialRef
-  /** Send the resolved value verbatim; this mode never prepends `Bearer `. */
-  readonly scheme: 'raw'
+  /** Send the resolved value verbatim, or prepend the standard `Bearer ` scheme. */
+  readonly scheme: 'raw' | 'bearer'
 }
 ```
 
@@ -83,6 +83,31 @@ interface McpStreamableHttpTransportConfig {
 type McpTransportConfig = McpStdioTransportConfig | McpStreamableHttpTransportConfig
 ```
 
+连接器可以附加一个由 Host 持有的激活检查。Provider 会在发现完成但目录生效前调用指定的只读工具，再用同进程 classifier 处理已经分离并清除凭据的结果。每次重连 generation 都会重复此 gate。回调和结果都不会进入运行时快照。
+
+```ts type-equiv
+/** Outcome of a provider-specific tool call performed before catalog activation. */
+type McpActivationCheckOutcome = 'accepted' | 'auth-rejected' | 'failed'
+```
+
+```ts type-equiv
+/** Optional read-only tool call that must succeed before a catalog becomes active. */
+interface McpActivationCheck {
+  /** Raw MCP tool name invoked after discovery but before `connected` is published. */
+  readonly toolName: string
+  /** JSON arguments sent to the activation tool. */
+  readonly args: Readonly<Record<string, JsonValue>>
+  /** Complete activation-call timeout in milliseconds. */
+  readonly timeoutMs: number
+  /**
+   * Classify the credential-free result without retaining provider data.
+   * @param result - detached MCP result returned by the initializing client.
+   * @returns whether the catalog may activate, authentication failed, or the result is unusable.
+   */
+  readonly classify: (result: McpResult) => McpActivationCheckOutcome
+}
+```
+
 ```ts type-equiv
 /** Request to establish one named MCP connection. */
 interface McpConnectRequest {
@@ -90,6 +115,8 @@ interface McpConnectRequest {
   readonly serverName: McpServerName
   /** Transport used for this connection and every reconnect generation. */
   readonly transport: McpTransportConfig
+  /** Optional read-only gate completed before each generation publishes its catalog. */
+  readonly activationCheck?: McpActivationCheck
 }
 ```
 
@@ -204,7 +231,7 @@ interface McpResult {
 
 随产品交付的 Provider 提交 `connecting`，初始化全新传输 generation，发现完整工具列表，再提交 `connected` 或安全 `failed` 状态。已建立的连接关闭后会进入有界指数恢复。缺少凭据和认证被拒绝时会直接失败，不进行重试。断开时先发布带空目录的 `disconnecting`，关闭客户端与服务端支持的 HTTP session，等待目录同步和进行中的调用结束，再移除条目。如果服务器在结果中回显已知凭据值，这些值会被替换为 `[REDACTED]`。
 
-腾讯文档连接器通过凭据引用提供已经签发的[空间 MCP Token](https://docs.qq.com/open/document/mcp/get-token/)。腾讯会把该 Token 与签发时所选空间绑定；连接器不执行空间选择或 Token 签发。
+腾讯文档连接器通过 raw 凭据引用提供已经签发的[空间 MCP Token](https://docs.qq.com/open/document/mcp/get-token/)，不负责登录、帐号选择或 Token 签发。金山文档使用供应商官方 `kdocs-cli` 的浏览器登录流程，因此不属于这个 MCP seam；其生命周期与模型工具位于[金山文档 Host 包](../../packages/host/kingsoft-docs-connector/README.md)。
 
 每个 `tool-mcp` Consumer 都会把安全目录原子投影到一个 agent preset。公开名称是确定性的 `mcp__<serverName>__<rawName>` 身份；只有原始名称会发送到 `tools/call`。需要 task 的工具会在派发前失败，因为 task 执行尚未实现。
 
@@ -262,7 +289,7 @@ abstract snapshot(): McpRuntimeSnapshot
 abstract callTool(request: McpCallToolRequest): Promise<McpResult>
 ```
 
-Source: [`packages/mcp/mcp/src/index.ts:62`](../../packages/mcp/mcp/src/index.ts)
+Source: [`packages/mcp/mcp/src/index.ts:64`](../../packages/mcp/mcp/src/index.ts)
 
 <a id="mcp-events"></a>
 
@@ -286,7 +313,7 @@ Complete safe MCP registry snapshot after a connection status or catalog commit.
 'mcp/change'(snapshot: McpRuntimeSnapshot): void
 ```
 
-Source: [`packages/mcp/mcp/src/types.ts:166`](../../packages/mcp/mcp/src/types.ts)
+Source: [`packages/mcp/mcp/src/types.ts:187`](../../packages/mcp/mcp/src/types.ts)
 
 <a id="tencent-docs-connector-events"></a>
 
@@ -307,5 +334,5 @@ The process-wide Tencent Docs connector changed public state.
 'tencent-docs-connector/change'(snapshot: TencentDocsConnectorEventSnapshot): void
 ```
 
-Source: [`packages/host/tencent-docs-connector/src/types.ts:45`](../../packages/host/tencent-docs-connector/src/types.ts)
+Source: [`packages/host/tencent-docs-connector/src/types.ts:25`](../../packages/host/tencent-docs-connector/src/types.ts)
 <!-- END GENERATED cordis-surface -->

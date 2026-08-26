@@ -2,11 +2,11 @@
 
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials/types'
 import type {
+  McpActivationCheck,
+  McpActivationCheckOutcome,
   McpCredentialAuthorizationConfig,
-  McpResult,
   McpServerName,
 } from '@deepseek-ai/dsh-mcp'
-import type { JsonValue } from '@deepseek-ai/dsh-session/types'
 
 /** Lifecycle phase of one process-wide user-managed MCP connection. */
 export type McpConnectorStatus =
@@ -57,23 +57,10 @@ export interface McpConnectorFailures {
 }
 
 /** Result classification for a provider-specific connection check. */
-export type McpConnectorConnectionCheckOutcome = 'accepted' | 'auth-rejected' | 'failed'
+export type McpConnectorConnectionCheckOutcome = McpActivationCheckOutcome
 
-/** Optional read-only call that verifies credentials after MCP discovery. */
-export interface McpConnectorConnectionCheck {
-  /** Raw MCP tool name invoked after initialization. */
-  readonly toolName: string
-  /** JSON arguments sent to the verification tool. */
-  readonly args: Readonly<Record<string, JsonValue>>
-  /** Complete call timeout in milliseconds. */
-  readonly timeoutMs: number
-  /**
-   * Classify the credential-free result without retaining provider data.
-   * @param result - detached MCP result returned by the runtime.
-   * @returns whether the connection is accepted, unauthorized, or otherwise unusable.
-   */
-  readonly classify: (result: McpResult) => McpConnectorConnectionCheckOutcome
-}
+/** Optional read-only call that verifies credentials before catalog activation. */
+export type McpConnectorConnectionCheck = McpActivationCheck
 
 /** Fixed provider facts consumed by one shared connector lifecycle. */
 export interface McpConnectorDefinition {

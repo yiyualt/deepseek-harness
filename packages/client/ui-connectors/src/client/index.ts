@@ -5,13 +5,12 @@ import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import {
+  BrowserLoginConnectorController,
   ConnectorsPanelController,
-  KINGSOFT_DOCS_CREDENTIAL_REF,
   TENCENT_DOCS_CREDENTIAL_REF,
 } from './controller.ts'
 import {
   ConnectorsPanel,
-  type ConnectorId,
   type ConnectorsPanelInjected,
 } from './ConnectorsPanel.tsx'
 import { en, NS, zh, type ConnectorKey } from './locales.ts'
@@ -37,61 +36,57 @@ export const inject = [
 export function apply(ctx: ClientContext): void {
   const connection = ctx.get('connection') as ConnectionHandle
   const credentials = connection.isLoopback ? connection.api : undefined
-  const controllers: Record<ConnectorId, ConnectorsPanelController> = {
-    tencentDocs: new ConnectorsPanelController(
-      ctx.remote.tencentDocsConnector,
-      credentials,
-      TENCENT_DOCS_CREDENTIAL_REF,
-    ),
-    kingsoftDocs: new ConnectorsPanelController(
-      ctx.remote.kingsoftDocsConnector,
-      credentials,
-      KINGSOFT_DOCS_CREDENTIAL_REF,
-    ),
-  }
+  const tencentDocs = new ConnectorsPanelController(
+    ctx.remote.tencentDocsConnector,
+    credentials,
+    TENCENT_DOCS_CREDENTIAL_REF,
+  )
+  const kingsoftDocs = new BrowserLoginConnectorController(
+    ctx.remote.kingsoftDocsConnector,
+    connection.isLoopback,
+  )
 
   ctx.effect(() => {
     const disposeTencent = ctx.remote.$on(
       'tencent-docs-connector/change',
-      (snapshot) => { controllers.tencentDocs.accept(snapshot) },
+      (snapshot) => { tencentDocs.accept(snapshot) },
     )
     const disposeKingsoft = ctx.remote.$on(
       'kingsoft-docs-connector/change',
-      (snapshot) => { controllers.kingsoftDocs.accept(snapshot) },
+      (snapshot) => { kingsoftDocs.accept(snapshot) },
     )
     const disposeCredential = connection.isLoopback
       ? ctx.remote.$on('credentials/updated', (ref) => {
-          controllers.tencentDocs.credentialsUpdated(ref)
-          controllers.kingsoftDocs.credentialsUpdated(ref)
-        })
+        tencentDocs.credentialsUpdated(ref)
+      })
       : undefined
     return () => {
       disposeTencent()
       disposeKingsoft()
       disposeCredential?.()
-      controllers.tencentDocs.dispose()
-      controllers.kingsoftDocs.dispose()
+      tencentDocs.dispose()
+      kingsoftDocs.dispose()
     }
   }, 'ui-connectors: controller lifecycle')
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-connectors: dictionaries')
 
   const injected = (): ConnectorsPanelInjected => ({
     hooks: {
-      tencentDocs: controllers.tencentDocs.store,
-      kingsoftDocs: controllers.kingsoftDocs.store,
+      tencentDocs: tencentDocs.store,
+      kingsoftDocs: kingsoftDocs.store,
     },
     open: () => {
-      controllers.tencentDocs.open()
-      controllers.kingsoftDocs.open()
+      tencentDocs.open()
+      kingsoftDocs.open()
     },
     close: () => {
-      controllers.tencentDocs.close()
-      controllers.kingsoftDocs.close()
+      tencentDocs.close()
+      kingsoftDocs.close()
     },
-    setDraft: (id, value) => { controllers[id].setDraft(value) },
-    clearDraft: (id) => { controllers[id].clearDraft() },
-    connect: (id) => controllers[id].connect(),
-    disconnect: (id) => controllers[id].disconnect(),
+    setTencentDraft: (value) => { tencentDocs.setDraft(value) },
+    clearTencentDraft: () => { tencentDocs.clearDraft() },
+    connect: id => id === 'tencentDocs' ? tencentDocs.connect() : kingsoftDocs.connect(),
+    disconnect: id => id === 'tencentDocs' ? tencentDocs.disconnect() : kingsoftDocs.disconnect(),
   })
 
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({

@@ -6,9 +6,9 @@ dsh 浏览器表层组合包。[`cordis.patch.yml`](cordis.patch.yml) 叠加在 
 
 交付的浏览器插件名录包含一个由 [`meeting-presence`](../../host/meeting-presence/README.md) 支撑的“会议”操作。它在本机 Chrome 中启动一个匿名 Google Meet 或 Zoom 参会者，在侧栏面板中报告准入状态和平台，并在用户离会或插件卸载时停止完整的浏览器进程树。这个参会者不录制、不转写，也不上传会议内容。
 
-该名录还包含“连接器”操作，其中的腾讯文档卡片由 [`tencent-docs-connector`](../../host/tencent-docs-connector/README.md) 支撑。在 Mac 的 loopback 页面上，用户按照腾讯[官方教程获取空间 MCP Token](https://docs.qq.com/open/document/mcp/get-token/)，将其粘贴到密码输入框，再点击“连接”；腾讯会把 Token 与签发时所选空间绑定。浏览器通过仅限 loopback 的凭据 API 写入 Token，随后 Host 连接腾讯的固定 MCP endpoint 并报告发现的工具数量。“断开”会等待传输停止，并且只在当前凭据来源可写时删除 Token。通过非 loopback 地址访问的页面可以查看状态，但不能提交、替换或删除凭据。
+该名录还包含“连接器”操作，其中的腾讯文档与金山文档卡片分别由 [`tencent-docs-connector`](../../host/tencent-docs-connector/README.md) 和 [`kingsoft-docs-connector`](../../host/kingsoft-docs-connector/README.md) 支撑。腾讯使用在 Mac loopback 页面输入的[空间 MCP Token](https://docs.qq.com/open/document/mcp/get-token/)；浏览器通过仅限 loopback 的凭据 API 写入它，Host 再把原始授权值发往腾讯的固定 MCP endpoint。金山没有 Token 输入框。它的“网页登录”按钮会运行官方 `kdocs-cli auth login`，由它打开默认浏览器并把认证信息保存到系统钥匙串；“退出登录”会运行 `auth logout`。standard、code 和 Cordis preset 只在连接后获得两个稳定的金山 CLI 工具。通过非 loopback 地址访问的页面可以查看两个连接器的状态，但不能开始或移除认证。
 
-只有挂载 [`dsh-tool-mcp`](../../mcp/tool-mcp/README.md) 的 preset 才能看到已连接的腾讯文档工具。每个 MCP 工具都会在外部调用前请求用户批准，因为远端 annotation 不受信任，绝不会授予免确认权限。
+只有挂载 [`dsh-tool-mcp`](../../mcp/tool-mcp/README.md) 的 preset 才能看到已连接的文档工具。每个 MCP 工具都会在外部调用前请求用户批准，因为远端 annotation 不受信任，绝不会授予免确认权限。
 
 ## 模型体验
 

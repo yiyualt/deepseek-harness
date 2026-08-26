@@ -3,13 +3,18 @@
 import { Context, Service } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
-import type { TencentDocsConnectorSnapshot } from '@deepseek-ai/dsh-api-remotes/client'
+import type {
+  KingsoftDocsConnectorSnapshot,
+  TencentDocsConnectorSnapshot,
+} from '@deepseek-ai/dsh-api-remotes/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '../src/client/index.ts'
 import { apply as applyNode } from '../src/index.ts'
 import * as ConnectorsInvariant from '../src/invariant.ts'
-import { TENCENT_DOCS_CREDENTIAL_REF } from '../src/client/controller.ts'
+import {
+  TENCENT_DOCS_CREDENTIAL_REF,
+} from '../src/client/controller.ts'
 import { en, NS, zh } from '../src/client/locales.ts'
 
 const SNAPSHOT: TencentDocsConnectorSnapshot = {
@@ -41,7 +46,7 @@ async function bench(isLoopback = true) {
     })
   }
   const remoteService = new RemoteService(ctx)
-  const connector = {
+  const createConnector = () => ({
     get: vi.fn(async () => ({ ok: true, value: SNAPSHOT })),
     publicGet: vi.fn(async () => ({
       ok: true,
@@ -55,8 +60,31 @@ async function bench(isLoopback = true) {
     })),
     connect: vi.fn(async () => ({ ok: true, value: { ...SNAPSHOT, status: 'connected' } })),
     disconnect: vi.fn(async () => ({ ok: true, value: SNAPSHOT })),
+  })
+  const connector = createConnector()
+  const kingsoftSnapshot: KingsoftDocsConnectorSnapshot = {
+    status: 'disconnected',
+    toolCount: 0,
+    errorCode: null,
+    errorMessage: null,
+    updatedAt: SNAPSHOT.updatedAt,
+  }
+  const kingsoftConnector = {
+    get: vi.fn(async () => ({ ok: true as const, value: kingsoftSnapshot })),
+    publicGet: vi.fn(async () => ({ ok: true as const, value: {
+      ...kingsoftSnapshot,
+      status: 'connected' as const,
+      toolCount: 2,
+    } })),
+    connect: vi.fn(async () => ({ ok: true as const, value: {
+      ...kingsoftSnapshot,
+      status: 'connected' as const,
+      toolCount: 2,
+    } })),
+    disconnect: vi.fn(async () => ({ ok: true as const, value: kingsoftSnapshot })),
   }
   ctx.provide('remote.tencentDocsConnector', connector as never)
+  ctx.provide('remote.kingsoftDocsConnector', kingsoftConnector as never)
   const describe = vi.fn(async () => ({ result: { ok: true, value: { credentials: {
     [TENCENT_DOCS_CREDENTIAL_REF]: { configured: false, writable: true },
   } } } }))
@@ -70,6 +98,7 @@ async function bench(isLoopback = true) {
     fiber,
     unsubscribe,
     connector,
+    kingsoftConnector,
     describe,
     subscribedEvents: () => remoteService.$on.mock.calls.map(([event]) => event),
     dispatch: (event: string, value: unknown) => { listeners.get(event)?.(value as never) },
@@ -78,7 +107,14 @@ async function bench(isLoopback = true) {
 
 describe('ui-connectors browser plugin', () => {
   it('declares its service dependencies', () => {
-    expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.tencentDocsConnector', 'connection'])
+    expect(inject).toEqual([
+      'slots',
+      'locale',
+      'remote',
+      'remote.kingsoftDocsConnector',
+      'remote.tencentDocsConnector',
+      'connection',
+    ])
   })
 
   it('registers one footer action and removes state and subscription with the fiber', async () => {
@@ -86,24 +122,31 @@ describe('ui-connectors browser plugin', () => {
     const entry = ctx.slots.entries('sidebar.footer.action')[0]
     expect(entry?.options).toMatchObject({ id: 'connectors', order: -10 })
     expect(entry?.locale).toBe(NS)
-    expect(subscribedEvents()).toEqual(['tencent-docs-connector/change', 'credentials/updated'])
+    expect(subscribedEvents()).toEqual([
+      'tencent-docs-connector/change',
+      'kingsoft-docs-connector/change',
+      'credentials/updated',
+    ])
     await fiber.dispose()
     expect(ctx.slots.entries('sidebar.footer.action')).toHaveLength(0)
-    expect(unsubscribe).toHaveBeenCalledTimes(2)
+    expect(unsubscribe).toHaveBeenCalledTimes(3)
     await ctx.fiber.dispose()
   })
 
   it('binds pushed snapshots and loopback credential reconciliation to the injected face', async () => {
-    const { ctx, fiber, describe, dispatch } = await bench()
+    const { ctx, fiber, kingsoftConnector, describe, dispatch } = await bench()
     const entry = ctx.slots.entries('sidebar.footer.action')[0]!
     const face = (entry.inject as unknown as () => {
-      hooks: { connectors: { getSnapshot(): { connector: TencentDocsConnectorSnapshot } } }
+      hooks: {
+        tencentDocs: { getSnapshot(): { connector: TencentDocsConnectorSnapshot } }
+        kingsoftDocs: { getSnapshot(): { connector: KingsoftDocsConnectorSnapshot } }
+      }
       open(): void
       close(): void
-      setDraft(value: string): void
-      clearDraft(): void
-      connect(): Promise<void>
-      disconnect(): Promise<void>
+      setTencentDraft(value: string): void
+      clearTencentDraft(): void
+      connect(id: 'tencentDocs' | 'kingsoftDocs'): Promise<void>
+      disconnect(id: 'tencentDocs' | 'kingsoftDocs'): Promise<void>
     })()
     face.open()
     await vi.waitFor(() => { expect(describe).toHaveBeenCalledOnce() })
@@ -111,11 +154,15 @@ describe('ui-connectors browser plugin', () => {
     expect(describe).toHaveBeenCalledOnce()
     dispatch('credentials/updated', TENCENT_DOCS_CREDENTIAL_REF)
     await vi.waitFor(() => { expect(describe).toHaveBeenCalledTimes(2) })
-    face.setDraft('temporary')
-    face.clearDraft()
-    face.setDraft('space-mcp-token')
-    await face.connect()
-    await face.disconnect()
+    face.setTencentDraft('temporary')
+    face.clearTencentDraft()
+    face.setTencentDraft('space-mcp-token')
+    await face.connect('tencentDocs')
+    await face.disconnect('tencentDocs')
+    await face.connect('kingsoftDocs')
+    await face.disconnect('kingsoftDocs')
+    expect(kingsoftConnector.connect).toHaveBeenCalledOnce()
+    expect(kingsoftConnector.disconnect).toHaveBeenCalledOnce()
     face.close()
     dispatch('tencent-docs-connector/change', {
       status: 'connected',
@@ -124,24 +171,39 @@ describe('ui-connectors browser plugin', () => {
       errorMessage: null,
       updatedAt: '2026-08-25T00:00:01.000Z',
     })
-    expect(face.hooks.connectors.getSnapshot().connector).toMatchObject({ status: 'connected', toolCount: 6 })
+    expect(face.hooks.tencentDocs.getSnapshot().connector).toMatchObject({ status: 'connected', toolCount: 6 })
+    dispatch('kingsoft-docs-connector/change', {
+      status: 'connected',
+      toolCount: 2,
+      errorCode: null,
+      errorMessage: null,
+      updatedAt: '2026-08-25T00:00:02.000Z',
+    })
+    expect(face.hooks.kingsoftDocs.getSnapshot().connector).toMatchObject({ status: 'connected', toolCount: 2 })
     await fiber.dispose()
     await ctx.fiber.dispose()
   })
 
   it('reads public state without calling loopback-pinned or credential methods for a non-loopback page', async () => {
-    const { ctx, fiber, connector, describe, dispatch, subscribedEvents } = await bench(false)
+    const { ctx, fiber, connector, kingsoftConnector, describe, dispatch, subscribedEvents } = await bench(false)
     const entry = ctx.slots.entries('sidebar.footer.action')[0]!
     const face = (entry.inject as unknown as () => {
-      hooks: { connectors: { getSnapshot(): { connector: TencentDocsConnectorSnapshot } } }
+      hooks: {
+        tencentDocs: { getSnapshot(): { connector: TencentDocsConnectorSnapshot } }
+        kingsoftDocs: { getSnapshot(): { connector: KingsoftDocsConnectorSnapshot } }
+      }
       open(): void
     })()
     face.open()
     await vi.waitFor(() => { expect(connector.publicGet).toHaveBeenCalledOnce() })
+    expect(kingsoftConnector.publicGet).toHaveBeenCalledOnce()
     expect(connector.get).not.toHaveBeenCalled()
     expect(describe).not.toHaveBeenCalled()
-    expect(subscribedEvents()).toEqual(['tencent-docs-connector/change'])
-    expect(face.hooks.connectors.getSnapshot().connector).toMatchObject({ status: 'connected', toolCount: 5 })
+    expect(subscribedEvents()).toEqual([
+      'tencent-docs-connector/change',
+      'kingsoft-docs-connector/change',
+    ])
+    expect(face.hooks.tencentDocs.getSnapshot().connector).toMatchObject({ status: 'connected', toolCount: 5 })
     dispatch('credentials/updated', TENCENT_DOCS_CREDENTIAL_REF)
     await Promise.resolve()
     expect(describe).not.toHaveBeenCalled()
@@ -152,7 +214,7 @@ describe('ui-connectors browser plugin', () => {
       errorMessage: null,
       updatedAt: '2026-08-25T00:00:01.000Z',
     })
-    expect(face.hooks.connectors.getSnapshot().connector).toMatchObject({
+    expect(face.hooks.tencentDocs.getSnapshot().connector).toMatchObject({
       status: 'connected',
       toolCount: 5,
       credentialConfigured: false,

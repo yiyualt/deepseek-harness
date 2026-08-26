@@ -177,6 +177,7 @@
       "@deepseek-ai/dsh-host-mcp-connector": ["./packages/host/mcp-connector/src"],
       "@deepseek-ai/dsh-host-mcp-connector/types": ["./packages/host/mcp-connector/src/types.ts"],
       "@deepseek-ai/dsh-host-kingsoft-docs-connector": ["./packages/host/kingsoft-docs-connector/src"],
+      "@deepseek-ai/dsh-host-kingsoft-docs-connector/tool": ["./packages/host/kingsoft-docs-connector/src/tool.ts"],
       "@deepseek-ai/dsh-host-kingsoft-docs-connector/types": ["./packages/host/kingsoft-docs-connector/src/types.ts"],
       "@deepseek-ai/dsh-host-tencent-docs-connector": ["./packages/host/tencent-docs-connector/src"],
       "@deepseek-ai/dsh-host-tencent-docs-connector/types": ["./packages/host/tencent-docs-connector/src/types.ts"],

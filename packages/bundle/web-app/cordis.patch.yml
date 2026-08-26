@@ -100,8 +100,8 @@
       name: '@deepseek-ai/dsh-host-meeting-presence'
       config: {}
 
-    # Fixed Kingsoft Docs hosted-MCP connector. The Host adds the Bearer
-    # scheme after resolving the stored Token and verifies it read-only.
+    # Process-wide Kingsoft Docs browser login. The official CLI keeps its
+    # credential in the system keychain; the browser receives only safe state.
     - id: kingsoft-docs-connector
       name: '@deepseek-ai/dsh-host-kingsoft-docs-connector'
       config: {}

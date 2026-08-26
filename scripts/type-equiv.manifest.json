@@ -1962,6 +1962,16 @@
     },
     {
       "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpActivationCheckOutcome",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
+      "symbol": "McpActivationCheck",
+      "source": "packages/mcp/mcp/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/mcp.md",
       "symbol": "McpConnectRequest",
       "source": "packages/mcp/mcp/src/types.ts"
     },

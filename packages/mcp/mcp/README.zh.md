@@ -8,7 +8,7 @@
 
 | 方法 | 用途 |
 |---|---|
-| `connect({ serverName, transport })` | 启动一个命名连接，并在首次状态提交后结束 |
+| `connect({ serverName, transport, activationCheck? })` | 启动一个命名连接，并在首次状态提交后结束 |
 | `disconnect(serverName)` | 撤下目录、停止自有工作、等待传输静默，然后从快照中移除 |
 | `snapshot()` | 返回完整的安全注册表版本和服务器目录 |
 | `callTool({ serverName, name, args, signal, timeoutMs })` | 在当前传输代际上调用原始工具名 |
@@ -16,6 +16,8 @@
 使用 `mcpServerName(value)` 创建名称。名称接受 1 到 32 个 ASCII 字母、数字、`_` 或 `-`，并且在此包外保持不透明。
 
 只要名称仍在 `snapshot().servers` 中，`connect` 就会拒绝它，包括已连接、失败或正在断开的条目。替换配置或重试失败连接必须显式执行 `await disconnect(name)`，再调用 `connect(...)`。断开未知名称是无操作。
+
+可选的 Host-owned `activationCheck` 指定一个发现到的只读工具、固定 JSON 参数、超时和同进程结果 classifier。Provider 会在发布 `connected` 前执行它，并在每次重连 generation 重复执行。只有 `accepted` 会激活目录；拒绝会关闭初始化中的传输并发布安全失败。
 
 ## 传输与凭据
 
@@ -36,7 +38,7 @@ const transport: McpStreamableHttpTransportConfig = {
 }
 ```
 
-`scheme: 'raw'` 会把解析出的凭据原样作为 `Authorization` 值发送，不会添加 `Bearer `。随产品交付的运行时会为每个 HTTP 请求解析该引用，因此替换后的凭据会在下一个请求中生效，无需重连活跃传输；替换凭据本身不会触发重连。Provider 会拒绝 `headers` 中的 `Authorization` 键；快照和诊断绝不包含传输请求头或解析后的凭据值。
+`scheme: 'raw'` 会把解析出的凭据原样作为 `Authorization` 值发送；`scheme: 'bearer'` 会添加标准 `Bearer ` 前缀。随产品交付的运行时会为每个 HTTP 请求解析该引用，因此替换后的凭据会在下一个请求中生效，无需重连活跃传输；替换凭据本身不会触发重连。Provider 会拒绝 `headers` 中的 `Authorization` 键；快照和诊断绝不包含传输请求头或解析后的凭据值。
 
 ## 快照与事件
 
@@ -66,4 +68,4 @@ Provider 先提交状态，再调用受保护的 `notifyChange()`。它通过不
 
 - 此包定义运行时接口，但不提供传输实现。
 - 目录目前只覆盖 MCP 工具；资源和提示词需要独立 Consumer 后才能进入此 seam。
-- 授权目前只有凭据支持的 HTTP 原样值。OAuth 和其他 scheme 必须新增联合类型判别项，不能改变 `raw` 的语义。
+- 授权支持凭据支撑的 HTTP 原样值和 Bearer 值。OAuth 需要独立的授权生命周期，不能改变这两种 scheme 的语义。

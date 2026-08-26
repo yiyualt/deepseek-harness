@@ -14,12 +14,10 @@ import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client
 /** Credential reference used by the Tencent Docs MCP connector. */
 export const TENCENT_DOCS_CREDENTIAL_REF = 'TENCENT_DOCS_MCP_TOKEN'
 
-/** Credential reference used by the Kingsoft Docs MCP connector. */
-export const KINGSOFT_DOCS_CREDENTIAL_REF = 'KINGSOFT_DOCS_TOKEN'
-
-type ConnectorSnapshot = TencentDocsConnectorSnapshot | KingsoftDocsConnectorSnapshot
-type ConnectorEventSnapshot = TencentDocsConnectorEventSnapshot | KingsoftDocsConnectorEventSnapshot
-type ConnectorRemote = ClientRemote['tencentDocsConnector'] | ClientRemote['kingsoftDocsConnector']
+type ConnectorSnapshot = TencentDocsConnectorSnapshot
+type ConnectorEventSnapshot = TencentDocsConnectorEventSnapshot
+type ConnectorRemote = ClientRemote['tencentDocsConnector']
+type BrowserLoginRemote = ClientRemote['kingsoftDocsConnector']
 
 /** Browser-local panel and mutation state joined with the Host snapshot. */
 export interface ConnectorsPanelState {
@@ -29,6 +27,15 @@ export interface ConnectorsPanelState {
   error: string | null
   loopback: boolean
   connector: ConnectorSnapshot
+}
+
+/** Browser-local state for a connector whose credential never enters the page. */
+export interface BrowserLoginConnectorState {
+  open: boolean
+  pending: 'connect' | 'disconnect' | null
+  error: string | null
+  loopback: boolean
+  connector: KingsoftDocsConnectorSnapshot
 }
 
 type MutationKind = Exclude<ConnectorsPanelState['pending'], null>
@@ -53,6 +60,19 @@ const ACTIVE_AFTER_DISCONNECT = new Set<ConnectorSnapshot['status']>([
   'connecting',
   'connected',
   'reconnecting',
+])
+
+const INITIAL_BROWSER_LOGIN_CONNECTOR: KingsoftDocsConnectorSnapshot = {
+  status: 'disconnected',
+  toolCount: 0,
+  errorCode: null,
+  errorMessage: null,
+  updatedAt: new Date(0).toISOString(),
+}
+
+const BROWSER_ACTIVE_AFTER_DISCONNECT = new Set<KingsoftDocsConnectorSnapshot['status']>([
+  'connecting',
+  'connected',
 ])
 
 /** Stable UI-owned failure code for a connector request whose carrier did not settle. */
@@ -394,6 +414,225 @@ export class ConnectorsPanelController {
       })
     } catch (error: unknown) {
       if (!this.disposed && sequence === this.credentialSequence) this.reportFailure(error)
+    }
+  }
+}
+
+/** Owns the Kingsoft Docs browser-login card without handling any credential value. */
+export class BrowserLoginConnectorController {
+  /** Observable complete state rendered by the slot contribution. */
+  readonly store: SnapshotStore<BrowserLoginConnectorState>
+
+  private disposed = false
+  private lifecycleSequence = 0
+  private mutationSequence = 0
+  private activeMutation: ActiveMutation | null = null
+  private settledMutation: MutationKind | null = null
+  private carrierFailedMutation: MutationKind | null = null
+
+  /**
+   * @param remote - Kingsoft Docs browser-login Remote namespace.
+   * @param loopback - whether this page may start or remove a local keychain login.
+   */
+  constructor(private readonly remote: BrowserLoginRemote, loopback: boolean) {
+    this.store = createSnapshotStore({
+      open: false,
+      pending: null,
+      error: null,
+      loopback,
+      connector: INITIAL_BROWSER_LOGIN_CONNECTOR,
+    })
+  }
+
+  /** Open the panel and reconcile loopback or public lifecycle state. */
+  open(): void {
+    if (this.disposed) return
+    this.store.update((state) => { state.open = true })
+    void (this.store.getSnapshot().loopback ? this.refresh() : this.refreshPublic())
+  }
+
+  /** Close the panel and invalidate an outstanding state refresh. */
+  close(): void {
+    this.lifecycleSequence += 1
+    this.store.update((state) => { state.open = false })
+  }
+
+  /**
+   * Accept a credential-free lifecycle push from the Host.
+   * @param snapshot - latest public Kingsoft Docs state.
+   */
+  // oxlint-disable-next-line sonarjs/no-identical-functions -- Keep credential-free and credential-backed state ownership separate.
+  accept(snapshot: KingsoftDocsConnectorEventSnapshot): void {
+    if (this.disposed || this.isSettledPrecursor(snapshot.status)) return
+    this.lifecycleSequence += 1
+    this.applyLifecycle(snapshot)
+    this.advanceSettledMutation(snapshot.status)
+  }
+
+  /** Ask the Host to reuse keychain authentication or open browser login. */
+  async connect(): Promise<void> {
+    const current = this.store.getSnapshot()
+    if (this.disposed || !current.loopback || current.pending !== null) return
+    const mutation = this.beginMutation('connect')
+    try {
+      const response = await this.remote.connect()
+      if (!this.isActive(mutation)) return
+      if (!response.ok) throw new Error(response.error.message)
+      this.commitMutation(mutation, response.value)
+    } catch (error: unknown) {
+      if (this.isActive(mutation)) this.reportConnectorRequestFailure(mutation, error)
+    } finally {
+      this.settleMutation(mutation)
+    }
+  }
+
+  /** Ask the Host to remove Kingsoft Docs authentication from the system keychain. */
+  async disconnect(): Promise<void> {
+    const current = this.store.getSnapshot()
+    if (this.disposed || !current.loopback || current.pending !== null) return
+    const mutation = this.beginMutation('disconnect')
+    try {
+      const response = await this.remote.disconnect()
+      if (!this.isActive(mutation)) return
+      if (!response.ok) throw new Error(response.error.message)
+      this.commitMutation(mutation, response.value)
+    } catch (error: unknown) {
+      if (this.isActive(mutation)) this.reportConnectorRequestFailure(mutation, error)
+    } finally {
+      this.settleMutation(mutation)
+    }
+  }
+
+  /** Ignore late Remote settlements after the plugin unloads. */
+  dispose(): void {
+    this.disposed = true
+    this.lifecycleSequence += 1
+    this.activeMutation = null
+    this.carrierFailedMutation = null
+  }
+
+  private beginMutation(kind: MutationKind): ActiveMutation {
+    const mutation = { id: ++this.mutationSequence, kind }
+    this.activeMutation = mutation
+    this.settledMutation = null
+    this.carrierFailedMutation = null
+    this.lifecycleSequence += 1
+    this.store.update((state) => {
+      state.pending = kind
+      state.error = null
+    })
+    return mutation
+  }
+
+  private isActive(mutation: ActiveMutation): boolean {
+    return !this.disposed && this.activeMutation?.id === mutation.id
+  }
+
+  private commitMutation(mutation: ActiveMutation, snapshot: KingsoftDocsConnectorSnapshot): void {
+    this.lifecycleSequence += 1
+    this.settledMutation = mutation.kind
+    this.store.update((state) => {
+      state.connector = snapshot
+      state.error = null
+    })
+  }
+
+  // oxlint-disable-next-line sonarjs/no-identical-functions -- Each controller owns a different state store.
+  private settleMutation(mutation: ActiveMutation): void {
+    if (!this.isActive(mutation)) return
+    this.activeMutation = null
+    this.store.update((state) => { state.pending = null })
+  }
+
+  private reportConnectorRequestFailure(mutation: ActiveMutation, error: unknown): void {
+    const expectedStatus = this.expectedStatus(mutation.kind)
+    if (this.store.getSnapshot().connector.status !== expectedStatus) {
+      this.carrierFailedMutation = mutation.kind
+      this.store.update((state) => { state.error = errorMessage(error) })
+      return
+    }
+    this.failConnectorRequest(mutation.kind)
+  }
+
+  // oxlint-disable-next-line sonarjs/no-identical-functions -- Each controller projects into its provider-specific snapshot.
+  private failConnectorRequest(kind: MutationKind): void {
+    this.lifecycleSequence += 1
+    this.settledMutation = kind
+    this.carrierFailedMutation = null
+    this.store.update((state) => {
+      state.connector = {
+        ...state.connector,
+        status: 'failed',
+        toolCount: 0,
+        errorCode: CONNECTOR_REQUEST_FAILED,
+        errorMessage: null,
+        updatedAt: new Date().toISOString(),
+      }
+      state.error = null
+    })
+  }
+
+  private isSettledPrecursor(status: KingsoftDocsConnectorSnapshot['status']): boolean {
+    const current = this.store.getSnapshot().connector.status
+    if (this.settledMutation === 'connect' && status === 'connecting') {
+      return current !== 'disconnected'
+    }
+    if (this.settledMutation === 'disconnect' && status === 'disconnecting') {
+      return current !== 'connected'
+    }
+    return false
+  }
+
+  private advanceSettledMutation(status: KingsoftDocsConnectorSnapshot['status']): void {
+    const reachedNewState = (this.settledMutation === 'connect' && status === 'disconnected')
+      || (this.settledMutation === 'disconnect' && BROWSER_ACTIVE_AFTER_DISCONNECT.has(status))
+    if (reachedNewState) this.settledMutation = null
+  }
+
+  private applyLifecycle(snapshot: KingsoftDocsConnectorEventSnapshot): void {
+    if (this.carrierFailedMutation !== null) {
+      const failedKind = this.carrierFailedMutation
+      if (snapshot.status === this.expectedStatus(failedKind)) {
+        this.failConnectorRequest(failedKind)
+        return
+      }
+      this.carrierFailedMutation = null
+    }
+    this.store.update((state) => {
+      state.connector = snapshot
+      state.error = null
+    })
+  }
+
+  private expectedStatus(kind: MutationKind): KingsoftDocsConnectorSnapshot['status'] {
+    return kind === 'connect' ? 'connecting' : 'disconnecting'
+  }
+
+  private async refresh(): Promise<void> {
+    const sequence = ++this.lifecycleSequence
+    try {
+      const response = await this.remote.get()
+      if (!response.ok) throw new Error(response.error.message)
+      if (this.disposed || sequence !== this.lifecycleSequence) return
+      this.applyLifecycle(response.value)
+    } catch (error: unknown) {
+      if (!this.disposed && sequence === this.lifecycleSequence) {
+        this.store.update((state) => { state.error = errorMessage(error) })
+      }
+    }
+  }
+
+  private async refreshPublic(): Promise<void> {
+    const sequence = ++this.lifecycleSequence
+    try {
+      const response = await this.remote.publicGet()
+      if (!response.ok) throw new Error(response.error.message)
+      if (this.disposed || sequence !== this.lifecycleSequence) return
+      this.applyLifecycle(response.value)
+    } catch (error: unknown) {
+      if (!this.disposed && sequence === this.lifecycleSequence) {
+        this.store.update((state) => { state.error = errorMessage(error) })
+      }
     }
   }
 }

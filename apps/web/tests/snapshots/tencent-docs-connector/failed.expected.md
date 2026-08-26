@@ -12,5 +12,14 @@
     - text: "空间 MCP Token 已配置 凭据来源: file"
     - link "前往腾讯文档获取空间 MCP Token":
       - /url: https://docs.qq.com/open/document/mcp/get-token/
-    - alert: 腾讯文档拒绝了当前 Token，请更新后重试。
     - button "重试连接"
+    - alert: 腾讯文档拒绝了当前 Token，请更新后重试。
+  - article:
+    - heading "金山文档" [level=3]
+    - paragraph: 读取、创建和编辑个人账号里的金山文档。
+    - text: 未连接
+    - paragraph: 点击“网页登录”后，官方 kdocs-cli 会打开默认浏览器，请在金山文档页面完成登录。
+    - paragraph: 登录凭据由 kdocs-cli 保存在这台 Mac 的系统钥匙串中，不会交给网页或模型。
+    - link "查看金山文档官方登录与安装说明":
+      - /url: https://github.com/kdocs-app/kdocs-skill/blob/master/references/auth.md
+    - button "网页登录"

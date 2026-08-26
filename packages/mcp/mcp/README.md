@@ -8,7 +8,7 @@ English | [中文](README.zh.md)
 
 | Method | Purpose |
 |---|---|
-| `connect({ serverName, transport })` | Start one named connection and settle after its initial state is committed |
+| `connect({ serverName, transport, activationCheck? })` | Start one named connection and settle after its initial state is committed |
 | `disconnect(serverName)` | Withdraw its catalog, stop owned work, await transport quiescence, and remove it from the snapshot |
 | `snapshot()` | Return the complete safe registry revision and server catalog |
 | `callTool({ serverName, name, args, signal, timeoutMs })` | Call a raw tool on the current transport generation |
@@ -16,6 +16,8 @@ English | [中文](README.zh.md)
 Create names with `mcpServerName(value)`. They accept one to 32 ASCII letters, digits, `_`, or `-` and are opaque outside this package.
 
 `connect` rejects a name that is still present in `snapshot().servers`, including a connected, failed, or disconnecting entry. Replacing a configuration or retrying a failed connection is an explicit `await disconnect(name)` followed by `connect(...)`. Disconnecting an unknown name is a no-op.
+
+An optional Host-owned `activationCheck` names one read-only discovered tool, fixed JSON arguments, a timeout, and a same-process result classifier. The Provider runs it before publishing `connected` and again for every reconnect generation. Only `accepted` activates the catalog; rejection closes the initializing transport and publishes a safe failure.
 
 ## Transport and credentials
 
@@ -36,7 +38,7 @@ const transport: McpStreamableHttpTransportConfig = {
 }
 ```
 
-`scheme: 'raw'` sends the resolved credential verbatim as the `Authorization` value; it does not prepend `Bearer `. The shipped runtime resolves the reference for every HTTP request, so a replaced credential is observed by the next request without reconnecting the active transport; credential replacement does not itself trigger a reconnect. Providers reject an `Authorization` key in `headers`, and snapshots and diagnostics never include transport headers or resolved credential values.
+`scheme: 'raw'` sends the resolved credential verbatim as the `Authorization` value; `scheme: 'bearer'` prepends the standard `Bearer ` prefix. The shipped runtime resolves the reference for every HTTP request, so a replaced credential is observed by the next request without reconnecting the active transport; credential replacement does not itself trigger a reconnect. Providers reject an `Authorization` key in `headers`, and snapshots and diagnostics never include transport headers or resolved credential values.
 
 ## Snapshots and events
 
@@ -66,4 +68,4 @@ None from the runtime snapshot or lifecycle event alone.
 
 - This package defines the runtime interface but does not provide a transport implementation.
 - The catalog covers MCP tools only; resources and prompts need separate consumers before they belong in this seam.
-- Authorization currently has only credential-backed raw HTTP values. OAuth and additional schemes require new discriminants rather than changing `raw` semantics.
+- Authorization supports credential-backed raw and Bearer HTTP values. OAuth requires a separate authorization lifecycle rather than changing either scheme's semantics.

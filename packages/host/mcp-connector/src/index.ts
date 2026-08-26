@@ -1,6 +1,7 @@
 /** Shared Host lifecycle for explicit user-managed MCP connections. */
 
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-credentials'
 import type {
   McpRuntimeSnapshot,
   McpServerSnapshot,
@@ -21,13 +22,6 @@ type CredentialState = Pick<
 >
 
 const NO_FAILURE: McpConnectorFailure = { errorCode: null, errorMessage: null }
-
-class ConnectorAuthenticationRejected extends Error {
-  constructor() {
-    super('AUTH_REJECTED')
-    this.name = 'ConnectorAuthenticationRejected'
-  }
-}
 
 function isAuthRejection(value: unknown): boolean {
   const seen = new Set<unknown>()
@@ -152,7 +146,10 @@ export class McpConnectorLifecycle {
       if (this.disposed) return this.copySnapshot()
       this.connectionRequested = true
       const credential = await this.readCredentialState()
-      if (this.disposed) return this.copySnapshot()
+      if (this.isDisposed()) {
+        this.publishStatus('failed', 0, this.definition.failures.credentialLookup)
+        return this.copySnapshot()
+      }
       if (credential === undefined) return this.copySnapshot()
       if (!credential.credentialConfigured) {
         if (!await this.disconnectExistingServer()) return this.copySnapshot()
@@ -162,7 +159,6 @@ export class McpConnectorLifecycle {
 
       this.publishStatus('connecting', 0, NO_FAILURE)
       if (!await this.disconnectExistingServer()) return this.copySnapshot()
-      let established = false
       try {
         const server = await this.ctx.mcp.connect({
           serverName: this.definition.serverName,
@@ -175,13 +171,13 @@ export class McpConnectorLifecycle {
               scheme: this.definition.authorizationScheme,
             },
           },
+          ...this.definition.connectionCheck === undefined
+            ? {}
+            : { activationCheck: this.definition.connectionCheck },
         })
-        established = server.status === 'connected'
-        if (established) await this.runConnectionCheck()
-        if (!this.disposed) this.publishServer(server)
+        if (!this.isDisposed()) this.publishServer(server)
       } catch (error: unknown) {
-        if (established && !await this.disconnectAfterRejectedCheck()) return this.copySnapshot()
-        if (!this.disposed) {
+        if (!this.isDisposed()) {
           const failed = this.serverFrom(this.ctx.mcp.snapshot())
           if (failed?.status === 'failed'
             && (failed.errorCode !== undefined || failed.errorMessage !== undefined)) this.publishServer(failed)
@@ -208,9 +204,9 @@ export class McpConnectorLifecycle {
       this.publishStatus('disconnecting', 0, NO_FAILURE)
       try {
         await this.ctx.mcp.disconnect(this.definition.serverName)
-        if (!this.disposed) this.publishStatus('disconnected', 0, NO_FAILURE)
+        if (!this.isDisposed()) this.publishStatus('disconnected', 0, NO_FAILURE)
       } catch {
-        if (!this.disposed) this.publishStatus('failed', 0, this.definition.failures.disconnectFailed)
+        if (!this.isDisposed()) this.publishStatus('failed', 0, this.definition.failures.disconnectFailed)
       }
       return this.copySnapshot()
     })
@@ -258,7 +254,7 @@ export class McpConnectorLifecycle {
   }
 
   private async handleCredentialUpdate(): Promise<void> {
-    if (!await this.refreshCredentialState(true) || this.disposed) return
+    if (!await this.refreshCredentialState(true) || this.isDisposed()) return
     if (!this.snapshot.credentialConfigured && this.connectionRequested) {
       if (await this.disconnectExistingServer() && !this.disposed) {
         this.publishStatus('failed', 0, this.definition.failures.credentialMissing)
@@ -268,36 +264,6 @@ export class McpConnectorLifecycle {
     const runtime = this.ctx.mcp.snapshot()
     if (this.connectionRequested && this.serverFrom(runtime) === undefined) return
     this.reconcileMcp(runtime)
-  }
-
-  private async runConnectionCheck(): Promise<void> {
-    const check = this.definition.connectionCheck
-    if (check === undefined) return
-    const result = await this.ctx.mcp.callTool({
-      serverName: this.definition.serverName,
-      name: check.toolName,
-      args: check.args,
-      signal: new AbortController().signal,
-      timeoutMs: check.timeoutMs,
-    })
-    switch (check.classify(result)) {
-      case 'accepted':
-        return
-      case 'auth-rejected':
-        throw new ConnectorAuthenticationRejected()
-      case 'failed':
-        throw new Error('MCP connector verification failed')
-    }
-  }
-
-  private async disconnectAfterRejectedCheck(): Promise<boolean> {
-    try {
-      await this.ctx.mcp.disconnect(this.definition.serverName)
-      return true
-    } catch {
-      if (!this.disposed) this.publishStatus('failed', 0, this.definition.failures.disconnectFailed)
-      return false
-    }
   }
 
   private async disconnectExistingServer(): Promise<boolean> {
@@ -391,6 +357,10 @@ export class McpConnectorLifecycle {
 
   private serverFrom(snapshot: McpRuntimeSnapshot): McpServerSnapshot | undefined {
     return snapshot.servers.find(server => server.serverName === this.definition.serverName)
+  }
+
+  private isDisposed(): boolean {
+    return this.disposed
   }
 
   private safeFailure(value: unknown): McpConnectorFailure {

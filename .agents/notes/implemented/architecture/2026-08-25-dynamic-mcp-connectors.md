@@ -26,6 +26,8 @@ The base bundle mounts the dynamic runtime because connection health, credential
 
 A product-specific Host connector translates explicit user intent into one fixed MCP connection and exposes only value-free state through its Remote API. The browser uses the existing loopback-only credential API to write a secret, then calls a no-argument connector method. Remote arguments, snapshots, pushed events, and diagnostics never carry the secret. A non-loopback browser can inspect connector state but cannot mutate credentials or connection state.
 
+Product adapters share `@deepseek-ai/dsh-host-mcp-connector` for serialized credential inspection, connection replacement, safe failure projection, runtime reconciliation, and awaited teardown. A provider may additionally require one fixed read-only tool call after discovery. The MCP runtime performs that activation check before publishing `connected` and repeats it for reconnect generations. Only an accepted result activates the catalog; rejection closes the initializing transport first. Vendor packages retain their own endpoint, credential reference, server name, authorization scheme, result classifier, failure copy, Remote namespace, and public event.
+
 Connections start disconnected even when a credential exists. The user must explicitly connect after each Host start. Disconnect waits for the runtime generation and in-flight work to settle; a writable active credential source can then be removed by the browser, while an environment-backed credential remains outside browser control.
 
 ### Tencent Docs space MCP Token connector
@@ -33,6 +35,10 @@ Connections start disconnected even when a credential exists. The user must expl
 The first connector reserves the `tencent_docs` server name and the `TENCENT_DOCS_MCP_TOKEN` credential reference for `https://docs.qq.com/openapi/mcp`. Tencent's [official Token tutorial](https://docs.qq.com/open/document/mcp/get-token/) issues an MCP Token bound to the space selected during issuance. This space MCP Token MVP accepts that already-issued value; Tencent login, OAuth, consent, Token issuance, permission selection, multiple accounts, and space selection remain outside this connector.
 
 Tencent's space MCP Token is a raw HTTP `Authorization` value. The runtime resolves its credential reference for every HTTP request and sends the value verbatim without adding `Bearer `. Literal authorization headers are rejected. Safe snapshots contain only status, catalog descriptors, fixed error codes, and fixed messages; resolved secret values are also redacted if a server echoes them in tool results.
+
+### Kingsoft Docs moves outside this seam
+
+Kingsoft Docs no longer uses this dynamic MCP path. Its official CLI owns browser authorization, system-keychain storage, and document operations; the replacement integration is specified in [Kingsoft Docs browser login through the official CLI](2026-08-26-kingsoft-docs-cli-browser-login.md). The generic MCP seam and Tencent Docs connector remain unchanged.
 
 ### Tool identity and approval
 
@@ -58,13 +64,13 @@ Remote annotations are untrusted server input and never reduce approval. For eve
 
 ## Verification
 
-The Service Definition and Consumer suites pin snapshot revisioning, scoped catalog replacement, name stability, current-generation dispatch, disposal, executor-owned approval for true, false, and missing remote safety annotations, early-allow resistance, and fail-closed missing-service, missing-agent, rejection, cancellation, and unavailable outcomes. The provider's keyless Streamable HTTP integration covers raw authorization, paginated discovery, credential rotation on a later request, echoed-secret redaction, safe authentication failure, and disconnect. Host and browser controller tests pin the no-secret Remote interface, explicit connection, loopback mutation fence, writable-source deletion, and read-only remote view.
+The Service Definition and Consumer suites pin snapshot revisioning, scoped catalog replacement, name stability, current-generation dispatch, disposal, executor-owned approval for true, false, and missing remote safety annotations, early-allow resistance, and fail-closed missing-service, missing-agent, rejection, cancellation, and unavailable outcomes. The provider's keyless Streamable HTTP integration covers raw and Bearer authorization, paginated discovery, credential rotation on a later request, echoed-secret redaction, safe authentication failure, and disconnect. Shared-lifecycle, Tencent, and browser controller tests pin the no-secret Remote interface, explicit connection, loopback mutation fence, writable-source deletion, and read-only remote view.
 
 ## Consequences
 
-- Adding another product connector requires a Host adapter and UI contribution, not another MCP protocol implementation or another tool registry path.
+- Adding another MCP product connector requires a thin Host adapter and UI contribution, not another MCP protocol implementation, lifecycle copy, or tool registry path.
 - A connected catalog changes model tool schemas only in presets that mount the Consumer. Tool names, descriptions, and JSON Schemas add request tokens and may invalidate KV-cache reuse from the first changed schema token.
-- The Host can rotate or revoke credentials without publishing their values. A changed raw credential is resolved on the next HTTP request; the connector does not cache an authorization header.
+- The Host can rotate or revoke credentials without publishing their values. A changed raw or Bearer credential is resolved on the next HTTP request; the connector does not cache an authorization header.
 - Read-only MCP operations still require executor-owned last-mile approval. Removing that friction requires a reviewed Host policy and cannot reuse server-controlled annotations as authority.
 - The space MCP Token MVP leaves Tencent OAuth and multi-account identity unresolved by design. Supporting them adds new credential and connector states rather than weakening raw-Token semantics.
 - MCP resources, prompts, and task-required execution remain outside the Tool Consumer.

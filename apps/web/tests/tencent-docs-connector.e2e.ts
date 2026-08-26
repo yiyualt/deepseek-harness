@@ -1,10 +1,11 @@
 // Web e2e: the shipped Connectors sidebar contribution drives the real
-// credential store, Tencent Docs Host Remote, and dynamic MCP runtime. The
-// fixed production endpoint is intercepted inside this test process and
-// forwarded to a local keyless Streamable HTTP fixture; production config is
-// unchanged, while every browser-to-Host boundary remains real.
+// credential store, document-provider Host Remotes, dynamic MCP runtime, and
+// the Kingsoft Docs kdocs-cli process boundary. Tencent's fixed endpoint is
+// redirected to a local MCP fixture; Kingsoft uses a temporary executable
+// configured through the normal overlay seam.
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { readFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
@@ -33,11 +34,13 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/tencent-docs-connector',
 const DISCONNECTED_EXPECTED = join(SNAPSHOT_DIR, 'disconnected.expected.md')
 const FAILED_EXPECTED = join(SNAPSHOT_DIR, 'failed.expected.md')
 const CONNECTED_EXPECTED = join(SNAPSHOT_DIR, 'connected.expected.md')
+const KINGSOFT_CONNECTED_EXPECTED = join(SNAPSHOT_DIR, 'kingsoft-connected.expected.md')
+const KINGSOFT_ONLY_CONNECTED_EXPECTED = join(SNAPSHOT_DIR, 'kingsoft-only-connected.expected.md')
 const READ_ONLY_EXPECTED = join(SNAPSHOT_DIR, 'read-only.expected.md')
 const CONVERSATION_EXPECTED = join(SNAPSHOT_DIR, 'conversation.expected.md')
 const ROUND_FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 const MODE = webSnapshotMode()
-const ROUND_PROMPT = '请调用 mcp__tencent_docs__list_documents，参数为空对象。成功后只回复 DOCS_MCP_DONE。'
+const ROUND_PROMPT = '请调用 kingsoft_docs_call，service=drive，action=list-files，params={}。成功后只回复 KINGSOFT_DOCS_DONE。'
 
 interface JsonRpcRequest {
   id?: number | string
@@ -48,7 +51,13 @@ interface JsonRpcRequest {
 interface McpFixture {
   endpoint: string
   seenAuthorization: Array<string | undefined>
-  seenToolCalls: string[]
+  close(): Promise<void>
+}
+
+interface KdocsFixture {
+  readonly command: string
+  readonly invocationLog: string
+  readonly overlayPath: string
   close(): Promise<void>
 }
 
@@ -67,7 +76,6 @@ async function handleMcpRequest(
   request: IncomingMessage,
   response: ServerResponse,
   seenAuthorization: Array<string | undefined>,
-  seenToolCalls: string[],
 ): Promise<void> {
   const authorization = request.headers.authorization
   seenAuthorization.push(authorization)
@@ -115,10 +123,7 @@ async function handleMcpRequest(
     return
   }
   if (message.method === 'tools/call') {
-    if (typeof message.params?.name === 'string') seenToolCalls.push(message.params.name)
-    sendJson(response, message.id, {
-      content: [{ type: 'text', text: 'fixture-document-list' }],
-    })
+    sendJson(response, message.id, { content: [{ type: 'text', text: 'fixture-document-list' }] })
     return
   }
   response.writeHead(404, { 'content-type': 'application/json' })
@@ -127,9 +132,8 @@ async function handleMcpRequest(
 
 async function launchMcpFixture(): Promise<McpFixture> {
   const seenAuthorization: Array<string | undefined> = []
-  const seenToolCalls: string[] = []
   const server = createServer((request, response) => {
-    handleMcpRequest(request, response, seenAuthorization, seenToolCalls).catch(() => {
+    handleMcpRequest(request, response, seenAuthorization).catch(() => {
       response.writeHead(500).end('fixture failure')
     })
   })
@@ -141,7 +145,6 @@ async function launchMcpFixture(): Promise<McpFixture> {
   return {
     endpoint: `http://127.0.0.1:${address.port}/mcp`,
     seenAuthorization,
-    seenToolCalls,
     close: async () => {
       const closed: PromiseWithResolvers<void> = Promise.withResolvers()
       server.close(() => { closed.resolve() })
@@ -154,10 +157,49 @@ function interceptTencentDocsFetch(endpoint: string): () => void {
   const originalFetch = globalThis.fetch
   globalThis.fetch = async (input, init) => {
     const requested = input instanceof Request ? input.url : String(input)
-    if (requested !== TENCENT_DOCS_ENDPOINT) return originalFetch(input, init)
+    if (requested !== TENCENT_DOCS_ENDPOINT) {
+      return originalFetch(input, init)
+    }
     return originalFetch(endpoint, init)
   }
   return () => { globalThis.fetch = originalFetch }
+}
+
+async function launchKdocsFixture(): Promise<KdocsFixture> {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-kdocs-web-e2e-'))
+  const command = join(root, 'kdocs-cli')
+  const authState = join(root, 'authenticated')
+  const invocationLog = join(root, 'invocations.jsonl')
+  const overlayPath = join(root, 'cordis.patch.yml')
+  const script = `#!/usr/bin/env node
+import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+const authState = ${JSON.stringify(authState)}
+const invocationLog = ${JSON.stringify(invocationLog)}
+const argv = process.argv.slice(2)
+const stdin = readFileSync(0, 'utf8')
+appendFileSync(invocationLog, JSON.stringify({ argv, stdin, legacyTokenPresent: process.env.KINGSOFT_DOCS_TOKEN !== undefined }) + '\\n')
+if (argv[0] === 'auth' && argv[1] === 'status') {
+  process.stdout.write(JSON.stringify({ authenticated: existsSync(authState), token: 'fixture-secret-never-export' }))
+} else if (argv[0] === 'auth' && argv[1] === 'login') {
+  writeFileSync(authState, 'yes')
+  process.stdout.write('browser login completed')
+} else if (argv[0] === 'auth' && argv[1] === 'logout') {
+  rmSync(authState, { force: true })
+} else if (argv.includes('--help')) {
+  process.stdout.write('drive list-files -- parent_id')
+} else {
+  process.stdout.write(JSON.stringify({ code: 0, data: { files: [{ id: 'kdocs-fixture-file' }] } }))
+}
+`
+  await writeFile(command, script, 'utf8')
+  await chmod(command, 0o755)
+  await writeFile(overlayPath, `- id: kingsoft-docs-connector\n  config:\n    command: ${JSON.stringify(command)}\n    loginTimeoutMs: 30000\n    commandTimeoutMs: 10000\n    toolCallTimeoutMs: 30000\n    processGraceMs: 1000\n    maxInputBytes: 1048576\n    maxOutputBytes: 1048576\n`, 'utf8')
+  return {
+    command,
+    invocationLog,
+    overlayPath,
+    close: () => rm(root, { recursive: true, force: true }),
+  }
 }
 
 async function assertSecretConfinedToPasswordInput(page: Page, secret: string): Promise<void> {
@@ -198,20 +240,23 @@ async function waitForFrame(
   }
 }
 
-describe('web e2e: Tencent Docs connector', () => {
+describe('web e2e: document connectors', () => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
   let tripwire: ReturnType<typeof watchConsole>
   let fixture: McpFixture
+  let kdocs: KdocsFixture
   let restoreFetch: () => void
   const browserConsole: string[] = []
   const sessionEvents: SessionEvent[] = []
 
   beforeAll(async () => {
     fixture = await launchMcpFixture()
+    kdocs = await launchKdocsFixture()
     restoreFetch = interceptTencentDocsFetch(fixture.endpoint)
     scaffold = await launchWebScaffold({
+      extraOverlayPath: kdocs.overlayPath,
       ...(MODE === 'record' ? {} : { replayFixture: ROUND_FIXTURE, paceMs: 15 }),
     })
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
@@ -228,9 +273,10 @@ describe('web e2e: Tencent Docs connector', () => {
     await scaffold?.close()
     restoreFetch?.()
     await fixture?.close()
+    await kdocs?.close()
   })
 
-  it('stores a write-only Token, reports safe failures, connects, and clears the credential on disconnect', async () => {
+  it('uses a write-only Tencent Token and a credential-free Kingsoft browser login', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-tencent-docs-connector'))
     const trigger = page.getByRole('button', { name: '连接器', exact: true })
     await trigger.waitFor({ timeout: 15_000 })
@@ -238,9 +284,11 @@ describe('web e2e: Tencent Docs connector', () => {
     await trigger.click()
 
     const dialog = page.getByRole('dialog', { name: '连接器' })
-    const tokenInput = dialog.getByRole('textbox', { name: '空间 MCP Token' })
+    const tencentCard = dialog.locator('[data-connector-id="tencentDocs"]')
+    const kingsoftCard = dialog.locator('[data-connector-id="kingsoftDocs"]')
+    const tokenInput = tencentCard.getByRole('textbox', { name: '空间 MCP Token' })
     await dialog.waitFor({ timeout: 10_000 })
-    await dialog.getByText('尚未配置空间 MCP Token', { exact: true }).waitFor({ timeout: 10_000 })
+    await tencentCard.getByText('尚未配置空间 MCP Token', { exact: true }).waitFor({ timeout: 10_000 })
     await expect.poll(() => tokenInput.isEnabled(), { timeout: 10_000 }).toBe(true)
     expect(await tokenInput.getAttribute('type')).toBe('password')
     const disconnected = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
@@ -249,8 +297,8 @@ describe('web e2e: Tencent Docs connector', () => {
     await tokenInput.fill(INVALID_TOKEN)
     await assertSecretConfinedToPasswordInput(page, INVALID_TOKEN)
     expect(browserConsole.join('\n')).not.toContain(INVALID_TOKEN)
-    await dialog.getByRole('button', { name: '连接', exact: true }).click()
-    await dialog.getByRole('alert').getByText('腾讯文档拒绝了当前 Token，请更新后重试。').waitFor({ timeout: 15_000 })
+    await tencentCard.getByRole('button', { name: '连接', exact: true }).click()
+    await tencentCard.getByRole('alert').getByText('腾讯文档拒绝了当前 Token，请更新后重试。').waitFor({ timeout: 15_000 })
     expect(await tokenInput.inputValue()).toBe('')
     await assertSecretAbsent(page, INVALID_TOKEN)
     expect(browserConsole.join('\n')).not.toContain(INVALID_TOKEN)
@@ -260,10 +308,10 @@ describe('web e2e: Tencent Docs connector', () => {
     await tokenInput.fill(VALID_TOKEN)
     await assertSecretConfinedToPasswordInput(page, VALID_TOKEN)
     expect(browserConsole.join('\n')).not.toContain(VALID_TOKEN)
-    await dialog.getByRole('button', { name: '重试连接', exact: true }).click()
-    await dialog.getByText('已连接', { exact: true }).waitFor({ timeout: 15_000 })
-    await dialog.getByText('已发现').waitFor({ timeout: 10_000 })
-    expect(await dialog.getByText('2', { exact: true }).count()).toBe(1)
+    await tencentCard.getByRole('button', { name: '重试连接', exact: true }).click()
+    await tencentCard.getByText('已连接', { exact: true }).waitFor({ timeout: 15_000 })
+    await tencentCard.getByText('已发现').waitFor({ timeout: 10_000 })
+    expect(await tencentCard.getByText('2', { exact: true }).count()).toBe(1)
     expect(await tokenInput.inputValue()).toBe('')
     await assertSecretAbsent(page, VALID_TOKEN)
     expect(browserConsole.join('\n')).not.toContain(VALID_TOKEN)
@@ -271,6 +319,26 @@ describe('web e2e: Tencent Docs connector', () => {
     await compareOrRefreshGolden(CONNECTED_EXPECTED, connected, MODE)
     expect(fixture.seenAuthorization).toContain(INVALID_TOKEN)
     expect(fixture.seenAuthorization.filter(value => value === VALID_TOKEN).length).toBeGreaterThanOrEqual(2)
+
+    expect(await kingsoftCard.getByRole('textbox').count()).toBe(0)
+    await kingsoftCard.getByRole('button', { name: '网页登录', exact: true }).click()
+    await kingsoftCard.getByText('已连接', { exact: true }).waitFor({ timeout: 15_000 })
+    await kingsoftCard.getByText('已发现').waitFor({ timeout: 10_000 })
+    expect(await kingsoftCard.getByText('2', { exact: true }).count()).toBe(1)
+    const loginInvocations = (await readFile(kdocs.invocationLog, 'utf8'))
+      .trim().split('\n').map(line => JSON.parse(line) as {
+        argv: string[]
+        legacyTokenPresent: boolean
+      })
+    expect(loginInvocations.map(invocation => invocation.argv)).toEqual([
+      ['auth', 'status', '--compact'],
+      ['auth', 'login', '--oauth-timeout', '29000'],
+      ['auth', 'status', '--compact'],
+    ])
+    expect(loginInvocations.every(invocation => !invocation.legacyTokenPresent)).toBe(true)
+    await assertSecretAbsent(page, 'fixture-secret-never-export')
+    const kingsoftConnected = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
+    await compareOrRefreshGolden(KINGSOFT_CONNECTED_EXPECTED, kingsoftConnected, MODE)
 
     await dialog.getByRole('button', { name: '关闭' }).click()
     await dialog.waitFor({ state: 'detached' })
@@ -284,34 +352,46 @@ describe('web e2e: Tencent Docs connector', () => {
     await input.press('Enter')
     const approval = page.locator('[data-approval-key]')
     await approval.waitFor({ timeout: 30_000 })
-    await expect.poll(() => approval.textContent()).toContain('MCP tool may change external data')
+    await expect.poll(() => approval.textContent())
+      .toContain('Kingsoft Docs action may read local files or change external data')
     await approval.getByRole('button', { name: '允许一次' }).click()
     const sessionId = await settled
     if (MODE === 'record') await recordFixture(scaffold, sessionId, ROUND_FIXTURE)
-    await page.getByText('DOCS_MCP_DONE', { exact: true }).waitFor({ timeout: 15_000 })
+    await page.getByText('KINGSOFT_DOCS_DONE', { exact: true }).waitFor({ timeout: 15_000 })
 
     const requestHeader = sessionEvents.find(
       (event): event is Extract<SessionEvent, { type: 'request/header' }> =>
         event.type === 'request/header'
-        && event.data.header.tools?.some(tool => tool.name === 'mcp__tencent_docs__list_documents') === true,
+        && event.data.header.tools?.some(tool => tool.name === 'kingsoft_docs_call') === true,
     )
-    const exposed = requestHeader?.data.header.tools?.find(tool => tool.name === 'mcp__tencent_docs__list_documents')
-    expect(exposed).toMatchObject({
-      description: 'List Tencent Docs documents.',
-      parameters: { type: 'object', properties: {} },
+    const exposed = requestHeader?.data.header.tools?.find(tool => tool.name === 'kingsoft_docs_call')
+    expect(exposed?.description).toContain('authenticated Kingsoft Docs CLI action')
+    expect(exposed?.parameters).toMatchObject({
+      type: 'object',
+      properties: {
+        service: { type: 'string' },
+        action: { type: 'string' },
+        params: { type: 'object' },
+      },
     })
-    const mcpCall = sessionEvents.find(
+    expect(requestHeader?.data.header.tools?.some(tool => tool.name === 'kingsoft_docs_help')).toBe(true)
+    const kingsoftCall = sessionEvents.find(
       (event): event is Extract<SessionEvent, { type: 'tool/call' }> =>
-        event.type === 'tool/call' && event.data.name === 'mcp__tencent_docs__list_documents',
+        event.type === 'tool/call' && event.data.name === 'kingsoft_docs_call',
     )
-    if (mcpCall === undefined) throw new Error('the replayed turn did not call the Tencent Docs MCP tool')
-    const mcpResult = sessionEvents.find(
+    if (kingsoftCall === undefined) throw new Error('the replayed turn did not call the Kingsoft Docs CLI tool')
+    const kingsoftResult = sessionEvents.find(
       (event): event is Extract<SessionEvent, { type: 'tool/result' }> =>
-        event.type === 'tool/result' && event.data.message.source.callId === mcpCall.data.callId,
+        event.type === 'tool/result' && event.data.message.source.callId === kingsoftCall.data.callId,
     )
-    expect(mcpResult?.data.message.content[0]).toMatchObject({ isError: false })
-    expect(JSON.stringify(mcpResult)).toContain('fixture-document-list')
-    expect(fixture.seenToolCalls).toEqual(['list_documents'])
+    expect(kingsoftResult?.data.message.content[0]).toMatchObject({ isError: false })
+    expect(JSON.stringify(kingsoftResult)).toContain('kdocs-fixture-file')
+    const actionInvocations = (await readFile(kdocs.invocationLog, 'utf8'))
+      .trim().split('\n').map(line => JSON.parse(line) as { argv: string[]; stdin: string })
+    expect(actionInvocations.at(-1)).toMatchObject({
+      argv: ['drive', 'list-files', '-', '--output', 'json', '--timeout', '29000'],
+      stdin: '{}',
+    })
     expect(sessionEvents.some(event => event.type === 'approval/asked')).toBe(true)
     expect(sessionEvents.some(event => event.type === 'approval/decided'
       && event.data.outcome === 'allowed-once')).toBe(true)
@@ -321,17 +401,20 @@ describe('web e2e: Tencent Docs connector', () => {
     await page.getByRole('button', { name: '连接器', exact: true }).click()
     await dialog.waitFor({ timeout: 10_000 })
 
-    await dialog.getByRole('button', { name: '断开并删除空间 MCP Token', exact: true }).click()
-    await dialog.getByText('未连接', { exact: true }).waitFor({ timeout: 15_000 })
-    await dialog.getByText('尚未配置空间 MCP Token', { exact: true }).waitFor({ timeout: 15_000 })
+    await tencentCard.getByRole('button', { name: '断开并删除空间 MCP Token', exact: true }).click()
+    await tencentCard.getByText('未连接', { exact: true }).waitFor({ timeout: 15_000 })
+    await tencentCard.getByText('尚未配置空间 MCP Token', { exact: true }).waitFor({ timeout: 15_000 })
     const cleared = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
-    await compareOrRefreshGolden(DISCONNECTED_EXPECTED, cleared, MODE)
+    await compareOrRefreshGolden(KINGSOFT_ONLY_CONNECTED_EXPECTED, cleared, MODE)
+
+    await kingsoftCard.getByRole('button', { name: '退出登录', exact: true }).click()
+    await kingsoftCard.getByText('未连接', { exact: true }).waitFor({ timeout: 15_000 })
+    expect((await readFile(kdocs.invocationLog, 'utf8')).includes('"logout"')).toBe(true)
     const credentialDocument = await readFile(join(scaffold.harnessHome, '.credentials.yaml'), 'utf8')
-    expect(credentialDocument.includes(INVALID_TOKEN)).toBe(false)
-    expect(credentialDocument.includes(VALID_TOKEN)).toBe(false)
+    expect(credentialDocument).not.toMatch(/web-e2e-(?:invalid|valid)-token/)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
-  }, 60_000)
+  }, 90_000)
 })
 
 describe('web e2e: Tencent Docs connector on a non-loopback origin', () => {
@@ -376,6 +459,8 @@ describe('web e2e: Tencent Docs connector on a non-loopback origin', () => {
       'conversation.expected.md',
       'disconnected.expected.md',
       'failed.expected.md',
+      'kingsoft-connected.expected.md',
+      'kingsoft-only-connected.expected.md',
       'read-only.expected.md',
       'session.jsonl',
     ])

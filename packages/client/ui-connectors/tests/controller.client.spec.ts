@@ -2,10 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type {
   ClientRemote,
   IApiClient,
+  KingsoftDocsConnectorEventSnapshot,
+  KingsoftDocsConnectorSnapshot,
   TencentDocsConnectorEventSnapshot,
   TencentDocsConnectorSnapshot,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import {
+  BrowserLoginConnectorController,
   CONNECTOR_REQUEST_FAILED,
   ConnectorsPanelController,
   TENCENT_DOCS_CREDENTIAL_REF,
@@ -20,6 +23,14 @@ const DISCONNECTED: TencentDocsConnectorSnapshot = {
   errorCode: null,
   errorMessage: null,
   updatedAt: '2026-08-25T00:00:00.000Z',
+}
+
+const KINGSOFT_DISCONNECTED: KingsoftDocsConnectorSnapshot = {
+  status: 'disconnected',
+  toolCount: 0,
+  errorCode: null,
+  errorMessage: null,
+  updatedAt: '2026-08-26T00:00:00.000Z',
 }
 
 type ConnectorResult = Awaited<ReturnType<ClientRemote['tencentDocsConnector']['get']>>
@@ -99,6 +110,17 @@ function credentials(overrides: Partial<IApiClient['credentials']> = {}): Pick<I
   }
 }
 
+function createController(
+  connector: ClientRemote['tencentDocsConnector'],
+  credentialApi: Pick<IApiClient, 'credentials'> | undefined,
+): ConnectorsPanelController {
+  return new ConnectorsPanelController(
+    connector,
+    credentialApi,
+    TENCENT_DOCS_CREDENTIAL_REF,
+  )
+}
+
 function deferred<T>() {
   let resolve: ((value: T) => void) | undefined
   let reject: ((error: unknown) => void) | undefined
@@ -120,7 +142,7 @@ describe('ConnectorsPanelController', () => {
       [TENCENT_DOCS_CREDENTIAL_REF]: { configured: true, source: 'env', writable: false },
     } } } }) as never)
     const secret = credentials({ describe })
-    const controller = new ConnectorsPanelController(api, secret)
+    const controller = createController(api, secret)
     controller.open()
     await vi.waitFor(() => {
       expect(controller.store.getSnapshot().connector.credentialSource).toBe('env')
@@ -141,7 +163,7 @@ describe('ConnectorsPanelController', () => {
     const staleDescribe = deferred<Awaited<ReturnType<IApiClient['credentials']['describe']>>>()
     const api = remote({ get: vi.fn(() => staleGet.promise) })
     const secret = credentials({ describe: vi.fn(() => staleDescribe.promise) })
-    const controller = new ConnectorsPanelController(api, secret)
+    const controller = createController(api, secret)
 
     controller.open()
     controller.accept({
@@ -192,7 +214,7 @@ describe('ConnectorsPanelController', () => {
       return { result: { ok: true, value: {} } } as never
     })
     const secret = credentials({ set })
-    const controller = new ConnectorsPanelController(api, secret)
+    const controller = createController(api, secret)
     controller.setDraft(' space-mcp-secret ')
     await controller.connect()
     expect(order).toEqual(['set:space-mcp-secret', 'connect'])
@@ -212,7 +234,7 @@ describe('ConnectorsPanelController', () => {
 
   it('keeps a connect result when its same-millisecond connecting push arrives late', async () => {
     const api = remote()
-    const controller = new ConnectorsPanelController(api, credentials())
+    const controller = createController(api, credentials())
     setCredential(controller)
 
     await controller.connect()
@@ -234,7 +256,7 @@ describe('ConnectorsPanelController', () => {
   })
 
   it('renders a failed snapshot returned by a completed connect mutation', async () => {
-    const controller = new ConnectorsPanelController(remote({
+    const controller = createController(remote({
       connect: vi.fn(async () => succeeded({
         ...DISCONNECTED, status: 'failed', errorMessage: 'Token refused',
       })),
@@ -259,7 +281,7 @@ describe('ConnectorsPanelController', () => {
     })
     const set = vi.fn(async () => ({ result: { ok: true, value: {} } }) as never)
     const secret = credentials({ set })
-    const controller = new ConnectorsPanelController(api, secret)
+    const controller = createController(api, secret)
     setCredential(controller)
     const connecting = controller.connect()
     await vi.waitFor(() => { expect(api.connect).toHaveBeenCalledOnce() })
@@ -287,7 +309,7 @@ describe('ConnectorsPanelController', () => {
   it('turns a disconnect carrier failure after a transition push into a retryable terminal state', async () => {
     const result = deferred<ConnectorResult>()
     const api = remote({ disconnect: vi.fn(() => result.promise) })
-    const controller = new ConnectorsPanelController(api, credentials())
+    const controller = createController(api, credentials())
     setCredential(controller)
     controller.accept(publicSnapshot({ ...DISCONNECTED, status: 'connected', toolCount: 2 }))
 
@@ -312,7 +334,7 @@ describe('ConnectorsPanelController', () => {
 
   it('keeps the last terminal state when a connector request fails before any transition push', async () => {
     const api = remote({ connect: vi.fn(async () => failed('request never reached Host')) })
-    const controller = new ConnectorsPanelController(api, credentials())
+    const controller = createController(api, credentials())
     setCredential(controller)
 
     await controller.connect()
@@ -326,7 +348,7 @@ describe('ConnectorsPanelController', () => {
 
   it('converges a connecting push that arrives after the connect carrier fails', async () => {
     const api = remote({ connect: vi.fn(async () => failed('connect carrier closed')) })
-    const controller = new ConnectorsPanelController(api, credentials())
+    const controller = createController(api, credentials())
     setCredential(controller)
 
     await controller.connect()
@@ -344,7 +366,7 @@ describe('ConnectorsPanelController', () => {
 
   it('converges a disconnecting push that arrives after the disconnect carrier fails', async () => {
     const api = remote({ disconnect: vi.fn(async () => failed('disconnect carrier closed')) })
-    const controller = new ConnectorsPanelController(api, credentials())
+    const controller = createController(api, credentials())
     setCredential(controller)
     controller.accept(publicSnapshot({ ...DISCONNECTED, status: 'connected', toolCount: 2 }))
 
@@ -366,7 +388,7 @@ describe('ConnectorsPanelController', () => {
       get: vi.fn(async () => succeeded({ ...DISCONNECTED, status: 'connecting' })),
       connect: vi.fn(async () => failed('connect carrier closed')),
     })
-    const controller = new ConnectorsPanelController(api, credentials())
+    const controller = createController(api, credentials())
     setCredential(controller)
 
     await controller.connect()
@@ -382,7 +404,7 @@ describe('ConnectorsPanelController', () => {
 
   it('clears a failed-carrier association when a Host terminal state arrives first', async () => {
     const api = remote({ connect: vi.fn(async () => failed('request did not settle')) })
-    const controller = new ConnectorsPanelController(api, credentials())
+    const controller = createController(api, credentials())
     setCredential(controller)
 
     await controller.connect()
@@ -398,7 +420,7 @@ describe('ConnectorsPanelController', () => {
   it('does nothing when connect has no Token, another mutation is pending, or the controller is disposed', async () => {
     const api = remote()
     const secret = credentials()
-    const controller = new ConnectorsPanelController(api, secret)
+    const controller = createController(api, secret)
     await controller.connect()
     expect(api.connect).not.toHaveBeenCalled()
     controller.store.update((state) => { state.pending = 'disconnect' })
@@ -416,7 +438,7 @@ describe('ConnectorsPanelController', () => {
   it('drops successful mutation stages that settle after disposal', async () => {
     const setResult = deferred<Awaited<ReturnType<IApiClient['credentials']['set']>>>()
     const setRemote = remote()
-    const setting = new ConnectorsPanelController(setRemote, credentials({
+    const setting = createController(setRemote, credentials({
       set: vi.fn(() => setResult.promise),
     }))
     setting.setDraft('secret')
@@ -428,7 +450,7 @@ describe('ConnectorsPanelController', () => {
 
     const connectResult = deferred<Awaited<ReturnType<ClientRemote['tencentDocsConnector']['connect']>>>()
     const connectingRemote = remote({ connect: vi.fn(() => connectResult.promise) })
-    const connecting = new ConnectorsPanelController(connectingRemote, credentials())
+    const connecting = createController(connectingRemote, credentials())
     setCredential(connecting)
     const connectWork = connecting.connect()
     await vi.waitFor(() => { expect(connectingRemote.connect).toHaveBeenCalledOnce() })
@@ -439,7 +461,7 @@ describe('ConnectorsPanelController', () => {
 
     const disconnectResult = deferred<Awaited<ReturnType<ClientRemote['tencentDocsConnector']['disconnect']>>>()
     const disconnectingRemote = remote({ disconnect: vi.fn(() => disconnectResult.promise) })
-    const disconnecting = new ConnectorsPanelController(disconnectingRemote, credentials())
+    const disconnecting = createController(disconnectingRemote, credentials())
     const disconnectWork = disconnecting.disconnect()
     await vi.waitFor(() => { expect(disconnectingRemote.disconnect).toHaveBeenCalledOnce() })
     disconnecting.dispose()
@@ -451,7 +473,7 @@ describe('ConnectorsPanelController', () => {
     const unset = vi.fn(() => unsetResult.promise)
     const describeAfterUnset = vi.fn(async () => ({ result: { ok: true, value: { credentials: {} } } }) as never)
     const unsettingSecret = credentials({ unset, describe: describeAfterUnset })
-    const unsetting = new ConnectorsPanelController(remote(), unsettingSecret)
+    const unsetting = createController(remote(), unsettingSecret)
     const unsetWork = unsetting.disconnect()
     await vi.waitFor(() => { expect(unset).toHaveBeenCalledOnce() })
     unsetting.dispose()
@@ -476,7 +498,7 @@ describe('ConnectorsPanelController', () => {
       describe: vi.fn(async () => ({ result: { ok: true, value: { credentials: {} } } }) as never),
       unset,
     })
-    const controller = new ConnectorsPanelController(api, secret)
+    const controller = createController(api, secret)
     setCredential(controller)
     controller.accept(publicSnapshot({
       ...DISCONNECTED, status: 'connected', toolCount: 2,
@@ -511,7 +533,7 @@ describe('ConnectorsPanelController', () => {
       .mockImplementationOnce(() => oldRead.promise)
       .mockImplementationOnce(() => latestRead.promise)
       .mockResolvedValueOnce({ result: { ok: true, value: { credentials: {} } } })
-    const controller = new ConnectorsPanelController(remote(), credentials({ describe }))
+    const controller = createController(remote(), credentials({ describe }))
 
     controller.credentialsUpdated(TENCENT_DOCS_CREDENTIAL_REF)
     controller.open()
@@ -560,7 +582,7 @@ describe('ConnectorsPanelController', () => {
         [TENCENT_DOCS_CREDENTIAL_REF]: { configured: true, source: 'env', writable: false },
       } } } }) as never),
     })
-    const controller = new ConnectorsPanelController(api, secret)
+    const controller = createController(api, secret)
     setCredential(controller)
     controller.accept(publicSnapshot({
       ...DISCONNECTED, status: 'connected', toolCount: 2,
@@ -587,7 +609,7 @@ describe('ConnectorsPanelController', () => {
         ...DISCONNECTED, credentialConfigured: true, credentialSource: 'env', credentialWritable: false,
       })),
     })
-    const first = new ConnectorsPanelController(readOnly, secret)
+    const first = createController(readOnly, secret)
     setCredential(first, { credentialSource: 'env', credentialWritable: false })
     first.accept(publicSnapshot({
       ...DISCONNECTED, status: 'connected',
@@ -597,7 +619,7 @@ describe('ConnectorsPanelController', () => {
     expect(first.store.getSnapshot().connector.credentialConfigured).toBe(true)
 
     const refused = remote({ disconnect: vi.fn(async () => failed('still stopping')) })
-    const second = new ConnectorsPanelController(refused, secret)
+    const second = createController(refused, secret)
     setCredential(second)
     second.accept(publicSnapshot({ ...DISCONNECTED, status: 'connected' }))
     await second.disconnect()
@@ -613,7 +635,7 @@ describe('ConnectorsPanelController', () => {
     const rejected = credentials({
       set: vi.fn(async () => ({ result: { ok: false, error: { message: 'credential rejected' } } }) as never),
     })
-    const controller = new ConnectorsPanelController(api, rejected)
+    const controller = createController(api, rejected)
     controller.setDraft('secret')
     await controller.connect()
     expect(api.connect).not.toHaveBeenCalled()
@@ -622,7 +644,7 @@ describe('ConnectorsPanelController', () => {
     const deleteRejected = credentials({
       unset: vi.fn(async () => ({ result: { ok: false, error: { message: 'cannot delete' } } }) as never),
     })
-    const connected = new ConnectorsPanelController(api, deleteRejected)
+    const connected = createController(api, deleteRejected)
     setCredential(connected)
     connected.accept(publicSnapshot({ ...DISCONNECTED, status: 'connected' }))
     await connected.disconnect()
@@ -635,7 +657,7 @@ describe('ConnectorsPanelController', () => {
         ...DISCONNECTED, status: 'connected', toolCount: 5,
       }))),
     })
-    const controller = new ConnectorsPanelController(api, undefined)
+    const controller = createController(api, undefined)
     controller.setDraft('must-not-stick')
     controller.open()
     await controller.connect()
@@ -660,7 +682,7 @@ describe('ConnectorsPanelController', () => {
         .mockImplementationOnce(() => stale.promise)
         .mockImplementationOnce(async () => publicFailed('public offline')),
     })
-    const controller = new ConnectorsPanelController(api, undefined)
+    const controller = createController(api, undefined)
     controller.open()
     controller.accept(publicSnapshot({ ...DISCONNECTED, status: 'reconnecting', toolCount: 4 }))
     stale.resolve(publicSucceeded(publicSnapshot({ ...DISCONNECTED, status: 'connected', toolCount: 3 })))
@@ -680,14 +702,14 @@ describe('ConnectorsPanelController', () => {
     const delayed = remote({
       get: vi.fn(() => new Promise<ConnectorResult>((resolve) => { resolveGet = resolve })),
     })
-    const controller = new ConnectorsPanelController(delayed, credentials())
+    const controller = createController(delayed, credentials())
     controller.open()
     controller.dispose()
     resolveGet?.(succeeded({ ...DISCONNECTED, status: 'connected' }))
     await Promise.resolve()
     expect(controller.store.getSnapshot().connector.status).toBe('disconnected')
 
-    const failedController = new ConnectorsPanelController(remote({
+    const failedController = createController(remote({
       get: vi.fn(async () => failed('offline')),
     }), credentials())
     failedController.open()
@@ -701,7 +723,7 @@ describe('ConnectorsPanelController', () => {
     const secret = credentials({
       describe: vi.fn(async () => ({ result: { ok: true, value: { credentials: {} } } }) as never),
     })
-    const controller = new ConnectorsPanelController(api, secret)
+    const controller = createController(api, secret)
     controller.store.update((state) => { state.pending = 'connect' })
     controller.accept(publicSnapshot({ ...DISCONNECTED, status: 'connecting' }))
     expect(controller.store.getSnapshot().pending).toBe('connect')
@@ -716,7 +738,7 @@ describe('ConnectorsPanelController', () => {
   })
 
   it('merges a public pushed event without inventing or erasing credential metadata', () => {
-    const controller = new ConnectorsPanelController(remote(), credentials())
+    const controller = createController(remote(), credentials())
     setCredential(controller)
     controller.accept(publicSnapshot(DISCONNECTED))
     const event: TencentDocsConnectorEventSnapshot = {
@@ -741,7 +763,7 @@ describe('ConnectorsPanelController', () => {
     const connectingRemote = remote({
       connect: vi.fn(() => new Promise<ConnectorResult>((_resolve, reject) => { rejectConnect = reject })),
     })
-    const connecting = new ConnectorsPanelController(connectingRemote, credentials())
+    const connecting = createController(connectingRemote, credentials())
     setCredential(connecting)
     const connectWork = connecting.connect()
     await vi.waitFor(() => { expect(connectingRemote.connect).toHaveBeenCalledOnce() })
@@ -754,7 +776,7 @@ describe('ConnectorsPanelController', () => {
     const disconnectingRemote = remote({
       disconnect: vi.fn(() => new Promise<ConnectorResult>((_resolve, reject) => { rejectDisconnect = reject })),
     })
-    const disconnecting = new ConnectorsPanelController(disconnectingRemote, credentials())
+    const disconnecting = createController(disconnectingRemote, credentials())
     const disconnectWork = disconnecting.disconnect()
     await vi.waitFor(() => { expect(disconnectingRemote.disconnect).toHaveBeenCalledOnce() })
     disconnecting.dispose()
@@ -766,7 +788,7 @@ describe('ConnectorsPanelController', () => {
     const refreshingRemote = remote({
       get: vi.fn(() => new Promise<ConnectorResult>((_resolve, reject) => { rejectGet = reject })),
     })
-    const refreshing = new ConnectorsPanelController(refreshingRemote, credentials())
+    const refreshing = createController(refreshingRemote, credentials())
     refreshing.open()
     refreshing.dispose()
     rejectGet?.(new Error('late refresh'))
@@ -774,7 +796,7 @@ describe('ConnectorsPanelController', () => {
     expect(refreshing.store.getSnapshot().error).toBeNull()
 
     const publicResult = deferred<PublicConnectorResult>()
-    const publicRefreshing = new ConnectorsPanelController(remote({
+    const publicRefreshing = createController(remote({
       publicGet: vi.fn(() => publicResult.promise),
     }), undefined)
     publicRefreshing.open()
@@ -784,7 +806,7 @@ describe('ConnectorsPanelController', () => {
     expect(publicRefreshing.store.getSnapshot().connector.status).toBe('disconnected')
 
     const publicFailure = deferred<PublicConnectorResult>()
-    const failingPublicRefresh = new ConnectorsPanelController(remote({
+    const failingPublicRefresh = createController(remote({
       publicGet: vi.fn(() => publicFailure.promise),
     }), undefined)
     failingPublicRefresh.open()
@@ -795,11 +817,13 @@ describe('ConnectorsPanelController', () => {
   })
 
   it('normalizes a non-Error transport rejection into a visible message', async () => {
-    const controller = new ConnectorsPanelController(remote({
+    const failedGet = deferred<Awaited<ReturnType<ClientRemote['tencentDocsConnector']['get']>>>()
+    const controller = createController(remote({
       // The controller normalizes hostile transport rejections that are not Error objects.
-      get: vi.fn(() => Promise.reject('wire unavailable')),
+      get: vi.fn(() => failedGet.promise),
     }), credentials())
     controller.open()
+    failedGet.reject('wire unavailable')
     await vi.waitFor(() => { expect(controller.store.getSnapshot().error).toBe('wire unavailable') })
   })
 
@@ -810,7 +834,7 @@ describe('ConnectorsPanelController', () => {
       .mockResolvedValueOnce({ result: { ok: true, value: { credentials: {} } } })
       .mockImplementationOnce(() => staleRead.promise)
       .mockImplementationOnce(() => newestRead.promise)
-    const controller = new ConnectorsPanelController(remote(), credentials({ describe }))
+    const controller = createController(remote(), credentials({ describe }))
     controller.open()
     await vi.waitFor(() => { expect(describe).toHaveBeenCalledOnce() })
     controller.credentialsUpdated(TENCENT_DOCS_CREDENTIAL_REF)
@@ -821,6 +845,253 @@ describe('ConnectorsPanelController', () => {
     newestRead.reject(new Error('current credential failure'))
     await vi.waitFor(() => {
       expect(controller.store.getSnapshot().error).toBe('current credential failure')
+    })
+  })
+})
+
+type KingsoftResult = Awaited<ReturnType<ClientRemote['kingsoftDocsConnector']['get']>>
+type KingsoftPublicResult = Awaited<ReturnType<ClientRemote['kingsoftDocsConnector']['publicGet']>>
+
+function kingsoftSucceeded(value: KingsoftDocsConnectorSnapshot): KingsoftResult {
+  return { ok: true, value }
+}
+
+function kingsoftFailed(message: string): KingsoftResult {
+  return { ok: false, error: { code: 'TEST_FAILURE', message, details: {} } }
+}
+
+function kingsoftPublicSucceeded(value: KingsoftDocsConnectorEventSnapshot): KingsoftPublicResult {
+  return { ok: true, value }
+}
+
+function kingsoftRemote(
+  overrides: Partial<ClientRemote['kingsoftDocsConnector']> = {},
+): ClientRemote['kingsoftDocsConnector'] {
+  return {
+    get: vi.fn(async () => kingsoftSucceeded(KINGSOFT_DISCONNECTED)),
+    publicGet: vi.fn(async () => kingsoftPublicSucceeded(KINGSOFT_DISCONNECTED)),
+    connect: vi.fn(async () => kingsoftSucceeded({
+      ...KINGSOFT_DISCONNECTED,
+      status: 'connected',
+      toolCount: 2,
+    })),
+    disconnect: vi.fn(async () => kingsoftSucceeded(KINGSOFT_DISCONNECTED)),
+    ...overrides,
+  }
+}
+
+describe('BrowserLoginConnectorController', () => {
+  it('loads state and connects and logs out without a credential API', async () => {
+    const api = kingsoftRemote()
+    const controller = new BrowserLoginConnectorController(api, true)
+    controller.open()
+    await vi.waitFor(() => { expect(api.get).toHaveBeenCalledOnce() })
+
+    await controller.connect()
+    expect(controller.store.getSnapshot()).toMatchObject({
+      open: true,
+      pending: null,
+      loopback: true,
+      connector: { status: 'connected', toolCount: 2 },
+    })
+    controller.accept({ ...KINGSOFT_DISCONNECTED, status: 'connecting' })
+    expect(controller.store.getSnapshot().connector.status).toBe('connected')
+
+    await controller.disconnect()
+    expect(controller.store.getSnapshot()).toMatchObject({
+      pending: null,
+      connector: { status: 'disconnected', toolCount: 0 },
+    })
+    controller.accept({ ...KINGSOFT_DISCONNECTED, status: 'disconnecting' })
+    expect(controller.store.getSnapshot().connector.status).toBe('disconnected')
+    controller.close()
+    expect(controller.store.getSnapshot().open).toBe(false)
+  })
+
+  it('loads only public state and refuses mutations outside loopback', async () => {
+    const api = kingsoftRemote({
+      publicGet: vi.fn(async () => kingsoftPublicSucceeded({
+        ...KINGSOFT_DISCONNECTED,
+        status: 'connected',
+        toolCount: 2,
+      })),
+    })
+    const controller = new BrowserLoginConnectorController(api, false)
+    controller.open()
+    await vi.waitFor(() => { expect(api.publicGet).toHaveBeenCalledOnce() })
+    await controller.connect()
+    await controller.disconnect()
+    expect(api.get).not.toHaveBeenCalled()
+    expect(api.connect).not.toHaveBeenCalled()
+    expect(api.disconnect).not.toHaveBeenCalled()
+    expect(controller.store.getSnapshot().connector.status).toBe('connected')
+  })
+
+  it('orders pushes over old refreshes and reports current read failures', async () => {
+    const stale = deferred<KingsoftResult>()
+    const api = kingsoftRemote({
+      get: vi.fn()
+        .mockImplementationOnce(() => stale.promise)
+        .mockImplementationOnce(async () => kingsoftFailed('login state unavailable')),
+    })
+    const controller = new BrowserLoginConnectorController(api, true)
+    controller.open()
+    controller.accept({ ...KINGSOFT_DISCONNECTED, status: 'connected', toolCount: 2 })
+    stale.resolve(kingsoftSucceeded(KINGSOFT_DISCONNECTED))
+    await Promise.resolve()
+    expect(controller.store.getSnapshot().connector.status).toBe('connected')
+
+    controller.close()
+    controller.open()
+    await vi.waitFor(() => {
+      expect(controller.store.getSnapshot().error).toBe('login state unavailable')
+    })
+  })
+
+  it('converges a transition push arriving on either side of a carrier failure', async () => {
+    const late = kingsoftRemote({ connect: vi.fn(async () => kingsoftFailed('carrier closed')) })
+    const after = new BrowserLoginConnectorController(late, true)
+    await after.connect()
+    expect(after.store.getSnapshot()).toMatchObject({
+      error: 'carrier closed',
+      connector: { status: 'disconnected' },
+    })
+    after.accept({ ...KINGSOFT_DISCONNECTED, status: 'connecting' })
+    expect(after.store.getSnapshot()).toMatchObject({
+      error: null,
+      connector: { status: 'failed', errorCode: CONNECTOR_REQUEST_FAILED },
+    })
+
+    const gate = deferred<KingsoftResult>()
+    const early = kingsoftRemote({ disconnect: vi.fn(() => gate.promise) })
+    const before = new BrowserLoginConnectorController(early, true)
+    before.accept({ ...KINGSOFT_DISCONNECTED, status: 'connected', toolCount: 2 })
+    const work = before.disconnect()
+    await vi.waitFor(() => { expect(early.disconnect).toHaveBeenCalledOnce() })
+    before.accept({ ...KINGSOFT_DISCONNECTED, status: 'disconnecting' })
+    gate.reject(new Error('carrier closed'))
+    await work
+    expect(before.store.getSnapshot().connector).toMatchObject({
+      status: 'failed',
+      errorCode: CONNECTOR_REQUEST_FAILED,
+    })
+  })
+
+  it('clears a carrier association on a terminal push and ignores late work after disposal', async () => {
+    const failed = kingsoftRemote({ connect: vi.fn(async () => kingsoftFailed('carrier closed')) })
+    const controller = new BrowserLoginConnectorController(failed, true)
+    await controller.connect()
+    controller.accept(KINGSOFT_DISCONNECTED)
+    controller.accept({ ...KINGSOFT_DISCONNECTED, status: 'connecting' })
+    expect(controller.store.getSnapshot().connector.status).toBe('connecting')
+
+    const pending = deferred<KingsoftResult>()
+    const late = kingsoftRemote({ connect: vi.fn(() => pending.promise) })
+    const disposed = new BrowserLoginConnectorController(late, true)
+    const work = disposed.connect()
+    disposed.dispose()
+    disposed.open()
+    pending.resolve(kingsoftSucceeded({ ...KINGSOFT_DISCONNECTED, status: 'connected' }))
+    await work
+    disposed.accept({ ...KINGSOFT_DISCONNECTED, status: 'connected' })
+    expect(disposed.store.getSnapshot().connector.status).toBe('disconnected')
+  })
+
+  it('drops late Kingsoft mutation settlements and handles a current disconnect refusal', async () => {
+    const lateConnect = deferred<KingsoftResult>()
+    const connecting = new BrowserLoginConnectorController(kingsoftRemote({
+      connect: vi.fn(() => lateConnect.promise),
+    }), true)
+    const connectWork = connecting.connect()
+    connecting.dispose()
+    lateConnect.reject(new Error('late connect'))
+    await connectWork
+    expect(connecting.store.getSnapshot().error).toBeNull()
+
+    const lateDisconnect = deferred<KingsoftResult>()
+    const disconnecting = new BrowserLoginConnectorController(kingsoftRemote({
+      disconnect: vi.fn(() => lateDisconnect.promise),
+    }), true)
+    const disconnectWork = disconnecting.disconnect()
+    disconnecting.dispose()
+    lateDisconnect.resolve(kingsoftSucceeded(KINGSOFT_DISCONNECTED))
+    await disconnectWork
+    expect(disconnecting.store.getSnapshot().connector.status).toBe('disconnected')
+
+    const lateDisconnectFailure = deferred<KingsoftResult>()
+    const failingLate = new BrowserLoginConnectorController(kingsoftRemote({
+      disconnect: vi.fn(() => lateDisconnectFailure.promise),
+    }), true)
+    const failingLateWork = failingLate.disconnect()
+    failingLate.dispose()
+    lateDisconnectFailure.reject(new Error('late disconnect'))
+    await failingLateWork
+    expect(failingLate.store.getSnapshot().error).toBeNull()
+
+    const refused = new BrowserLoginConnectorController(kingsoftRemote({
+      disconnect: vi.fn(async () => kingsoftFailed('logout refused')),
+    }), true)
+    await refused.disconnect()
+    expect(refused.store.getSnapshot().error).toBe('logout refused')
+  })
+
+  it('clears settled Kingsoft mutations after a later independent lifecycle starts', async () => {
+    const connected = new BrowserLoginConnectorController(kingsoftRemote(), true)
+    await connected.connect()
+    connected.accept(KINGSOFT_DISCONNECTED)
+    connected.accept({ ...KINGSOFT_DISCONNECTED, status: 'connecting' })
+    expect(connected.store.getSnapshot().connector.status).toBe('connecting')
+
+    const disconnected = new BrowserLoginConnectorController(kingsoftRemote(), true)
+    disconnected.accept({ ...KINGSOFT_DISCONNECTED, status: 'connected', toolCount: 2 })
+    await disconnected.disconnect()
+    disconnected.accept({ ...KINGSOFT_DISCONNECTED, status: 'connecting' })
+    disconnected.accept({ ...KINGSOFT_DISCONNECTED, status: 'disconnecting' })
+    expect(disconnected.store.getSnapshot().connector.status).toBe('disconnecting')
+  })
+
+  it('ignores late Kingsoft refresh failures after disposal', async () => {
+    const privateRead = deferred<KingsoftResult>()
+    const privateController = new BrowserLoginConnectorController(kingsoftRemote({
+      get: vi.fn(() => privateRead.promise),
+    }), true)
+    privateController.open()
+    privateController.dispose()
+    privateRead.reject(new Error('late private read'))
+    await Promise.resolve()
+    expect(privateController.store.getSnapshot().error).toBeNull()
+
+    const publicRead = deferred<KingsoftPublicResult>()
+    const publicController = new BrowserLoginConnectorController(kingsoftRemote({
+      publicGet: vi.fn(() => publicRead.promise),
+    }), false)
+    publicController.open()
+    publicController.dispose()
+    publicRead.reject(new Error('late public read'))
+    await Promise.resolve()
+    expect(publicController.store.getSnapshot().error).toBeNull()
+  })
+
+  it('reports current public failures and ignores stale public settlements', async () => {
+    const stale = deferred<KingsoftPublicResult>()
+    const api = kingsoftRemote({
+      publicGet: vi.fn()
+        .mockImplementationOnce(() => stale.promise)
+        .mockImplementationOnce(async () => ({
+          ok: false as const,
+          error: { code: 'TEST_FAILURE', message: 'public state unavailable', details: {} },
+        })),
+    })
+    const controller = new BrowserLoginConnectorController(api, false)
+    controller.open()
+    controller.accept({ ...KINGSOFT_DISCONNECTED, status: 'connected', toolCount: 2 })
+    stale.resolve(kingsoftPublicSucceeded(KINGSOFT_DISCONNECTED))
+    await Promise.resolve()
+    expect(controller.store.getSnapshot().connector.status).toBe('connected')
+    controller.close()
+    controller.open()
+    await vi.waitFor(() => {
+      expect(controller.store.getSnapshot().error).toBe('public state unavailable')
     })
   })
 })

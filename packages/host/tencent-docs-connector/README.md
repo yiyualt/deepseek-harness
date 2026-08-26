@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-Web Host service for one process-wide Tencent Docs MCP connection. The `tencentDocsConnector` Remote turns an explicit user gesture into a connection to the fixed Streamable HTTP endpoint `https://docs.qq.com/openapi/mcp`, projects safe state through `tencent-docs-connector/change`, and delegates transport ownership to `ctx.mcp`.
+Web Host service for one process-wide Tencent Docs MCP connection. The `tencentDocsConnector` Remote turns an explicit user gesture into a connection to the fixed Streamable HTTP endpoint `https://docs.qq.com/openapi/mcp`, projects safe state through `tencent-docs-connector/change`, and delegates shared lifecycle and transport ownership to `dsh-host-mcp-connector` and `ctx.mcp`.
 
 The service starts `disconnected` even when a [space MCP Token](https://docs.qq.com/open/document/mcp/get-token/) is already configured. Tencent binds that Token to the space selected during issuance. The service never connects until the user calls `connect`. A successful call first confirms that `TENCENT_DOCS_MCP_TOKEN` resolves, removes any prior `tencent_docs` MCP entry, and passes this authorization descriptor to `ctx.mcp`:
 

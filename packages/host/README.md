@@ -14,6 +14,9 @@ The host side of the dsh web GUI: the API gateway every client shape shares, and
 | [`directory-picker-browse/`](directory-picker-browse/README.md) | In-app directory-browser backend and interaction | registers `ctx.directoryPicker` |
 | [`directory-picker-auto/`](directory-picker-auto/README.md) | Host-adaptive picker composition | mounts a backend |
 | [`plugin-inventory/`](plugin-inventory/README.md) | Read-only projection of current Loader entries | Remote `pluginInventory/list` |
+| [`mcp-connector/`](mcp-connector/README.md) | Shared lifecycle for user-managed Streamable HTTP MCP connectors | consumes `ctx.credentials` and `ctx.mcp` |
+| [`tencent-docs-connector/`](tencent-docs-connector/README.md) | Tencent Docs hosted-MCP connection gateway | Remote `tencentDocsConnector/*` |
+| [`kingsoft-docs-connector/`](kingsoft-docs-connector/README.md) | Kingsoft Docs browser-login and CLI gateway | Remote `kingsoftDocsConnector/*` |
 | [`meeting-presence/`](meeting-presence/README.md) | Presence-only Google Meet and Zoom browser participant | Remote `meetingPresence/*` |
 
 `apiproxy` remains transport-independent; [`client/connection`](../client/connection/README.md) supplies the browser/HTTP carrier. Picker implementations replace one another behind the shared seam.

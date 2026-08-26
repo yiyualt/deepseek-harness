@@ -11,7 +11,7 @@ export const name = 'host-kingsoft-docs-connector-invariant'
 /** Service required before the companion can reserve package ownership. */
 export const inject = ['invariants']
 
-/** No runtime invariant: the connector projects authoritative credential and MCP snapshots. */
+/** No runtime invariant: CLI results are the gateway's sole authoritative state. */
 const install: InvariantInstaller = () => {}
 
 /** Register this package's invariant companion. */

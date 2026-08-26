@@ -27,17 +27,17 @@ type McpServerStatus =
   | 'disconnecting'
 ```
 
-Authorization is separate from ordinary HTTP headers. The only authorization variant resolves a credential reference for each HTTP request and sends its value verbatim; `raw` never prepends `Bearer `. Replacing a credential affects the next request and does not itself reconnect the transport.
+Authorization is separate from ordinary HTTP headers. The credential-backed variant resolves its reference for each HTTP request. `raw` sends the value verbatim; `bearer` prepends the standard `Bearer ` prefix. Replacing a credential affects the next request and does not itself reconnect the transport.
 
 ```ts type-equiv
-/** Credential reference used as an HTTP `Authorization` header value. */
+/** Credential reference used to construct an HTTP `Authorization` header value. */
 interface McpCredentialAuthorizationConfig {
   /** Selects credential-reference resolution. */
   readonly kind: 'credential'
   /** Reference resolved through `ctx.credentials` for each HTTP request. */
   readonly ref: CredentialRef
-  /** Send the resolved value verbatim; this mode never prepends `Bearer `. */
-  readonly scheme: 'raw'
+  /** Send the resolved value verbatim, or prepend the standard `Bearer ` scheme. */
+  readonly scheme: 'raw' | 'bearer'
 }
 ```
 
@@ -83,6 +83,31 @@ interface McpStreamableHttpTransportConfig {
 type McpTransportConfig = McpStdioTransportConfig | McpStreamableHttpTransportConfig
 ```
 
+A connector may attach one Host-owned activation check. The Provider calls the named read-only tool after discovery but before the catalog becomes active, then runs the same-process classifier on a detached, credential-redacted result. It repeats this gate for reconnect generations. The callback and result never enter runtime snapshots.
+
+```ts type-equiv
+/** Outcome of a provider-specific tool call performed before catalog activation. */
+type McpActivationCheckOutcome = 'accepted' | 'auth-rejected' | 'failed'
+```
+
+```ts type-equiv
+/** Optional read-only tool call that must succeed before a catalog becomes active. */
+interface McpActivationCheck {
+  /** Raw MCP tool name invoked after discovery but before `connected` is published. */
+  readonly toolName: string
+  /** JSON arguments sent to the activation tool. */
+  readonly args: Readonly<Record<string, JsonValue>>
+  /** Complete activation-call timeout in milliseconds. */
+  readonly timeoutMs: number
+  /**
+   * Classify the credential-free result without retaining provider data.
+   * @param result - detached MCP result returned by the initializing client.
+   * @returns whether the catalog may activate, authentication failed, or the result is unusable.
+   */
+  readonly classify: (result: McpResult) => McpActivationCheckOutcome
+}
+```
+
 ```ts type-equiv
 /** Request to establish one named MCP connection. */
 interface McpConnectRequest {
@@ -90,6 +115,8 @@ interface McpConnectRequest {
   readonly serverName: McpServerName
   /** Transport used for this connection and every reconnect generation. */
   readonly transport: McpTransportConfig
+  /** Optional read-only gate completed before each generation publishes its catalog. */
+  readonly activationCheck?: McpActivationCheck
 }
 ```
 
@@ -204,7 +231,7 @@ interface McpResult {
 
 The shipped Provider commits `connecting`, initializes a fresh transport generation, discovers the complete tool list, and commits either `connected` or a safe `failed` state. An established close enters bounded exponential recovery. Missing credentials and authentication rejection fail without retrying. Disconnect first publishes `disconnecting` with an empty catalog, closes the client and supported HTTP session, waits for catalog synchronization and in-flight calls, then removes the entry. Known credential values are replaced with `[REDACTED]` if a server echoes them in a result.
 
-The Tencent Docs connector supplies an already-issued [space MCP Token](https://docs.qq.com/open/document/mcp/get-token/) through a credential reference. Tencent binds that Token to the space selected during issuance; the connector does not perform space selection or Token issuance.
+The Tencent Docs connector supplies an already-issued [space MCP Token](https://docs.qq.com/open/document/mcp/get-token/) through a raw credential reference. It does not perform login, account selection, or Token issuance. Kingsoft Docs uses the provider's official `kdocs-cli` browser-login flow and therefore sits outside this MCP seam; its lifecycle and model tools live in the [Kingsoft Docs Host package](../../packages/host/kingsoft-docs-connector/README.md).
 
 Each `tool-mcp` Consumer atomically projects the safe catalog into one agent preset. Public names are deterministic `mcp__<serverName>__<rawName>` identities; the raw name alone goes to `tools/call`. A task-required tool fails before dispatch because task execution is unsupported.
 
@@ -262,7 +289,7 @@ abstract snapshot(): McpRuntimeSnapshot
 abstract callTool(request: McpCallToolRequest): Promise<McpResult>
 ```
 
-Source: [`packages/mcp/mcp/src/index.ts:62`](../../packages/mcp/mcp/src/index.ts)
+Source: [`packages/mcp/mcp/src/index.ts:64`](../../packages/mcp/mcp/src/index.ts)
 
 <a id="mcp-events"></a>
 
@@ -286,7 +313,7 @@ Complete safe MCP registry snapshot after a connection status or catalog commit.
 'mcp/change'(snapshot: McpRuntimeSnapshot): void
 ```
 
-Source: [`packages/mcp/mcp/src/types.ts:166`](../../packages/mcp/mcp/src/types.ts)
+Source: [`packages/mcp/mcp/src/types.ts:187`](../../packages/mcp/mcp/src/types.ts)
 
 <a id="tencent-docs-connector-events"></a>
 
@@ -307,5 +334,5 @@ The process-wide Tencent Docs connector changed public state.
 'tencent-docs-connector/change'(snapshot: TencentDocsConnectorEventSnapshot): void
 ```
 
-Source: [`packages/host/tencent-docs-connector/src/types.ts:45`](../../packages/host/tencent-docs-connector/src/types.ts)
+Source: [`packages/host/tencent-docs-connector/src/types.ts:25`](../../packages/host/tencent-docs-connector/src/types.ts)
 <!-- END GENERATED cordis-surface -->

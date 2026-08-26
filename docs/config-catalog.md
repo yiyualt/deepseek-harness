@@ -789,6 +789,60 @@ export interface Config {
 
 Source: [`packages/host/frontend-static/src/index.ts:28`](../packages/host/frontend-static/src/index.ts)
 
+<a id="deepseek-aidsh-host-kingsoft-docs-connector"></a>
+
+## `@deepseek-ai/dsh-host-kingsoft-docs-connector`
+
+Requires: `subprocess`
+
+```ts config-catalog
+/** CLI lifecycle and bounded-I/O configuration. */
+export interface Config {
+  /** Command or absolute executable path resolved in the Host execution world. */
+  command: string
+  /** Complete browser-login process budget, including termination grace. */
+  loginTimeoutMs: number
+  /** Complete budget for status, logout, and help commands. */
+  commandTimeoutMs: number
+  /** Complete budget for one authenticated document operation. */
+  toolCallTimeoutMs: number
+  /** TERM-to-KILL grace for each owned CLI process tree. */
+  processGraceMs: number
+  /** Maximum UTF-8 byte count accepted for one tool parameter object. */
+  maxInputBytes: number
+  /** Maximum UTF-8 byte count retained from one CLI output stream. */
+  maxOutputBytes: number
+}
+```
+
+Source: [`packages/host/kingsoft-docs-connector/src/index.ts:55`](../packages/host/kingsoft-docs-connector/src/index.ts)
+
+<a id="deepseek-aidsh-host-meeting-presence"></a>
+
+## `@deepseek-ai/dsh-host-meeting-presence`
+
+Requires: `subprocess`
+
+```ts config-catalog
+/** Runtime choices shared by the packaged meeting participant drivers. */
+export interface Config {
+  /** Participant name visible to meeting attendees. */
+  botName: string
+  /** Maximum time to wait for a host to admit the participant. */
+  joinTimeoutMs: number
+  /** Interval used by the browser worker to detect admission and removal. */
+  statusPollMs: number
+  /** Grace before subprocess termination escalates to a force kill. */
+  processGraceMs: number
+  /** Launch Chrome without a visible window. */
+  headless: boolean
+  /** Explicit Chrome executable; absent selects Playwright's installed Chrome channel. */
+  chromeExecutablePath?: string
+}
+```
+
+Source: [`packages/host/meeting-presence/src/index.ts:20`](../packages/host/meeting-presence/src/index.ts)
+
 <a id="deepseek-aidsh-host-webserver"></a>
 
 ## `@deepseek-ai/dsh-host-webserver`
@@ -2503,6 +2557,22 @@ export interface Config {
 
 Source: [`packages/lsp/tool-lsp/src/index.ts:58`](../packages/lsp/tool-lsp/src/index.ts)
 
+<a id="deepseek-aidsh-tool-mcp"></a>
+
+## `@deepseek-ai/dsh-tool-mcp`
+
+Requires: `mcp` · `tools`
+
+```ts config-catalog
+/** Plugin configuration for MCP tool execution. */
+export interface Config {
+  /** Per-call transport timeout in milliseconds. Defaults to 60000. */
+  toolCallTimeoutMs?: number
+}
+```
+
+Source: [`packages/mcp/tool-mcp/src/index.ts:33`](../packages/mcp/tool-mcp/src/index.ts)
+
 <a id="deepseek-aidsh-tool-pwsh"></a>
 
 ## `@deepseek-ai/dsh-tool-pwsh`
@@ -3037,6 +3107,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-client-runtime` ([`packages/client/runtime/src/index.ts`](../packages/client/runtime/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-agent-preset` ([`packages/client/ui-agent-preset/src/index.ts`](../packages/client/ui-agent-preset/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-commands` ([`packages/client/ui-commands/src/index.ts`](../packages/client/ui-commands/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-connectors` ([`packages/client/ui-connectors/src/index.ts`](../packages/client/ui-connectors/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-conversation` ([`packages/client/ui-conversation/src/index.ts`](../packages/client/ui-conversation/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-cordis` ([`packages/extensions/ui-cordis/src/index.ts`](../packages/extensions/ui-cordis/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-deliverables` — requires `systemPrompt` ([`packages/client/ui-deliverables/src/index.ts`](../packages/client/ui-deliverables/src/index.ts))
@@ -3046,6 +3117,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-client-ui-input-trigger` ([`packages/client/ui-input-trigger/src/index.ts`](../packages/client/ui-input-trigger/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-jobs` ([`packages/client/ui-jobs/src/index.ts`](../packages/client/ui-jobs/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-layout` ([`packages/client/ui-layout/src/index.ts`](../packages/client/ui-layout/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-meeting` ([`packages/client/ui-meeting/src/index.ts`](../packages/client/ui-meeting/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-message-feedback` ([`packages/client/ui-message-feedback/src/index.ts`](../packages/client/ui-message-feedback/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-model-selection` ([`packages/client/ui-model-selection/src/index.ts`](../packages/client/ui-model-selection/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-permission-presets` ([`packages/client/ui-permission-presets/src/index.ts`](../packages/client/ui-permission-presets/src/index.ts))
@@ -3075,6 +3147,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-host-directory-picker-auto` — requires `webServer` · `loader` ([`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts))
 - `@deepseek-ai/dsh-host-directory-picker-native` ([`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts))
 - `@deepseek-ai/dsh-host-plugin-inventory` — requires `loader` ([`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts))
+- `@deepseek-ai/dsh-host-tencent-docs-connector` — requires `credentials` · `mcp` ([`packages/host/tencent-docs-connector/src/index.ts`](../packages/host/tencent-docs-connector/src/index.ts))
 - `@deepseek-ai/dsh-llm` ([`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts))
 - `@deepseek-ai/dsh-lsp` ([`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts))
 - `@deepseek-ai/dsh-schedule` — requires `agents` · `sessions` · `tools` · `sessionPersistence` ([`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts))
@@ -3106,6 +3179,7 @@ Abstract service classes — a deployment loads a concrete implementation packag
 - `@deepseek-ai/dsh-fs` — abstract `FileSystem` ([`packages/fs/fs/src/index.ts`](../packages/fs/fs/src/index.ts))
 - `@deepseek-ai/dsh-host-directory-picker` — abstract `DirectoryPicker` ([`packages/host/directory-picker/src/index.ts`](../packages/host/directory-picker/src/index.ts))
 - `@deepseek-ai/dsh-jobs` — abstract `JobRegistry` ([`packages/jobs/jobs/src/index.ts`](../packages/jobs/jobs/src/index.ts))
+- `@deepseek-ai/dsh-mcp` — abstract `McpRuntime` ([`packages/mcp/mcp/src/index.ts`](../packages/mcp/mcp/src/index.ts))
 - `@deepseek-ai/dsh-sandbox` — abstract `SandboxProvider` ([`packages/sandbox/sandbox/src/index.ts`](../packages/sandbox/sandbox/src/index.ts))
 - `@deepseek-ai/dsh-session-persistence` — abstract `SessionPersistence` ([`packages/session/session-persistence/src/index.ts`](../packages/session/session-persistence/src/index.ts))
 - `@deepseek-ai/dsh-session-query` — abstract `SessionQueryEngine` ([`packages/session-query/session-query/src/index.ts`](../packages/session-query/session-query/src/index.ts))
@@ -3136,6 +3210,7 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 - `@deepseek-ai/dsh-cmdline` ([`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts))
 - `@deepseek-ai/dsh-home-paths` ([`packages/util/home-paths/src/index.ts`](../packages/util/home-paths/src/index.ts))
 - `@deepseek-ai/dsh-hook-protocol` ([`packages/hooks/hook-protocol/src/index.ts`](../packages/hooks/hook-protocol/src/index.ts))
+- `@deepseek-ai/dsh-host-mcp-connector` ([`packages/host/mcp-connector/src/index.ts`](../packages/host/mcp-connector/src/index.ts))
 - `@deepseek-ai/dsh-launch-environment` ([`packages/util/launch-environment/src/index.ts`](../packages/util/launch-environment/src/index.ts))
 - `@deepseek-ai/dsh-llm-mock-server` ([`packages/test-support/llm-mock-server/src/index.ts`](../packages/test-support/llm-mock-server/src/index.ts))
 - `@deepseek-ai/dsh-loader-smoke` ([`packages/test-support/loader-smoke/src/index.ts`](../packages/test-support/loader-smoke/src/index.ts))

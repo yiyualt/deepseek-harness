@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/host/tencent-docs-connector/README.md
-README.md: 325c1014f9cede3c3622cf62e1d195e1dd6ca0b0
-README.zh.md: 24c3fcace590fa5568f955f5fa1547e45d22b596
+README.md: 994e6cb02f7866deb4ed6d1f64afdbeb550b965e
+README.zh.md: 6830c637836e0126e3a919a2a8d4d1a2cbea8cd4

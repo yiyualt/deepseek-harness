@@ -62,12 +62,33 @@ export interface McpStreamableHttpTransportConfig {
 /** Supported MCP client transports. */
 export type McpTransportConfig = McpStdioTransportConfig | McpStreamableHttpTransportConfig
 
+/** Outcome of a provider-specific tool call performed before catalog activation. */
+export type McpActivationCheckOutcome = 'accepted' | 'auth-rejected' | 'failed'
+
+/** Optional read-only tool call that must succeed before a catalog becomes active. */
+export interface McpActivationCheck {
+  /** Raw MCP tool name invoked after discovery but before `connected` is published. */
+  readonly toolName: string
+  /** JSON arguments sent to the activation tool. */
+  readonly args: Readonly<Record<string, JsonValue>>
+  /** Complete activation-call timeout in milliseconds. */
+  readonly timeoutMs: number
+  /**
+   * Classify the credential-free result without retaining provider data.
+   * @param result - detached MCP result returned by the initializing client.
+   * @returns whether the catalog may activate, authentication failed, or the result is unusable.
+   */
+  readonly classify: (result: McpResult) => McpActivationCheckOutcome
+}
+
 /** Request to establish one named MCP connection. */
 export interface McpConnectRequest {
   /** Unique connection identity. */
   readonly serverName: McpServerName
   /** Transport used for this connection and every reconnect generation. */
   readonly transport: McpTransportConfig
+  /** Optional read-only gate completed before each generation publishes its catalog. */
+  readonly activationCheck?: McpActivationCheck
 }
 
 /** MCP task-execution support advertised for one tool. */

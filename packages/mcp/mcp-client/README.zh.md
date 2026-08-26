@@ -63,11 +63,11 @@
 
 ## 动态运行时的凭据与生命周期
 
-Streamable HTTP 授权使用凭据引用，绝不使用字面量 `Authorization` header。`scheme: 'raw'` 时，运行时会为每个 HTTP 请求解析该引用并原样发送其值，不添加 `Bearer `。连接前会拒绝 `headers` 中的字面量 `Authorization`、URL 凭据、非 HTTP(S) URL 和 URL fragment。
+Streamable HTTP 授权使用凭据引用，绝不使用字面量 `Authorization` header。运行时会为每个 HTTP 请求解析该引用；`scheme: 'raw'` 原样发送其值，`scheme: 'bearer'` 则添加 `Bearer ` 前缀。连接前会拒绝 `headers` 中的字面量 `Authorization`、URL 凭据、非 HTTP(S) URL 和 URL fragment。
 
 快照、事件和诊断都不包含传输 header 或凭据值。每个非空的显式 stdio env 值、HTTP header 值以及连接期间解析到的每个凭据值都会保留在该连接的脱敏历史中，直到断开，从而在凭据轮换后仍覆盖旧的进行中响应。运行时会在工具目录和结果中递归地将这些值替换为 `[REDACTED]`；如果脱敏会改变工具名称或 task-support 枚举，该目录 generation 会以安全错误失败。Stdio 子进程获得已清理的父进程环境，再叠加连接中明确提供的 env 值。
 
-`connect` 会预留服务器名称、初始化一个传输 generation，并读取最多 100 页且不接受重复 cursor 的 `tools/list`，再提交 `connected` 或安全的 `failed` 快照。失败的名称不会被隐式替换；调用方必须先断开再重试。`notifications/tools/list_changed` 会刷新目录；刷新失败时保留当前工具，并记录安全错误。已建立的传输关闭后会开始有界指数恢复；认证被拒绝或缺少凭据时则直接失败，不进行重试。`disconnect` 会移除工具目录、对 HTTP session 进行有界的尽力终止、关闭每个已建立或仍在初始化的客户端，并在移除服务器快照前等待连接、目录和工具调用工作结束。
+`connect` 会预留服务器名称、初始化一个传输 generation，并读取最多 100 页且不接受重复 cursor 的 `tools/list`。如果请求带有激活检查，运行时会调用它指定的已公布只读工具，并在提交 `connected` 前分类已分离结果；每个恢复 generation 都会重复同一个 gate。失败的名称不会被隐式替换；调用方必须先断开再重试。`notifications/tools/list_changed` 会刷新目录；刷新失败时保留当前工具，并记录安全错误。已建立的传输关闭后会开始有界指数恢复；认证被拒绝或缺少凭据时则直接失败，不进行重试。`disconnect` 会移除工具目录、对 HTTP session 进行有界的尽力终止、关闭每个已建立或仍在初始化的客户端，并在移除服务器快照前等待连接、目录、激活和工具调用工作结束。
 
 ## 工具命名
 
@@ -146,7 +146,7 @@ Streamable HTTP 授权使用凭据引用，绝不使用字面量 `Authorization`
 
 - **只桥接 MCP 的工具能力**：资源和提示词没有 harness 消费接口，暂缓实现。
 - **两个入口具有独立的组合约定**：包根入口仍是上文记录的静态桥接插件；`./runtime` 需要 `dsh-mcp` Service Definition 与独立消费方，动态目录才会对模型可见。
-- **动态 HTTP 授权只支持凭据支撑的 raw 值**：OAuth 和其他方案需要新增 `dsh-mcp` 传输 discriminant。
+- **动态 HTTP 授权支持凭据支撑的 raw 与 Bearer 值**：OAuth 需要独立的授权生命周期。
 - **重连在传输关闭时触发**：崩溃的 stdio 子进程会触发重连；Streamable HTTP 失败通过每次请求以及 SDK 传输自身的 SSE（Server-Sent Events）流恢复机制暴露，因此不可达的 HTTP 服务器会按调用重试，而非由 supervisor 重新 spawn。
 - **Native 非文本渲染有损**：图片、音频与资源载荷在模型上下文中会变成占位符，即使执行局部的规范值保留了其 JSON 块。更丰富的 Native 多媒体投影暂缓实现。
 - **不强制执行不受支持的 MCP 输出 schema**：已声明 schema 使用 harness 子集之外的词汇时，`structuredContent` 会回退到 `JsonValue`。

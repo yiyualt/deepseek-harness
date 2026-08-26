@@ -68,6 +68,13 @@ class CredentialUnavailableError extends Error {
   }
 }
 
+class ActivationAuthenticationRejectedError extends Error {
+  constructor() {
+    super('MCP activation authentication was rejected')
+    this.name = 'ActivationAuthenticationRejectedError'
+  }
+}
+
 type ManagedConnection = {
   readonly request: McpConnectRequest
   status: McpServerSnapshot['status']
@@ -305,6 +312,11 @@ export class McpClientRuntime extends McpRuntime {
         await this.closeClient(connection, client, transport)
         return
       }
+      await this.runActivationCheck(connection, client, tools)
+      if (!this.ownsConnection(connection)) {
+        await this.closeClient(connection, client, transport)
+        return
+      }
       connection.client = client
       connection.transport = transport
       connection.tools = tools
@@ -330,6 +342,37 @@ export class McpClientRuntime extends McpRuntime {
     } finally {
       connection.connectingClient = undefined
       connection.connectingTransport = undefined
+    }
+  }
+
+  private async runActivationCheck(
+    connection: ManagedConnection,
+    client: Client,
+    tools: readonly McpToolDescriptor[],
+  ): Promise<void> {
+    const check = connection.request.activationCheck
+    if (check === undefined) return
+    const descriptor = tools.find(tool => tool.name === check.toolName)
+    if (descriptor === undefined) throw new Error('MCP activation tool is not advertised')
+    if (descriptor.taskSupport === 'required') {
+      throw new Error('MCP activation tool requires unsupported task execution')
+    }
+    const raw = await client.request(
+      { method: 'tools/call', params: { name: check.toolName, arguments: check.args } },
+      RawCallToolResultSchema,
+      { timeout: check.timeoutMs },
+    )
+    const outcome = check.classify(this.normalizeResult(connection, raw))
+    switch (outcome) {
+      case 'accepted':
+        return
+      case 'auth-rejected':
+        throw new ActivationAuthenticationRejectedError()
+      case 'failed':
+        throw new Error('MCP activation check failed')
+      /* v8 ignore next 2 -- TypeScript exhaustiveness assertion for the closed outcome union. */
+      default:
+        throw new Error(`Unexpected MCP activation outcome: ${String(outcome satisfies never)}`)
     }
   }
 
@@ -677,7 +720,7 @@ export class McpClientRuntime extends McpRuntime {
     if (error instanceof CredentialUnavailableError) {
       return { code: 'CREDENTIAL_MISSING', message: 'The configured MCP credential is unavailable.' }
     }
-    if (this.isAuthenticationError(error)) {
+    if (error instanceof ActivationAuthenticationRejectedError || this.isAuthenticationError(error)) {
       return { code: 'AUTH_REJECTED', message: 'The MCP server rejected the configured credential.' }
     }
     return { code: 'CONNECTION_FAILED', message: 'The MCP server could not be reached or initialized.' }

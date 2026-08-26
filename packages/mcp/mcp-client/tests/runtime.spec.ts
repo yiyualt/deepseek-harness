@@ -307,6 +307,28 @@ describe('McpClientRuntime validation and transport construction', () => {
     expect(JSON.stringify(result).match(/\[REDACTED\]/g)).toHaveLength(7)
   })
 
+  it('adds the Bearer scheme at request time and redacts both credential forms', async () => {
+    const { runtime, credentials } = await boot()
+    await credentials.set(TOKEN_REF, 'kingsoft-token')
+    mocks.requestImpl = async (_client, request) => request.method === 'tools/list'
+      ? { tools: [listedTool()] }
+      : { content: [{ type: 'text', text: 'kingsoft-token Bearer kingsoft-token' }] }
+    await runtime.connect(httpRequest({
+      transport: {
+        kind: 'streamable-http',
+        url: 'https://example.test/mcp',
+        authorization: { kind: 'credential', ref: TOKEN_REF, scheme: 'bearer' },
+      },
+    }))
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response())
+    await mocks.httpTransports[0]!.options.fetch!('https://example.test/mcp')
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers
+    expect(headers.get('Authorization')).toBe('Bearer kingsoft-token')
+    expect(JSON.stringify(await runtime.callTool(callRequest()))).toBe(
+      '{"content":[{"type":"text","text":"[REDACTED] [REDACTED]"}]}',
+    )
+  })
+
   it('reports a missing HTTP credential without leaking it', async () => {
     const { runtime } = await boot()
     mocks.connectImpl = async (_client, transport) => {
@@ -404,6 +426,108 @@ describe('McpClientRuntime catalog and calls', () => {
     mocks.requestImpl = async () => ({ tools: [listedTool('sparse', { annotations: {} })] })
     await runtime.connect(stdioRequest())
     expect(runtime.snapshot().servers[0]?.tools[0]?.annotations).toEqual({})
+  })
+
+  it('runs an activation call before publishing the discovered catalog', async () => {
+    const { ctx, runtime } = await boot()
+    const snapshots: Array<{ servers: readonly { status: string; tools: readonly unknown[] }[] }> = []
+    ctx.on('mcp/change', snapshot => void snapshots.push(snapshot))
+    const gate: PromiseWithResolvers<unknown> = Promise.withResolvers()
+    let activationOptions: unknown
+    mocks.requestImpl = async (_client, request, _schema, options) => {
+      if (request.method === 'tools/list') return { tools: [listedTool('verify')] }
+      activationOptions = options
+      expect(request).toEqual({
+        method: 'tools/call',
+        params: { name: 'verify', arguments: { probe: 1 } },
+      })
+      return gate.promise
+    }
+    const classify = vi.fn(() => 'accepted' as const)
+    const connecting = runtime.connect(stdioRequest({
+      activationCheck: {
+        toolName: 'verify',
+        args: { probe: 1 },
+        timeoutMs: 321,
+        classify,
+      },
+    }))
+    await vi.waitFor(() => { expect(mocks.clients[0]?.request).toHaveBeenCalledTimes(2) })
+    expect(runtime.snapshot().servers[0]).toMatchObject({ status: 'connecting', tools: [] })
+    expect(snapshots.some(snapshot => snapshot.servers[0]?.status === 'connected')).toBe(false)
+    expect(activationOptions).toEqual({ timeout: 321 })
+    gate.resolve({ content: [{ type: 'text', text: 'verified' }], structuredContent: { code: 0 } })
+    await expect(connecting).resolves.toMatchObject({ status: 'connected', tools: [{ name: 'verify' }] })
+    expect(classify).toHaveBeenCalledWith({
+      content: [{ type: 'text', text: 'verified' }],
+      structuredContent: { code: 0 },
+    })
+  })
+
+  it('fails activation closed for refusal, unusable results, and unsafe activation tools', async () => {
+    const { runtime } = await boot()
+    mocks.requestImpl = async (_client, request) => request.method === 'tools/list'
+      ? { tools: [listedTool('verify')] }
+      : { content: [] }
+
+    await expect(runtime.connect(stdioRequest({
+      activationCheck: { toolName: 'verify', args: {}, timeoutMs: 10, classify: () => 'auth-rejected' },
+    }))).resolves.toMatchObject({ status: 'failed', errorCode: 'AUTH_REJECTED', tools: [] })
+    expect(mocks.clients[0]?.close).toHaveBeenCalledOnce()
+    await runtime.disconnect(SERVER)
+
+    await expect(runtime.connect(stdioRequest({
+      activationCheck: { toolName: 'verify', args: {}, timeoutMs: 10, classify: () => 'failed' },
+    }))).resolves.toMatchObject({ status: 'failed', errorCode: 'CONNECTION_FAILED', tools: [] })
+    await runtime.disconnect(SERVER)
+
+    await expect(runtime.connect(stdioRequest({
+      activationCheck: { toolName: 'missing', args: {}, timeoutMs: 10, classify: () => 'accepted' },
+    }))).resolves.toMatchObject({ status: 'failed', errorCode: 'CONNECTION_FAILED', tools: [] })
+    await runtime.disconnect(SERVER)
+
+    mocks.requestImpl = async () => ({
+      tools: [listedTool('verify', { execution: { taskSupport: 'required' } })],
+    })
+    await expect(runtime.connect(stdioRequest({
+      activationCheck: { toolName: 'verify', args: {}, timeoutMs: 10, classify: () => 'accepted' },
+    }))).resolves.toMatchObject({ status: 'failed', errorCode: 'CONNECTION_FAILED', tools: [] })
+  })
+
+  it('contains activation classifier failures without publishing provider data', async () => {
+    const { runtime } = await boot()
+    mocks.requestImpl = async (_client, request) => request.method === 'tools/list'
+      ? { tools: [listedTool('verify')] }
+      : { content: [{ type: 'text', text: 'private activation result' }] }
+    const snapshot = await runtime.connect(stdioRequest({
+      activationCheck: {
+        toolName: 'verify',
+        args: {},
+        timeoutMs: 10,
+        classify: () => { throw new Error('private classifier failure') },
+      },
+    }))
+    expect(snapshot).toMatchObject({ status: 'failed', errorCode: 'CONNECTION_FAILED', tools: [] })
+    expect(JSON.stringify(snapshot)).not.toMatch(/private|activation result|classifier/)
+  })
+
+  it('closes a generation whose activation finishes after disconnect', async () => {
+    const { runtime } = await boot()
+    const gate: PromiseWithResolvers<unknown> = Promise.withResolvers()
+    mocks.requestImpl = async (_client, request) => request.method === 'tools/list'
+      ? { tools: [listedTool('verify')] }
+      : gate.promise
+    const connecting = runtime.connect(stdioRequest({
+      activationCheck: { toolName: 'verify', args: {}, timeoutMs: 10, classify: () => 'accepted' },
+    }))
+    await vi.waitFor(() => { expect(mocks.clients[0]?.request).toHaveBeenCalledTimes(2) })
+    const disconnecting = runtime.disconnect(SERVER)
+    await vi.waitFor(() => { expect(mocks.clients[0]?.close).toHaveBeenCalledOnce() })
+    gate.resolve({ content: [] })
+    await connecting
+    await disconnecting
+    expect(runtime.snapshot().servers).toEqual([])
+    expect(mocks.clients[0]?.close).toHaveBeenCalledOnce()
   })
 
   it('redacts resolved credentials from every model-visible catalog string', async () => {
@@ -670,7 +794,18 @@ describe('McpClientRuntime notifications, recovery, and teardown', () => {
 
   it('recovers a closed connection, ignores stale closes, and resets attempts after stability', async () => {
     const { runtime } = await boot()
-    await runtime.connect(stdioRequest())
+    let activationChecks = 0
+    await runtime.connect(stdioRequest({
+      activationCheck: {
+        toolName: 'read',
+        args: {},
+        timeoutMs: 25,
+        classify: () => {
+          activationChecks += 1
+          return 'accepted'
+        },
+      },
+    }))
     const first = mocks.clients[0]!
     await vi.advanceTimersByTimeAsync(50)
     first.onclose?.()
@@ -678,6 +813,7 @@ describe('McpClientRuntime notifications, recovery, and teardown', () => {
     await vi.advanceTimersByTimeAsync(10)
     expect(mocks.clients).toHaveLength(2)
     expect(runtime.snapshot().servers[0]).toMatchObject({ status: 'connected', generation: 2 })
+    expect(activationChecks).toBe(2)
     first.onclose?.()
     await vi.advanceTimersByTimeAsync(100)
     expect(mocks.clients).toHaveLength(2)

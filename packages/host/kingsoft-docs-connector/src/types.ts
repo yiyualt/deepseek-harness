@@ -1,26 +1,36 @@
-/** Client-safe state exposed by the Kingsoft Docs connector Remote. */
+/** Client-safe state exposed by the Kingsoft Docs CLI connector Remote. */
 
-import type {
-  McpConnectorEventSnapshot,
-  McpConnectorSnapshot,
-  McpConnectorStatus,
-} from '@deepseek-ai/dsh-host-mcp-connector/types'
-
-/** Lifecycle phase of the process-wide Kingsoft Docs MCP connection. */
-export type KingsoftDocsConnectorStatus = McpConnectorStatus
+/** Lifecycle phase of the process-wide Kingsoft Docs CLI connection. */
+export type KingsoftDocsConnectorStatus =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'disconnecting'
+  | 'failed'
 
 /** Complete connector state returned through the loopback-only Remote. */
-export type KingsoftDocsConnectorSnapshot = McpConnectorSnapshot
+export interface KingsoftDocsConnectorSnapshot {
+  /** Current login and tool-availability phase. */
+  readonly status: KingsoftDocsConnectorStatus
+  /** Number of Harness tools backed by the authenticated CLI. */
+  readonly toolCount: number
+  /** Stable machine-readable failure reason, when status is `failed`. */
+  readonly errorCode: string | null
+  /** Credential-free diagnostic safe to display to the user. */
+  readonly errorMessage: string | null
+  /** ISO timestamp of the latest material state change. */
+  readonly updatedAt: string
+}
 
-/** Value-free connector state safe to forward to non-loopback Web clients. */
-export type KingsoftDocsConnectorEventSnapshot = McpConnectorEventSnapshot
+/** All Kingsoft connector state is credential-free and safe to forward. */
+export type KingsoftDocsConnectorEventSnapshot = KingsoftDocsConnectorSnapshot
 
 declare module '@deepseek-ai/cordis' {
   interface Events {
     /**
-     * The process-wide Kingsoft Docs connector changed public state.
+     * The process-wide Kingsoft Docs CLI connector changed public state.
      * @mode emit
-     * @param snapshot Current value-free state after the transition.
+     * @param snapshot Current credential-free state after the transition.
      */
     'kingsoft-docs-connector/change'(snapshot: KingsoftDocsConnectorEventSnapshot): void
   }

@@ -31,8 +31,8 @@ class MemoryCredentials extends CredentialProvider {
   value: string | undefined
   source: string | undefined = 'memory'
   writable = true
-  describeError: unknown
-  resolveError: unknown
+  describeError: Error | undefined
+  resolveError: Error | undefined
   describeGate: PromiseWithResolvers<void> | undefined
   describeCalls = 0
   resolveCalls = 0
@@ -256,8 +256,9 @@ describe('TencentDocsConnectorGateway', () => {
       toolCount: 0,
       errorCode: null,
       errorMessage: null,
-      updatedAt: expect.any(String),
+      updatedAt: snapshot.updatedAt,
     })
+    expect(typeof snapshot.updatedAt).toBe('string')
     expect(Object.keys(snapshot).sort()).toEqual([
       'errorCode', 'errorMessage', 'status', 'toolCount', 'updatedAt',
     ])

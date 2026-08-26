@@ -1,0 +1,28 @@
+- dialog "连接器":
+  - heading "连接器" [level=2]
+  - button "关闭连接器面板":
+    - img
+  - paragraph: 连接外部服务，让 AI 可以使用它们提供的工具。
+  - article:
+    - heading "腾讯文档" [level=3]
+    - paragraph: 读取、创建和编辑所选空间里的腾讯文档。
+    - text: 未连接 空间 MCP Token
+    - textbox "空间 MCP Token":
+      - /placeholder: 粘贴腾讯文档空间 MCP Token
+    - text: 尚未配置空间 MCP Token
+    - link "前往腾讯文档获取空间 MCP Token":
+      - /url: https://docs.qq.com/open/document/mcp/get-token/
+    - button "连接" [disabled]
+  - article:
+    - heading "金山文档" [level=3]
+    - paragraph: 读取、创建和编辑个人账号里的金山文档。
+    - text: 已连接
+    - paragraph:
+      - text: 已发现
+      - strong: "2"
+      - text: 个工具
+    - paragraph: 点击“网页登录”后，官方 kdocs-cli 会打开默认浏览器，请在金山文档页面完成登录。
+    - paragraph: 登录凭据由 kdocs-cli 保存在这台 Mac 的系统钥匙串中，不会交给网页或模型。
+    - link "查看金山文档官方登录与安装说明":
+      - /url: https://github.com/kdocs-app/kdocs-skill/blob/master/references/auth.md
+    - button "退出登录"

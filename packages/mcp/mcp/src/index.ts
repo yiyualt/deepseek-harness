@@ -17,6 +17,8 @@ import type {
 } from './types.ts'
 
 export type {
+  McpActivationCheck,
+  McpActivationCheckOutcome,
   McpAuthorizationConfig,
   McpCallToolRequest,
   McpConnectRequest,

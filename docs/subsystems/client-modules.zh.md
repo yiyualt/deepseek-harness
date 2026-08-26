@@ -116,6 +116,87 @@ onGraphChanged(listener: () => void): () => void
 
 Source: [`packages/client/modules/src/index.ts:184`](../../packages/client/modules/src/index.ts)
 
+<a id="ctxkingsoftdocsconnector--kingsoftdocsconnectorgateway"></a>
+
+### `ctx.kingsoftDocsConnector` — `KingsoftDocsConnectorGateway`
+
+Remote service and same-process provider for authenticated Kingsoft Docs CLI operations.
+
+```ts cordis-catalog
+/**
+ * Read the complete credential-free connector state.
+ * @returns a detached snapshot of the current login lifecycle.
+ */
+@Remote('get') get(): Promise<KingsoftDocsConnectorSnapshot>
+
+/**
+ * Read the connector state approved for trusted non-loopback Web clients.
+ * @returns a detached snapshot containing only credential-free fields.
+ */
+@Remote('publicGet') publicGet(): Promise<KingsoftDocsConnectorEventSnapshot>
+
+/**
+ * Reuse an existing keychain login or open the official browser authorization flow.
+ * @returns the settled connector state after authentication is verified.
+ */
+@Remote('connect') connect(): Promise<KingsoftDocsConnectorSnapshot>
+
+/**
+ * Remove the saved login from the system keychain after active CLI calls settle.
+ * @returns the settled connector state after logout.
+ */
+@Remote('disconnect') disconnect(): Promise<KingsoftDocsConnectorSnapshot>
+
+/**
+ * Read the current in-process state without starting authentication work.
+ * @returns a detached credential-free snapshot.
+ */
+current(): KingsoftDocsConnectorSnapshot
+
+/**
+ * Render current CLI help for the scoped model tool without contacting the document API.
+ * @param service - optional supported service to inspect.
+ * @param action - optional action under `service` to inspect.
+ * @param signal - cancellation owned by the calling tool execution.
+ * @returns bounded help text from the installed CLI.
+ */
+runHelp(service: KdocsCliService | undefined, action: string | undefined, signal: AbortSignal): Promise<string>
+
+/**
+ * Execute one authenticated document operation through the official CLI.
+ * @param request - validated service, action, JSON params, and caller cancellation.
+ * @returns the CLI's parsed JSON result.
+ */
+runAction(request: KdocsCliActionRequest): Promise<JsonValue>
+```
+
+Types: [KdocsCliActionRequest](../../packages/host/kingsoft-docs-connector/README.md) · [KdocsCliService](../../packages/host/kingsoft-docs-connector/README.md) · [KingsoftDocsConnectorEventSnapshot](../../packages/host/kingsoft-docs-connector/README.md) · [KingsoftDocsConnectorSnapshot](../../packages/host/kingsoft-docs-connector/README.md)
+
+Source: [`packages/host/kingsoft-docs-connector/src/index.ts:191`](../../packages/host/kingsoft-docs-connector/src/index.ts)
+
+<a id="kingsoft-docs-connector-events"></a>
+
+### `kingsoft-docs-connector/*` events
+
+<a id="kingsoft-docs-connectorchange--emit"></a>
+
+#### `kingsoft-docs-connector/change` — emit
+
+The process-wide Kingsoft Docs CLI connector changed public state.
+
+```ts cordis-catalog
+/**
+ * The process-wide Kingsoft Docs CLI connector changed public state.
+ * @mode emit
+ * @param snapshot Current credential-free state after the transition.
+ */
+'kingsoft-docs-connector/change'(snapshot: KingsoftDocsConnectorEventSnapshot): void
+```
+
+Types: [KingsoftDocsConnectorEventSnapshot](../../packages/host/kingsoft-docs-connector/README.md)
+
+Source: [`packages/host/kingsoft-docs-connector/src/types.ts:35`](../../packages/host/kingsoft-docs-connector/src/types.ts)
+
 <a id="meeting-presence-events"></a>
 
 ### `meeting-presence/*` events

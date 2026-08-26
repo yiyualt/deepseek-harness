@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-这个 Web Host 服务管理一个进程级腾讯文档 MCP 连接。`tencentDocsConnector` Remote 把用户明确的连接动作转换为对固定 Streamable HTTP endpoint `https://docs.qq.com/openapi/mcp` 的连接，通过 `tencent-docs-connector/change` 投影安全状态，并把传输层所有权交给 `ctx.mcp`。
+这个 Web Host 服务管理一个进程级腾讯文档 MCP 连接。`tencentDocsConnector` Remote 把用户明确的连接动作转换为对固定 Streamable HTTP endpoint `https://docs.qq.com/openapi/mcp` 的连接，通过 `tencent-docs-connector/change` 投影安全状态，并把共享生命周期与传输所有权分别交给 `dsh-host-mcp-connector` 和 `ctx.mcp`。
 
 即使已经配置[空间 MCP Token](https://docs.qq.com/open/document/mcp/get-token/)，服务启动后仍是 `disconnected`。腾讯会把该 Token 与签发时所选空间绑定。只有用户调用 `connect` 才会连接。调用成功前，服务先确认 `TENCENT_DOCS_MCP_TOKEN` 可以解析，移除已有的 `tencent_docs` MCP 条目，然后把下面的授权描述交给 `ctx.mcp`：
 
