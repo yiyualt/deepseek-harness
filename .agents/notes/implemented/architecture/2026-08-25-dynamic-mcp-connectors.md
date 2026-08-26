@@ -24,9 +24,9 @@ The package-root `@deepseek-ai/dsh-mcp-client` remains the static one-server bri
 
 The base bundle mounts the dynamic runtime because connection health, credentials, and transport cleanup are process-wide Host concerns. The `standard`, `code`, and `cordis` presets mount the MCP Tool Consumer. The `minimal` preset omits it, so a connected account does not change that preset's model-facing tool set.
 
-A product-specific Host connector translates explicit user intent into one fixed MCP connection and exposes only value-free state through its Remote API. The browser uses the existing loopback-only credential API to write a secret, then calls a no-argument connector method. Remote arguments, snapshots, pushed events, and diagnostics never carry the secret. A non-loopback browser can inspect connector state but cannot mutate credentials or connection state.
+A process-wide managed-connector gateway translates explicit user intent into one of the fixed MCP connections declared by deployment configuration. One `mcpConnectors` Remote lists all configured products and accepts a connector id for connection mutations. The browser uses the existing loopback-only credential API to write a secret, then calls `connect(id)`. Remote arguments, snapshots, pushed events, and diagnostics never carry the secret. A non-loopback browser can inspect the value-free catalog but cannot mutate credentials or connection state.
 
-Product adapters share `@deepseek-ai/dsh-host-mcp-connector` for serialized credential inspection, connection replacement, safe failure projection, runtime reconciliation, and awaited teardown. A provider may additionally require one fixed read-only tool call after discovery. The MCP runtime performs that activation check before publishing `connected` and repeats it for reconnect generations. Only an accepted result activates the catalog; rejection closes the initializing transport first. Vendor packages retain their own endpoint, credential reference, server name, authorization scheme, result classifier, failure copy, Remote namespace, and public event.
+`@deepseek-ai/dsh-host-mcp-connector` owns the catalog Remote plus serialized credential inspection, connection replacement, safe failure projection, runtime reconciliation, and awaited teardown for every entry. A Token-authenticated Streamable HTTP product contributes deployment data—endpoint, credential reference, server name, raw or Bearer authorization, and public bilingual presentation—rather than a Remote namespace or browser component. Connector ids, server names, and credential references are unique; only HTTPS provider and help URLs are accepted.
 
 Connections start disconnected even when a credential exists. The user must explicitly connect after each Host start. Disconnect waits for the runtime generation and in-flight work to settle; a writable active credential source can then be removed by the browser, while an environment-backed credential remains outside browser control.
 
@@ -48,6 +48,8 @@ Remote annotations are untrusted server input and never reduce approval. For eve
 
 ## Alternatives considered
 
+**Keep one Host Remote and one UI card implementation per hosted MCP vendor.** Rejected: endpoint, Token scheme, credential reference, and public presentation are deployment data for this provider class. Repeating the lifecycle and Web protocol would make each new vendor a cross-package feature even though the MCP runtime behavior is identical. OAuth and non-MCP CLI integrations remain separate because their authentication and execution lifecycles differ materially.
+
 **Extend the static package-root bridge with product Remotes and UI state.** Rejected: the static plugin intentionally combines one configured transport with direct tool registration. Dynamic account lifecycle and preset-specific visibility need separate owners and independently testable failure behavior.
 
 **Register every connected tool globally from the Host provider.** Rejected: transport ownership is process-wide, but tool visibility is an Agent Preset decision. Global registration would let one UI action widen unrelated and minimal agents.
@@ -68,7 +70,7 @@ The Service Definition and Consumer suites pin snapshot revisioning, scoped cata
 
 ## Consequences
 
-- Adding another MCP product connector requires a thin Host adapter and UI contribution, not another MCP protocol implementation, lifecycle copy, or tool registry path.
+- Adding another raw or Bearer Token Streamable HTTP product requires one deployment configuration entry, not another Remote, browser component, MCP implementation, lifecycle copy, or tool registry path. OAuth and local CLI products remain separate adapters.
 - A connected catalog changes model tool schemas only in presets that mount the Consumer. Tool names, descriptions, and JSON Schemas add request tokens and may invalidate KV-cache reuse from the first changed schema token.
 - The Host can rotate or revoke credentials without publishing their values. A changed raw or Bearer credential is resolved on the next HTTP request; the connector does not cache an authorization header.
 - Read-only MCP operations still require executor-owned last-mile approval. Removing that friction requires a reviewed Host policy and cannot reuse server-controlled annotations as authority.

@@ -24,9 +24,9 @@ Status: implemented
 
 base 组合包挂载动态运行时，因为连接健康、凭据与传输清理是进程级 Host 关注点。`standard`、`code` 与 `cordis` preset 挂载 MCP Tool Consumer。`minimal` preset 不挂载，因此已连接帐号不会改变该 preset 面向模型的工具集合。
 
-产品专属 Host 连接器把用户的明确意图转换成一个固定 MCP 连接，并通过其 Remote API 仅公开不含值的状态。浏览器使用已有的仅限 loopback 凭据 API 写入 secret，再调用一个无参数连接器方法。Remote 参数、快照、推送事件与诊断都绝不携带 secret。非 loopback 浏览器可以查看连接器状态，但不能更改凭据或连接状态。
+进程级托管连接器网关会把用户的明确意图转换成部署配置中声明的某个固定 MCP 连接。一个 `mcpConnectors` Remote 列出全部已配置产品，并以连接器 id 接收连接变更。浏览器使用已有的仅限 loopback 凭据 API 写入 secret，再调用 `connect(id)`。Remote 参数、快照、推送事件与诊断都绝不携带 secret。非 loopback 浏览器可以查看不含凭据的目录，但不能更改凭据或连接状态。
 
-产品适配器共用 `@deepseek-ai/dsh-host-mcp-connector`，处理串行化凭据检查、连接替换、安全失败投影、运行时状态对齐和等待式清理。供应商还可以要求发现后执行一次固定的只读工具调用。MCP 运行时会在发布 `connected` 前执行该激活检查，并在重连 generation 重复执行。只有验证结果为接受时才会激活目录；验证被拒绝时会先关闭初始化中的传输。供应商包继续持有自己的端点、凭据引用、服务器名、授权方案、结果分类器、失败文案、Remote 命名空间和公开事件。
+`@deepseek-ai/dsh-host-mcp-connector` 为全部配置持有目录 Remote，以及串行化凭据检查、连接替换、安全失败投影、运行时状态对齐和等待式清理。采用 Token 认证的 Streamable HTTP 产品只贡献部署数据，包括端点、凭据引用、服务器名、raw 或 Bearer 授权方式和公开双语展示信息，而不再贡献 Remote 命名空间或浏览器组件。连接器 id、服务器名和凭据引用必须唯一；提供方端点与帮助链接只能使用 HTTPS。
 
 即使凭据存在，连接启动后仍是断开状态。每次 Host 启动后，用户必须明确执行连接。“断开”会等待运行时 generation 与进行中的工作结算；随后，浏览器可以移除可写的当前凭据来源，而环境变量支撑的凭据仍不受浏览器控制。
 
@@ -48,6 +48,8 @@ Consumer 保留既有的 `mcp__<serverName>__<rawName>` 公开名称约定，并
 
 ## 曾考虑的替代方案
 
+**每个托管 MCP 供应商保留一个 Host Remote 和一套 UI 卡片实现。** 否决：对于这类提供方，端点、Token 方案、凭据引用和公开展示信息都是部署数据。重复生命周期和 Web 协议会让每个新供应商都变成跨包功能，而 MCP 运行时行为其实完全相同。OAuth 与非 MCP CLI 集成仍保持独立，因为它们的认证和执行生命周期存在实质差异。
+
 **为静态包根桥接插件添加产品 Remote 与 UI 状态。** 否决：静态插件刻意把一个已配置传输与直接工具注册结合在一起。动态帐号生命周期和 preset 专属可见性需要独立所有者与可独立测试的失败行为。
 
 **由 Host 提供方全局注册所有已连接工具。** 否决：传输所有权属于进程级，而工具可见性是 Agent Preset 决策。全局注册会让一个 UI 操作扩大无关 agent 与 minimal agent 的能力范围。
@@ -68,7 +70,7 @@ Service Definition 与 Consumer 测试套件固定快照 revision、限定作用
 
 ## 后果
 
-- 新增其他 MCP 产品连接器只需要轻量 Host 适配器与 UI 贡献项，不需要新的 MCP 协议实现、生命周期副本或工具注册表路径。
+- 新增采用 raw 或 Bearer Token 的 Streamable HTTP 产品只需要一条部署配置，不需要新的 Remote、浏览器组件、MCP 实现、生命周期副本或工具注册表路径。OAuth 和本地 CLI 产品仍使用独立适配器。
 - 已连接工具目录只在挂载 Consumer 的 preset 中改变模型工具 schema。工具名称、描述和 JSON Schema 会增加请求 token，并可能使从首个变化的 schema token 开始的 KV Cache 复用失效。
 - Host 可以轮换或吊销凭据而不公开其值。下一次 HTTP 请求会解析变更后的 raw 或 Bearer 凭据；连接器不缓存授权 header。
 - 只读 MCP 操作仍然需要由执行器持有的 last-mile 批准。若要消除这种操作阻力，必须采用经过审查的 Host 策略，不能把服务器控制的 annotation 作为授权依据。

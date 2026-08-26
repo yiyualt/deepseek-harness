@@ -5,6 +5,12 @@ import type {
   IApiClient,
   KingsoftDocsConnectorEventSnapshot,
   KingsoftDocsConnectorSnapshot,
+  McpConnectorId,
+  McpConnectorPresentation,
+  McpConnectorPublicView,
+  McpConnectorSnapshot,
+  McpConnectorView,
+  McpConnectorsPublicSnapshot,
   RpcResponse,
   TencentDocsConnectorEventSnapshot,
   TencentDocsConnectorSnapshot,
@@ -18,6 +24,26 @@ type ConnectorSnapshot = TencentDocsConnectorSnapshot
 type ConnectorEventSnapshot = TencentDocsConnectorEventSnapshot
 type ConnectorRemote = ClientRemote['tencentDocsConnector']
 type BrowserLoginRemote = ClientRemote['kingsoftDocsConnector']
+type ManagedMcpRemote = ClientRemote['mcpConnectors']
+
+/** Browser-local state for one declaratively configured hosted MCP product. */
+export interface ManagedMcpConnectorCardState {
+  readonly id: McpConnectorId
+  readonly presentation: McpConnectorPresentation
+  readonly credentialRef: string | null
+  readonly connector: McpConnectorSnapshot
+  readonly draft: string
+  readonly pending: 'connect' | 'disconnect' | null
+  readonly error: string | null
+}
+
+/** Browser-local state for the complete managed MCP connector catalog. */
+export interface ManagedMcpConnectorsState {
+  open: boolean
+  loopback: boolean
+  connectors: readonly ManagedMcpConnectorCardState[]
+  error: string | null
+}
 
 /** Browser-local panel and mutation state joined with the Host snapshot. */
 export interface ConnectorsPanelState {
@@ -85,6 +111,263 @@ function errorMessage(error: unknown): string {
 function unwrapRpc<T>(response: RpcResponse<T>): T {
   if (!response.result.ok) throw new Error(response.result.error.message)
   return response.result.value
+}
+
+const EMPTY_MCP_SNAPSHOT: McpConnectorSnapshot = {
+  status: 'disconnected',
+  credentialConfigured: false,
+  credentialSource: null,
+  credentialWritable: false,
+  toolCount: 0,
+  errorCode: null,
+  errorMessage: null,
+  updatedAt: new Date(0).toISOString(),
+}
+
+function publicCard(
+  view: McpConnectorPublicView,
+  previous: ManagedMcpConnectorCardState | undefined,
+): ManagedMcpConnectorCardState {
+  return {
+    id: view.id,
+    presentation: view.presentation,
+    credentialRef: previous?.credentialRef ?? null,
+    connector: { ...(previous?.connector ?? EMPTY_MCP_SNAPSHOT), ...view.snapshot },
+    draft: previous?.draft ?? '',
+    pending: previous?.pending ?? null,
+    error: previous?.error ?? null,
+  }
+}
+
+function fullCard(
+  view: McpConnectorView,
+  previous: ManagedMcpConnectorCardState | undefined,
+): ManagedMcpConnectorCardState {
+  return {
+    id: view.id,
+    presentation: view.presentation,
+    credentialRef: view.credentialRef,
+    connector: view.snapshot,
+    draft: previous?.draft ?? '',
+    pending: previous?.pending ?? null,
+    error: previous?.error ?? null,
+  }
+}
+
+/** Owns the dynamic catalog of Token-authenticated hosted MCP connector cards. */
+export class ManagedMcpConnectorsController {
+  /** Observable catalog state rendered by the connectors panel. */
+  readonly store: SnapshotStore<ManagedMcpConnectorsState>
+
+  private disposed = false
+  private refreshSequence = 0
+  private mutationSequence = 0
+  private readonly activeMutations = new Map<McpConnectorId, number>()
+
+  /**
+   * @param remote - generic managed MCP connector Remote namespace.
+   * @param credentials - loopback-only credential wire face; absent makes every card read-only.
+   */
+  constructor(
+    private readonly remote: ManagedMcpRemote,
+    private readonly credentials: Pick<IApiClient, 'credentials'> | undefined,
+  ) {
+    this.store = createSnapshotStore({
+      open: false,
+      loopback: credentials !== undefined,
+      connectors: [],
+      error: null,
+    })
+  }
+
+  /** Open the panel and load the complete loopback or value-free public catalog. */
+  open(): void {
+    if (this.disposed) return
+    this.store.update((state) => { state.open = true })
+    void this.refresh()
+  }
+
+  /** Close the panel and erase all browser-held credential drafts. */
+  close(): void {
+    this.refreshSequence += 1
+    this.store.update((state) => {
+      state.open = false
+      state.connectors = state.connectors.map(connector => ({ ...connector, draft: '' }))
+    })
+  }
+
+  /**
+   * Replace one browser-local credential draft.
+   * @param id - configured connector identity.
+   * @param value - current credential input.
+   */
+  setDraft(id: McpConnectorId, value: string): void {
+    if (this.credentials === undefined) return
+    this.updateCard(id, card => ({ ...card, draft: value, error: null }))
+  }
+
+  /**
+   * Merge a value-free public catalog pushed by the Host.
+   * @param snapshot - current public managed-MCP catalog.
+   */
+  accept(snapshot: McpConnectorsPublicSnapshot): void {
+    if (this.disposed) return
+    this.refreshSequence += 1
+    this.store.update((state) => {
+      state.connectors = snapshot.connectors.map(view => publicCard(
+        view,
+        state.connectors.find(candidate => candidate.id === view.id),
+      ))
+      state.error = null
+    })
+  }
+
+  /**
+   * Re-read a connector when its opaque credential reference changes.
+   * @param ref - credential reference named by `credentials/updated`.
+   */
+  credentialsUpdated(ref: string): void {
+    const state = this.store.getSnapshot()
+    if (this.disposed || this.credentials === undefined || !state.open) return
+    if (!state.connectors.some(connector => connector.credentialRef === ref)) return
+    void this.refresh()
+  }
+
+  /**
+   * Save an optional credential draft and connect one hosted MCP product.
+   * @param id - configured connector identity.
+   */
+  async connect(id: McpConnectorId): Promise<void> {
+    const card = this.card(id)
+    if (this.disposed || this.credentials === undefined || card === undefined || card.pending !== null) return
+    /* v8 ignore next -- a loopback catalog always carries the Host-validated credential reference. */
+    if (card.credentialRef === null) return
+    const value = card.draft.trim()
+    if (value === '' && !card.connector.credentialConfigured) return
+    const mutation = this.beginMutation(id, 'connect')
+    try {
+      if (value !== '') {
+        unwrapRpc(await this.credentials.credentials.set({ ref: card.credentialRef, value }))
+        if (!this.isActive(id, mutation)) return
+      }
+      const response = await this.remote.connect(id)
+      if (!this.isActive(id, mutation)) return
+      if (!response.ok) throw new Error(response.error.message)
+      this.applyFullView(response.value)
+    } catch (error: unknown) {
+      if (this.isActive(id, mutation)) this.updateCard(id, current => ({
+        ...current,
+        error: errorMessage(error),
+      }))
+    } finally {
+      this.settleMutation(id, mutation)
+    }
+  }
+
+  /**
+   * Disconnect one hosted MCP product and remove a writable credential.
+   * @param id - configured connector identity.
+   */
+  async disconnect(id: McpConnectorId): Promise<void> {
+    const card = this.card(id)
+    if (this.disposed || this.credentials === undefined || card === undefined || card.pending !== null) return
+    const mutation = this.beginMutation(id, 'disconnect')
+    try {
+      const response = await this.remote.disconnect(id)
+      if (!this.isActive(id, mutation)) return
+      if (!response.ok) throw new Error(response.error.message)
+      this.applyFullView(response.value)
+      if (response.value.snapshot.credentialWritable) {
+        unwrapRpc(await this.credentials.credentials.unset({ ref: response.value.credentialRef }))
+        if (this.isActive(id, mutation)) await this.refresh()
+      }
+    } catch (error: unknown) {
+      if (this.isActive(id, mutation)) this.updateCard(id, current => ({
+        ...current,
+        error: errorMessage(error),
+      }))
+    } finally {
+      this.settleMutation(id, mutation)
+    }
+  }
+
+  /** Ignore late Remote settlements after the plugin unloads. */
+  dispose(): void {
+    this.disposed = true
+    this.refreshSequence += 1
+    this.activeMutations.clear()
+    this.store.update((state) => {
+      state.connectors = state.connectors.map(connector => ({ ...connector, draft: '' }))
+    })
+  }
+
+  private card(id: McpConnectorId): ManagedMcpConnectorCardState | undefined {
+    return this.store.getSnapshot().connectors.find(connector => connector.id === id)
+  }
+
+  private updateCard(
+    id: McpConnectorId,
+    update: (card: ManagedMcpConnectorCardState) => ManagedMcpConnectorCardState,
+  ): void {
+    this.store.update((state) => {
+      state.connectors = state.connectors.map(card => card.id === id ? update(card) : card)
+    })
+  }
+
+  private beginMutation(id: McpConnectorId, pending: 'connect' | 'disconnect'): number {
+    const mutation = ++this.mutationSequence
+    this.activeMutations.set(id, mutation)
+    this.refreshSequence += 1
+    this.updateCard(id, card => ({ ...card, draft: '', pending, error: null }))
+    return mutation
+  }
+
+  private settleMutation(id: McpConnectorId, mutation: number): void {
+    if (!this.isActive(id, mutation)) return
+    this.activeMutations.delete(id)
+    this.updateCard(id, card => ({ ...card, pending: null }))
+  }
+
+  private isActive(id: McpConnectorId, mutation: number): boolean {
+    return !this.disposed && this.activeMutations.get(id) === mutation
+  }
+
+  private applyFullView(view: McpConnectorView): void {
+    this.refreshSequence += 1
+    this.updateCard(view.id, card => fullCard(view, card))
+  }
+
+  private async refresh(): Promise<void> {
+    const sequence = ++this.refreshSequence
+    try {
+      if (this.credentials === undefined) {
+        const response = await this.remote.publicList()
+        if (!response.ok) throw new Error(response.error.message)
+        if (this.disposed || sequence !== this.refreshSequence) return
+        this.store.update((state) => {
+          state.connectors = response.value.connectors.map(view => publicCard(
+            view,
+            state.connectors.find(candidate => candidate.id === view.id),
+          ))
+          state.error = null
+        })
+      } else {
+        const response = await this.remote.list()
+        if (!response.ok) throw new Error(response.error.message)
+        if (this.disposed || sequence !== this.refreshSequence) return
+        this.store.update((state) => {
+          state.connectors = response.value.connectors.map(view => fullCard(
+            view,
+            state.connectors.find(candidate => candidate.id === view.id),
+          ))
+          state.error = null
+        })
+      }
+    } catch (error: unknown) {
+      if (this.disposed || sequence !== this.refreshSequence) return
+      this.store.update((state) => { state.error = errorMessage(error) })
+    }
+  }
 }
 
 /** Owns one connector card's Remote calls and write-only Token transport. */

@@ -284,7 +284,7 @@ describe('web e2e: document connectors', () => {
     await trigger.click()
 
     const dialog = page.getByRole('dialog', { name: '连接器' })
-    const tencentCard = dialog.locator('[data-connector-id="tencentDocs"]')
+    const tencentCard = dialog.locator('[data-connector-id="tencent-docs"]')
     const kingsoftCard = dialog.locator('[data-connector-id="kingsoftDocs"]')
     const tokenInput = tencentCard.getByRole('textbox', { name: '空间 MCP Token' })
     await dialog.waitFor({ timeout: 10_000 })
@@ -298,7 +298,7 @@ describe('web e2e: document connectors', () => {
     await assertSecretConfinedToPasswordInput(page, INVALID_TOKEN)
     expect(browserConsole.join('\n')).not.toContain(INVALID_TOKEN)
     await tencentCard.getByRole('button', { name: '连接', exact: true }).click()
-    await tencentCard.getByRole('alert').getByText('腾讯文档拒绝了当前 Token，请更新后重试。').waitFor({ timeout: 15_000 })
+    await tencentCard.getByRole('alert').getByText('腾讯文档拒绝了当前凭据，请更新后重试。').waitFor({ timeout: 15_000 })
     expect(await tokenInput.inputValue()).toBe('')
     await assertSecretAbsent(page, INVALID_TOKEN)
     expect(browserConsole.join('\n')).not.toContain(INVALID_TOKEN)

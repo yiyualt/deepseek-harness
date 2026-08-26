@@ -2,7 +2,11 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { BrowserLoginConnectorState, ConnectorsPanelState } from '../src/client/controller.ts'
+import type {
+  BrowserLoginConnectorState,
+  ConnectorsPanelState,
+  ManagedMcpConnectorsState,
+} from '../src/client/controller.ts'
 import { CONNECTOR_REQUEST_FAILED } from '../src/client/controller.ts'
 import { ConnectorsPanel } from '../src/client/ConnectorsPanel.tsx'
 import { en, zh } from '../src/client/locales.ts'
@@ -39,6 +43,32 @@ const KINGSOFT_BASE: BrowserLoginConnectorState = {
   },
 }
 
+const TENCENT_ID = 'tencent-docs' as never
+
+function managedState(state: ConnectorsPanelState): ManagedMcpConnectorsState {
+  return {
+    open: state.open,
+    loopback: state.loopback,
+    error: null,
+    connectors: [{
+      id: TENCENT_ID,
+      presentation: {
+        logo: '文',
+        name: { zh: zh.tencentDocsName, en: en.tencentDocsName },
+        description: { zh: zh.tencentDocsDescription, en: en.tencentDocsDescription },
+        credentialName: { zh: zh.tokenLabel, en: en.tokenLabel },
+        credentialHelpUrl: 'https://docs.qq.com/open/document/mcp/get-token/',
+        credentialHelpLabel: { zh: zh.getToken, en: en.getToken },
+      },
+      credentialRef: 'TENCENT_DOCS_MCP_TOKEN',
+      connector: state.connector,
+      draft: state.draft,
+      pending: state.pending,
+      error: state.error,
+    }],
+  }
+}
+
 afterEach(cleanup)
 
 function renderPanel(state: ConnectorsPanelState, actions: {
@@ -54,14 +84,16 @@ function renderPanel(state: ConnectorsPanelState, actions: {
     wide={wide}
     useSessions={(() => undefined) as never}
     useWorkspaces={(() => undefined) as never}
-    useTencentDocs={selector => selector(state)}
+    useManagedMcp={selector => selector(managedState(state))}
     useKingsoftDocs={selector => selector(kingsoftState)}
     open={actions.open ?? vi.fn()}
     close={actions.close ?? vi.fn()}
-    setTencentDraft={(value) => { actions.setDraft?.(value) }}
-    clearTencentDraft={() => { actions.clearDraft?.() }}
-    connect={async (id) => { if (id === 'tencentDocs') await actions.connect?.() }}
-    disconnect={async (id) => { if (id === 'tencentDocs') await actions.disconnect?.() }}
+    setManagedDraft={(_, value) => {
+      if (value === '') actions.clearDraft?.()
+      else actions.setDraft?.(value)
+    }}
+    connect={async (id) => { if (id === TENCENT_ID) await actions.connect?.() }}
+    disconnect={async (id) => { if (id === TENCENT_ID) await actions.disconnect?.() }}
     t={((key: keyof typeof en): string => en[key]) as never}
   />)
 }
@@ -75,12 +107,11 @@ function renderPanelWithCopy(
     wide={true}
     useSessions={(() => undefined) as never}
     useWorkspaces={(() => undefined) as never}
-    useTencentDocs={selector => selector(state)}
+    useManagedMcp={selector => selector(managedState(state))}
     useKingsoftDocs={selector => selector(kingsoftState)}
     open={vi.fn()}
     close={vi.fn()}
-    setTencentDraft={vi.fn()}
-    clearTencentDraft={vi.fn()}
+    setManagedDraft={vi.fn()}
     connect={vi.fn(async () => {})}
     disconnect={vi.fn(async () => {})}
     t={((key: keyof typeof en): string => copy[key]) as never}
@@ -99,12 +130,11 @@ function renderKingsoftPanel(
     wide={true}
     useSessions={(() => undefined) as never}
     useWorkspaces={(() => undefined) as never}
-    useTencentDocs={selector => selector(tencentState)}
+    useManagedMcp={selector => selector(managedState(tencentState))}
     useKingsoftDocs={selector => selector(state)}
     open={vi.fn()}
     close={vi.fn()}
-    setTencentDraft={vi.fn()}
-    clearTencentDraft={vi.fn()}
+    setManagedDraft={vi.fn()}
     connect={async (id) => { if (id === 'kingsoftDocs') await actions.connect?.() }}
     disconnect={async (id) => { if (id === 'kingsoftDocs') await actions.disconnect?.() }}
     t={((key: keyof typeof en): string => en[key]) as never}
@@ -112,6 +142,43 @@ function renderKingsoftPanel(
 }
 
 describe('ConnectorsPanel', () => {
+  it('renders another hosted MCP provider from catalog data without a provider-specific component', () => {
+    const state = managedState(BASE)
+    const mailId = 'mail-demo' as never
+    const mail = {
+      ...state.connectors[0]!,
+      id: mailId,
+      credentialRef: 'MAIL_DEMO_TOKEN',
+      presentation: {
+        logo: '邮',
+        name: { zh: '邮箱示例', en: 'Mail Demo' },
+        description: { zh: '邮件工具', en: 'Mail tools' },
+        credentialName: { zh: '访问令牌', en: 'Access Token' },
+        credentialHelpUrl: 'https://mail.example.test/token',
+        credentialHelpLabel: { zh: '获取令牌', en: 'Get mail Token' },
+      },
+    }
+    render(<ConnectorsPanel
+      wide={true}
+      useSessions={(() => undefined) as never}
+      useWorkspaces={(() => undefined) as never}
+      useManagedMcp={selector => selector({ ...state, connectors: [...state.connectors, mail] })}
+      useKingsoftDocs={selector => selector({ ...KINGSOFT_BASE, loopback: false })}
+      open={vi.fn()}
+      close={vi.fn()}
+      setManagedDraft={vi.fn()}
+      connect={vi.fn(async () => {})}
+      disconnect={vi.fn(async () => {})}
+      t={((key: keyof typeof en): string => en[key]) as never}
+    />)
+
+    const card = document.querySelector('[data-connector-id="mail-demo"]')
+    expect(card).not.toBeNull()
+    expect(within(card as HTMLElement).getByText('Mail Demo')).toBeTruthy()
+    expect(within(card as HTMLElement).getByLabelText('Access Token')).toBeTruthy()
+    expect(within(card as HTMLElement).getByRole('link', { name: 'Get mail Token' })).toBeTruthy()
+  })
+
   it('renders the Tencent Docs card and sends a typed Token through the connect action', () => {
     const setDraft = vi.fn()
     const connect = vi.fn(async () => {})
@@ -138,12 +205,11 @@ describe('ConnectorsPanel', () => {
       wide={true}
       useSessions={(() => undefined) as never}
       useWorkspaces={(() => undefined) as never}
-      useTencentDocs={selector => selector(tencentState)}
+      useManagedMcp={selector => selector(managedState(tencentState))}
       useKingsoftDocs={selector => selector(kingsoftState)}
       open={vi.fn()}
       close={vi.fn()}
-      setTencentDraft={vi.fn()}
-      clearTencentDraft={vi.fn()}
+      setManagedDraft={vi.fn()}
       connect={connect}
       disconnect={vi.fn(async () => {})}
       t={((key: keyof typeof en): string => en[key]) as never}
@@ -197,7 +263,7 @@ describe('ConnectorsPanel', () => {
       draft: 'browser-only-draft',
       connector: { ...BASE.connector, credentialConfigured: true, credentialSource: 'file' },
     }, { clearDraft })
-    expect(screen.getByText(en.tokenConfigured)).toBeTruthy()
+    expect(screen.getByText(en.tokenConfigured.replace('{credential}', en.tokenLabel))).toBeTruthy()
     expect(screen.getByText(`${en.credentialSource}: file`)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.clearToken }))
     expect(clearDraft).toHaveBeenCalledOnce()
@@ -236,7 +302,9 @@ describe('ConnectorsPanel', () => {
     }, { disconnect })
     expect(screen.getByText('7')).toBeTruthy()
     expect(screen.getByLabelText(en.tokenLabel).hasAttribute('disabled')).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: en.disconnect }))
+    fireEvent.click(screen.getByRole('button', {
+      name: en.disconnect.replace('{credential}', en.tokenLabel),
+    }))
     expect(disconnect).toHaveBeenCalledOnce()
   })
 
@@ -252,7 +320,7 @@ describe('ConnectorsPanel', () => {
         credentialWritable: false,
       },
     }, { disconnect })
-    expect(screen.getByText(en.tokenReadOnly)).toBeTruthy()
+    expect(screen.getByText(en.tokenReadOnly.replace('{credential}', en.tokenLabel))).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.disconnectKeepToken }))
     expect(disconnect).toHaveBeenCalledOnce()
 
@@ -276,7 +344,8 @@ describe('ConnectorsPanel', () => {
         errorMessage: '腾讯文档拒绝了当前 Token，请更新后重试。',
       },
     }, en)
-    expect(screen.getByRole('alert').textContent).toBe(en.errorAuthRejected)
+    expect(screen.getByRole('alert').textContent)
+      .toBe(en.errorAuthRejected.replace('{name}', en.tencentDocsName))
     expect(screen.queryByText('腾讯文档拒绝了当前 Token，请更新后重试。')).toBeNull()
 
     cleanup()

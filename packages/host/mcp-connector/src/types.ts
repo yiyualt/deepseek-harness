@@ -1,12 +1,53 @@
 /** Shared Host lifecycle types for one user-managed MCP connector. */
 
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials/types'
+import type { Branded } from '@deepseek-ai/dsh-brand'
 import type {
-  McpActivationCheck,
-  McpActivationCheckOutcome,
   McpCredentialAuthorizationConfig,
   McpServerName,
 } from '@deepseek-ai/dsh-mcp'
+
+/** Stable deployment-owned identity of one managed MCP connector. */
+export type McpConnectorId = Branded<'McpConnectorId'>
+
+/**
+ * Construct a managed MCP connector identity after configuration validation.
+ * @param value - validated deployment-owned identifier.
+ * @returns branded connector identifier.
+ */
+export const mcpConnectorId = (value: string): McpConnectorId => value as McpConnectorId
+
+/** Localized product text sent to the connector panel. */
+export interface McpConnectorLocalizedText {
+  /** Simplified Chinese copy. */
+  readonly zh: string
+  /** English copy. */
+  readonly en: string
+}
+
+/** Safe presentation metadata for one managed MCP connector card. */
+export interface McpConnectorPresentation {
+  /** Short text mark rendered in the connector avatar. */
+  readonly logo: string
+  /** Product name. */
+  readonly name: McpConnectorLocalizedText
+  /** Product capability summary. */
+  readonly description: McpConnectorLocalizedText
+  /** Name of the credential the user supplies. */
+  readonly credentialName: McpConnectorLocalizedText
+  /** Provider-owned credential setup page. */
+  readonly credentialHelpUrl: string
+  /** Link copy for the credential setup page. */
+  readonly credentialHelpLabel: McpConnectorLocalizedText
+}
+
+/** Public identity and presentation fields for one configured MCP connector. */
+export interface McpConnectorDescriptor {
+  /** Stable connector identity used by Remote mutations. */
+  readonly id: McpConnectorId
+  /** Safe product metadata rendered by the browser. */
+  readonly presentation: McpConnectorPresentation
+}
 
 /** Lifecycle phase of one process-wide user-managed MCP connection. */
 export type McpConnectorStatus =
@@ -56,12 +97,6 @@ export interface McpConnectorFailures {
   readonly disconnectFailed: McpConnectorFailure
 }
 
-/** Result classification for a provider-specific connection check. */
-export type McpConnectorConnectionCheckOutcome = McpActivationCheckOutcome
-
-/** Optional read-only call that verifies credentials before catalog activation. */
-export type McpConnectorConnectionCheck = McpActivationCheck
-
 /** Fixed provider facts consumed by one shared connector lifecycle. */
 export interface McpConnectorDefinition {
   /** Prefix used for lifecycle effect diagnostics. */
@@ -76,6 +111,41 @@ export interface McpConnectorDefinition {
   readonly authorizationScheme: McpCredentialAuthorizationConfig['scheme']
   /** Fixed credential-free failure copy. */
   readonly failures: McpConnectorFailures
-  /** Optional provider-specific read-only credential verification. */
-  readonly connectionCheck?: McpConnectorConnectionCheck
+}
+
+/** Full loopback view of one configured connector. */
+export interface McpConnectorView extends McpConnectorDescriptor {
+  /** Host-owned lifecycle and credential metadata. */
+  readonly snapshot: McpConnectorSnapshot
+  /** Credential reference accepted by the loopback credential API. */
+  readonly credentialRef: CredentialRef
+}
+
+/** Value-free view safe for trusted non-loopback clients. */
+export interface McpConnectorPublicView extends McpConnectorDescriptor {
+  /** Public lifecycle fields without credential metadata. */
+  readonly snapshot: McpConnectorEventSnapshot
+}
+
+/** Full catalog returned only through the loopback Remote. */
+export interface McpConnectorsSnapshot {
+  /** Connectors in deployment order. */
+  readonly connectors: readonly McpConnectorView[]
+}
+
+/** Public connector catalog forwarded to trusted Web clients. */
+export interface McpConnectorsPublicSnapshot {
+  /** Value-free connectors in deployment order. */
+  readonly connectors: readonly McpConnectorPublicView[]
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * The public managed-MCP connector catalog changed.
+     * @mode emit
+     * @param snapshot Current value-free catalog after the transition.
+     */
+    'mcp-connectors/change'(snapshot: McpConnectorsPublicSnapshot): void
+  }
 }

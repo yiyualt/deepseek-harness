@@ -315,6 +315,29 @@ Complete safe MCP registry snapshot after a connection status or catalog commit.
 
 Source: [`packages/mcp/mcp/src/types.ts:187`](../../packages/mcp/mcp/src/types.ts)
 
+<a id="mcp-connectors-events"></a>
+
+### `mcp-connectors/*` events
+
+<a id="mcp-connectorschange--emit"></a>
+
+#### `mcp-connectors/change` — emit
+
+The public managed-MCP connector catalog changed.
+
+```ts cordis-catalog
+/**
+ * The public managed-MCP connector catalog changed.
+ * @mode emit
+ * @param snapshot Current value-free catalog after the transition.
+ */
+'mcp-connectors/change'(snapshot: McpConnectorsPublicSnapshot): void
+```
+
+Types: [McpConnectorsPublicSnapshot](../../packages/host/mcp-connector/README.md)
+
+Source: [`packages/host/mcp-connector/src/types.ts:149`](../../packages/host/mcp-connector/src/types.ts)
+
 <a id="tencent-docs-connector-events"></a>
 
 ### `tencent-docs-connector/*` events

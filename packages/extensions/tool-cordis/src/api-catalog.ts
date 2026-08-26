@@ -2486,6 +2486,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'options', description: 'the full request. A LOOP-built request carries the process-local {@link markAgentLoopRequest} identity and arrives deep-frozen (mutation throws): its content is a pure function of the session log (the reconstructability Agent Note), so listeners read it, never rewrite it. Hand-built calls do not carry that marker; their messages already obey the immutable creation contract.' }],
   },
   {
+    name: 'mcp-connectors/change',
+    mode: 'emit',
+    signature: '\'mcp-connectors/change\'(snapshot: McpConnectorsPublicSnapshot): void',
+    summary: 'The public managed-MCP connector catalog changed.',
+    description: 'The public managed-MCP connector catalog changed.',
+    parameters: [{ name: 'snapshot', description: 'Current value-free catalog after the transition.' }],
+  },
+  {
     name: 'mcp/change',
     mode: 'emit',
     signature: '\'mcp/change\'(snapshot: McpRuntimeSnapshot): void',
@@ -3510,12 +3518,36 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface McpCallToolRequest {\n    readonly serverName: McpServerName;\n    readonly name: string;\n    readonly args: Readonly<Record<string, JsonValue>>;\n    readonly signal: AbortSignal;\n    readonly timeoutMs: number;\n}',
   },
   {
+    name: 'McpConnectorDescriptor',
+    declaration: 'export interface McpConnectorDescriptor {\n    readonly id: McpConnectorId;\n    readonly presentation: McpConnectorPresentation;\n}',
+  },
+  {
     name: 'McpConnectorEventSnapshot',
     declaration: 'export type McpConnectorEventSnapshot = Omit<McpConnectorSnapshot, \'credentialConfigured\' | \'credentialSource\' | \'credentialWritable\'>;',
   },
   {
+    name: 'McpConnectorId',
+    declaration: 'export type McpConnectorId = Branded<\'McpConnectorId\'>;',
+  },
+  {
+    name: 'McpConnectorLocalizedText',
+    declaration: 'export interface McpConnectorLocalizedText {\n    readonly zh: string;\n    readonly en: string;\n}',
+  },
+  {
+    name: 'McpConnectorPresentation',
+    declaration: 'export interface McpConnectorPresentation {\n    readonly logo: string;\n    readonly name: McpConnectorLocalizedText;\n    readonly description: McpConnectorLocalizedText;\n    readonly credentialName: McpConnectorLocalizedText;\n    readonly credentialHelpUrl: string;\n    readonly credentialHelpLabel: McpConnectorLocalizedText;\n}',
+  },
+  {
+    name: 'McpConnectorPublicView',
+    declaration: 'export interface McpConnectorPublicView extends McpConnectorDescriptor {\n    readonly snapshot: McpConnectorEventSnapshot;\n}',
+  },
+  {
     name: 'McpConnectorSnapshot',
     declaration: 'export interface McpConnectorSnapshot {\n    readonly status: McpConnectorStatus;\n    readonly credentialConfigured: boolean;\n    readonly credentialSource: string | null;\n    readonly credentialWritable: boolean;\n    readonly toolCount: number;\n    readonly errorCode: string | null;\n    readonly errorMessage: string | null;\n    readonly updatedAt: string;\n}',
+  },
+  {
+    name: 'McpConnectorsPublicSnapshot',
+    declaration: 'export interface McpConnectorsPublicSnapshot {\n    readonly connectors: readonly McpConnectorPublicView[];\n}',
   },
   {
     name: 'McpConnectorStatus',

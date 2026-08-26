@@ -7,6 +7,7 @@ import dynamicRemote from '@deepseek-ai/dsh-cordis-host-runner/remote'
 import pluginInventoryRemote from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 import meetingPresenceRemote from '@deepseek-ai/dsh-host-meeting-presence/remote'
 import kingsoftDocsConnectorRemote from '@deepseek-ai/dsh-host-kingsoft-docs-connector/remote'
+import mcpConnectorsRemote from '@deepseek-ai/dsh-host-mcp-connector/remote'
 import tencentDocsConnectorRemote from '@deepseek-ai/dsh-host-tencent-docs-connector/remote'
 import messageFeedbackRemote from '@deepseek-ai/dsh-message-feedback/remote'
 import type { TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
@@ -24,6 +25,17 @@ export type {
   KingsoftDocsConnectorStatus,
 } from '@deepseek-ai/dsh-host-kingsoft-docs-connector/types'
 export type {
+  McpConnectorEventSnapshot,
+  McpConnectorId,
+  McpConnectorPresentation,
+  McpConnectorPublicView,
+  McpConnectorSnapshot,
+  McpConnectorStatus,
+  McpConnectorView,
+  McpConnectorsPublicSnapshot,
+  McpConnectorsSnapshot,
+} from '@deepseek-ai/dsh-host-mcp-connector/types'
+export type {
   TencentDocsConnectorEventSnapshot,
   TencentDocsConnectorSnapshot,
   TencentDocsConnectorStatus,
@@ -33,6 +45,7 @@ export type {} from '@deepseek-ai/dsh-goal/remote'
 export type {} from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 export type {} from '@deepseek-ai/dsh-host-meeting-presence/remote'
 export type {} from '@deepseek-ai/dsh-host-kingsoft-docs-connector/remote'
+export type {} from '@deepseek-ai/dsh-host-mcp-connector/remote'
 export type {} from '@deepseek-ai/dsh-host-tencent-docs-connector/remote'
 export type {} from '@deepseek-ai/dsh-message-feedback/remote'
 // The forwarded-event allowlist's selection seat: without it in the consumer's
@@ -49,6 +62,7 @@ export type {} from '@deepseek-ai/dsh-agent-presets/types'
 export type {} from '@deepseek-ai/dsh-settings/types'
 export type {} from '@deepseek-ai/dsh-host-meeting-presence/types'
 export type {} from '@deepseek-ai/dsh-host-kingsoft-docs-connector/types'
+export type {} from '@deepseek-ai/dsh-host-mcp-connector/types'
 export type {} from '@deepseek-ai/dsh-host-tencent-docs-connector/types'
 
 /**
@@ -131,7 +145,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   try {
     for (const contribution of [
       commandsRemote, goalsRemote, dynamicRemote, pluginInventoryRemote, meetingPresenceRemote,
-      kingsoftDocsConnectorRemote, tencentDocsConnectorRemote, messageFeedbackRemote,
+      kingsoftDocsConnectorRemote, mcpConnectorsRemote, tencentDocsConnectorRemote, messageFeedbackRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
     }

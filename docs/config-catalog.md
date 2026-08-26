@@ -817,6 +817,56 @@ export interface Config {
 
 Source: [`packages/host/kingsoft-docs-connector/src/index.ts:55`](../packages/host/kingsoft-docs-connector/src/index.ts)
 
+<a id="deepseek-aidsh-host-mcp-connector"></a>
+
+## `@deepseek-ai/dsh-host-mcp-connector`
+
+Requires: `credentials` · `mcp`
+
+```ts config-catalog
+/** Configuration for the process-wide managed MCP connector gateway. */
+export interface Config {
+  /** Token-authenticated hosted MCP products available in this deployment. */
+  connectors: ManagedMcpConnectorConfig[]
+}
+
+/** Deployment configuration for one Token-authenticated hosted MCP product. */
+export interface ManagedMcpConnectorConfig {
+  /** Stable lowercase connector identity. */
+  id: string
+  /** Streamable HTTP MCP endpoint. */
+  endpoint: string
+  /** Host credential reference name. */
+  credentialRef: string
+  /** Process-wide MCP server name used in projected tool names. */
+  serverName: string
+  /** Transformation applied to the resolved credential. */
+  authorizationScheme: 'raw' | 'bearer'
+  /** Short text mark rendered in the connector avatar. */
+  logo: string
+  /** Simplified Chinese product name. */
+  nameZh: string
+  /** English product name. */
+  nameEn: string
+  /** Simplified Chinese capability summary. */
+  descriptionZh: string
+  /** English capability summary. */
+  descriptionEn: string
+  /** Simplified Chinese credential name. */
+  credentialNameZh: string
+  /** English credential name. */
+  credentialNameEn: string
+  /** Provider-owned credential setup page. */
+  credentialHelpUrl: string
+  /** Simplified Chinese setup-link copy. */
+  credentialHelpLabelZh: string
+  /** English setup-link copy. */
+  credentialHelpLabelEn: string
+}
+```
+
+Source: [`packages/host/mcp-connector/src/index.ts:65`](../packages/host/mcp-connector/src/index.ts)
+
 <a id="deepseek-aidsh-host-meeting-presence"></a>
 
 ## `@deepseek-ai/dsh-host-meeting-presence`
@@ -3210,7 +3260,6 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 - `@deepseek-ai/dsh-cmdline` ([`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts))
 - `@deepseek-ai/dsh-home-paths` ([`packages/util/home-paths/src/index.ts`](../packages/util/home-paths/src/index.ts))
 - `@deepseek-ai/dsh-hook-protocol` ([`packages/hooks/hook-protocol/src/index.ts`](../packages/hooks/hook-protocol/src/index.ts))
-- `@deepseek-ai/dsh-host-mcp-connector` ([`packages/host/mcp-connector/src/index.ts`](../packages/host/mcp-connector/src/index.ts))
 - `@deepseek-ai/dsh-launch-environment` ([`packages/util/launch-environment/src/index.ts`](../packages/util/launch-environment/src/index.ts))
 - `@deepseek-ai/dsh-llm-mock-server` ([`packages/test-support/llm-mock-server/src/index.ts`](../packages/test-support/llm-mock-server/src/index.ts))
 - `@deepseek-ai/dsh-loader-smoke` ([`packages/test-support/loader-smoke/src/index.ts`](../packages/test-support/loader-smoke/src/index.ts))

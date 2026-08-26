@@ -8,12 +8,12 @@
     - paragraph: 读取、创建和编辑所选空间里的腾讯文档。
     - text: 连接失败 空间 MCP Token
     - textbox "空间 MCP Token":
-      - /placeholder: 空间 MCP Token 已配置；留空可直接重试
-    - text: "空间 MCP Token 已配置 凭据来源: file"
+      - /placeholder: 空间 MCP Token已配置；留空可直接重试
+    - text: "空间 MCP Token已配置 凭据来源: file"
     - link "前往腾讯文档获取空间 MCP Token":
       - /url: https://docs.qq.com/open/document/mcp/get-token/
     - button "重试连接"
-    - alert: 腾讯文档拒绝了当前 Token，请更新后重试。
+    - alert: 腾讯文档拒绝了当前凭据，请更新后重试。
   - article:
     - heading "金山文档" [level=3]
     - paragraph: 读取、创建和编辑个人账号里的金山文档。

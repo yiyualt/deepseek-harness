@@ -2,11 +2,13 @@
 
 [English](README.md) | 中文
 
-这是由用户管理的 Streamable HTTP MCP 连接器所共用的 Host 生命周期。供应商包提供固定端点、凭据引用、本地服务器名、授权方案、安全失败文案，以及可选的发现后验证调用。`McpConnectorLifecycle` 负责串行化连接、重试、断开、凭据刷新、运行时状态对齐、公开状态和清理，但自身不创建 Remote 命名空间。
+这是由用户管理的 Streamable HTTP MCP 连接器所共用的进程级网关与生命周期。`connectors` 配置可以声明任意数量采用 Token 认证的产品，包括端点、凭据引用、本地服务器名、raw 或 Bearer 授权方式，以及双语卡片元数据。`mcpConnectors` Remote 通过 `list`、`publicList`、`connect(id)` 和 `disconnect(id)` 暴露一个动态目录。新增兼容提供方只需修改部署配置，不需要新增 Remote 命名空间或浏览器组件。
+
+每条配置对应一个 `McpConnectorLifecycle`，负责串行化连接、重试、断开、凭据刷新、运行时状态对齐、公开状态和清理。连接器 id、服务器名与凭据引用必须唯一。端点和凭据帮助链接必须使用 HTTPS；无效或重复配置会在插件激活时失败。
 
 凭据值始终留在 `ctx.credentials` 后面。连接请求只包含不透明的凭据引用和 `raw` 或 `bearer` 授权方案。完整快照包含凭据是否可用、来源和可写性，但绝不包含凭据值。公开快照会省略全部凭据元数据。Provider 诊断在进入任何快照前都会被收敛为供应商自有的固定失败信息。
 
-可选连接检查会在 MCP 初始化和完整工具发现完成后、运行时发布 `connected` 前执行。供应商选择一个只读工具、固定 JSON 参数、超时时间和结果分类器。只有 `accepted` 才会激活已发现目录。认证被拒绝或响应不可用时，会先关闭初始化中的 MCP 传输，再发布失败状态；重连 generation 会重复同一检查。
+完整 loopback 目录包含安全的凭据可用性、来源、可写性，以及现有只写凭据 API 所需的不透明凭据引用。`publicList` 和 `mcp-connectors/change` 会省略全部凭据字段。展示文案与链接是部署方拥有的公开元数据；两个目录都不包含端点、授权方式或凭据值。
 
 ## Model Experience
 
@@ -26,6 +28,6 @@
 
 ## Known Limitations and Deferred Work
 
-- 一个生命周期实例只管理一个固定端点、服务器名和凭据引用。
+- 声明式目录支持采用 Token 认证的 Streamable HTTP MCP。OAuth 跳转、刷新凭据、帐号选择与本地 CLI 集成仍需要独立适配器。
 - 连接意图只保存在内存里；每次 Host 重启后都从未连接开始。
 - OAuth、账号选择和 Token 签发仍由各供应商负责。

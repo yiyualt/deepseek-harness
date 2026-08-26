@@ -1,6 +1,8 @@
 /** Shared Host lifecycle for explicit user-managed MCP connections. */
 
-import type { Context } from '@deepseek-ai/cordis'
+import { Context } from '@deepseek-ai/cordis'
+import Schema from '@deepseek-ai/schemastery'
+import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import type {} from '@deepseek-ai/dsh-credentials'
 import type {
   McpRuntimeSnapshot,
@@ -10,11 +12,85 @@ import type {
   McpConnectorDefinition,
   McpConnectorEventSnapshot,
   McpConnectorFailure,
+  McpConnectorFailures,
+  McpConnectorId,
+  McpConnectorPublicView,
   McpConnectorSnapshot,
   McpConnectorStatus,
+  McpConnectorView,
+  McpConnectorsPublicSnapshot,
+  McpConnectorsSnapshot,
 } from './types.ts'
+import { mcpConnectorId } from './types.ts'
+import { mcpServerName } from '@deepseek-ai/dsh-mcp'
+import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 
 export type * from './types.ts'
+
+/** Deployment configuration for one Token-authenticated hosted MCP product. */
+export interface ManagedMcpConnectorConfig {
+  /** Stable lowercase connector identity. */
+  id: string
+  /** Streamable HTTP MCP endpoint. */
+  endpoint: string
+  /** Host credential reference name. */
+  credentialRef: string
+  /** Process-wide MCP server name used in projected tool names. */
+  serverName: string
+  /** Transformation applied to the resolved credential. */
+  authorizationScheme: 'raw' | 'bearer'
+  /** Short text mark rendered in the connector avatar. */
+  logo: string
+  /** Simplified Chinese product name. */
+  nameZh: string
+  /** English product name. */
+  nameEn: string
+  /** Simplified Chinese capability summary. */
+  descriptionZh: string
+  /** English capability summary. */
+  descriptionEn: string
+  /** Simplified Chinese credential name. */
+  credentialNameZh: string
+  /** English credential name. */
+  credentialNameEn: string
+  /** Provider-owned credential setup page. */
+  credentialHelpUrl: string
+  /** Simplified Chinese setup-link copy. */
+  credentialHelpLabelZh: string
+  /** English setup-link copy. */
+  credentialHelpLabelEn: string
+}
+
+/** Configuration for the process-wide managed MCP connector gateway. */
+export interface Config {
+  /** Token-authenticated hosted MCP products available in this deployment. */
+  connectors: ManagedMcpConnectorConfig[]
+}
+
+const localized = {
+  logo: Schema.string().min(1).max(4),
+  nameZh: Schema.string().min(1),
+  nameEn: Schema.string().min(1),
+  descriptionZh: Schema.string().min(1),
+  descriptionEn: Schema.string().min(1),
+  credentialNameZh: Schema.string().min(1),
+  credentialNameEn: Schema.string().min(1),
+  credentialHelpUrl: Schema.string().min(1),
+  credentialHelpLabelZh: Schema.string().min(1),
+  credentialHelpLabelEn: Schema.string().min(1),
+}
+
+/** Validated managed MCP connector deployment configuration. */
+export const Config: Schema<Config> = Schema.object({
+  connectors: Schema.array(Schema.object({
+    id: Schema.string().min(1),
+    endpoint: Schema.string().min(1),
+    credentialRef: Schema.string().min(1),
+    serverName: Schema.string().min(1),
+    authorizationScheme: Schema.union(['raw', 'bearer']),
+    ...localized,
+  })).default([]),
+})
 
 type CredentialState = Pick<
   McpConnectorSnapshot,
@@ -63,8 +139,8 @@ function isCredentialMissing(value: unknown): boolean {
 }
 
 /**
- * Owns one connector's serialized credential and MCP lifecycle without exposing
- * a Remote namespace. A vendor gateway delegates its decorated methods here.
+ * Owns one connector's serialized credential and MCP lifecycle. The catalog
+ * gateway delegates an id-selected Remote mutation to this instance.
  */
 export class McpConnectorLifecycle {
   private snapshot: McpConnectorSnapshot = {
@@ -171,9 +247,6 @@ export class McpConnectorLifecycle {
               scheme: this.definition.authorizationScheme,
             },
           },
-          ...this.definition.connectionCheck === undefined
-            ? {}
-            : { activationCheck: this.definition.connectionCheck },
         })
         if (!this.isDisposed()) this.publishServer(server)
       } catch (error: unknown) {
@@ -369,3 +442,196 @@ export class McpConnectorLifecycle {
     return this.definition.failures.connectionFailed
   }
 }
+
+interface ManagedConnector {
+  readonly id: McpConnectorId
+  readonly credentialRef: ReturnType<typeof credentialRef>
+  readonly presentation: McpConnectorView['presentation']
+  readonly lifecycle: McpConnectorLifecycle
+}
+
+const CONNECTOR_ID = /^[a-z][a-z0-9-]*$/
+const SERVER_NAME = /^[a-z][a-z0-9_]*$/
+const CREDENTIAL_REF = /^[A-Z][A-Z0-9_]*$/
+
+function requireHttps(raw: string, field: string): string {
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    throw new Error(`managed MCP connector ${field} must be an absolute HTTPS URL`)
+  }
+  if (url.protocol !== 'https:' || url.username !== '' || url.password !== '') {
+    throw new Error(`managed MCP connector ${field} must be an absolute HTTPS URL`)
+  }
+  return url.toString()
+}
+
+function connectorFailures(name: string, credentialName: string): McpConnectorFailures {
+  return {
+    credentialMissing: {
+      errorCode: 'CREDENTIAL_MISSING',
+      errorMessage: `Save ${credentialName} before connecting to ${name}.`,
+    },
+    credentialLookup: {
+      errorCode: 'CREDENTIAL_LOOKUP_FAILED',
+      errorMessage: `Unable to read the ${name} credential configuration.`,
+    },
+    authRejected: {
+      errorCode: 'AUTH_REJECTED',
+      errorMessage: `${name} rejected the current credential. Update it and try again.`,
+    },
+    connectionFailed: {
+      errorCode: 'CONNECTION_FAILED',
+      errorMessage: `Unable to connect to ${name}. Try again later.`,
+    },
+    connectionLost: {
+      errorCode: 'CONNECTION_LOST',
+      errorMessage: `The ${name} connection was lost. Try again.`,
+    },
+    disconnectFailed: {
+      errorCode: 'DISCONNECT_FAILED',
+      errorMessage: `Unable to disconnect from ${name}. Try again.`,
+    },
+  }
+}
+
+function validateConnectorConfig(
+  config: ManagedMcpConnectorConfig,
+  ids: Set<string>,
+  servers: Set<string>,
+  credentials: Set<string>,
+): void {
+  if (!CONNECTOR_ID.test(config.id)) throw new Error(`invalid managed MCP connector id: ${config.id}`)
+  if (!SERVER_NAME.test(config.serverName)) throw new Error(`invalid managed MCP server name: ${config.serverName}`)
+  if (!CREDENTIAL_REF.test(config.credentialRef)) {
+    throw new Error(`invalid managed MCP credential reference: ${config.credentialRef}`)
+  }
+  for (const [set, value, kind] of [
+    [ids, config.id, 'id'],
+    [servers, config.serverName, 'server name'],
+    [credentials, config.credentialRef, 'credential reference'],
+  ] as const) {
+    if (set.has(value)) throw new Error(`duplicate managed MCP connector ${kind}: ${value}`)
+    set.add(value)
+  }
+  requireHttps(config.endpoint, 'endpoint')
+  requireHttps(config.credentialHelpUrl, 'credential help URL')
+}
+
+/** Remote gateway for every configured Token-authenticated hosted MCP product. */
+export class McpConnectorsGateway extends TypertRemoteService {
+  static inject = ['credentials', 'mcp']
+  static Config: Schema<Config> = Config
+
+  private readonly connectors: readonly ManagedConnector[]
+
+  /**
+   * @param ctx - Host context carrying credential and dynamic MCP services.
+   * @param config - validated deployment-owned connector definitions.
+   */
+  constructor(ctx: Context, config: Config) {
+    super(ctx, 'mcpConnectors')
+    const ids = new Set<string>()
+    const servers = new Set<string>()
+    const credentials = new Set<string>()
+    for (const connector of config.connectors) validateConnectorConfig(connector, ids, servers, credentials)
+
+    const managed: ManagedConnector[] = []
+    for (const connector of config.connectors) {
+      const id = mcpConnectorId(connector.id)
+      const ref = credentialRef(connector.credentialRef)
+      const presentation: McpConnectorView['presentation'] = {
+        logo: connector.logo,
+        name: { zh: connector.nameZh, en: connector.nameEn },
+        description: { zh: connector.descriptionZh, en: connector.descriptionEn },
+        credentialName: { zh: connector.credentialNameZh, en: connector.credentialNameEn },
+        credentialHelpUrl: requireHttps(connector.credentialHelpUrl, 'credential help URL'),
+        credentialHelpLabel: {
+          zh: connector.credentialHelpLabelZh,
+          en: connector.credentialHelpLabelEn,
+        },
+      }
+      const lifecycle = new McpConnectorLifecycle(ctx, {
+        effectName: `mcp-connectors:${connector.id}`,
+        endpoint: requireHttps(connector.endpoint, 'endpoint'),
+        credentialRef: ref,
+        serverName: mcpServerName(connector.serverName),
+        authorizationScheme: connector.authorizationScheme,
+        failures: connectorFailures(connector.nameEn, connector.credentialNameEn),
+      }, () => { ctx.emit('mcp-connectors/change', this.publicSnapshot()) })
+      managed.push({ id, credentialRef: ref, presentation, lifecycle })
+    }
+    this.connectors = managed
+  }
+
+  /** Read the complete connector catalog after refreshing credential metadata.
+   * @returns the refreshed loopback-only catalog.
+   */
+  @Remote('list')
+  async list(): Promise<McpConnectorsSnapshot> {
+    return {
+      connectors: await Promise.all(this.connectors.map(async connector => this.fullView(
+        connector,
+        await connector.lifecycle.get(),
+      ))),
+    }
+  }
+
+  /** Read the value-free connector catalog approved for trusted non-loopback clients.
+   * @returns the current public catalog.
+   */
+  @Remote('publicList')
+  publicList(): Promise<McpConnectorsPublicSnapshot> {
+    return Promise.resolve(this.publicSnapshot())
+  }
+
+  /**
+   * Connect one configured MCP product.
+   * @param id - deployment-owned connector identity.
+   * @returns the complete connector view after the attempt settles.
+   */
+  @Remote('connect')
+  async connect(id: McpConnectorId): Promise<McpConnectorView> {
+    const connector = this.requireConnector(id)
+    return this.fullView(connector, await connector.lifecycle.connect())
+  }
+
+  /**
+   * Disconnect one configured MCP product.
+   * @param id - deployment-owned connector identity.
+   * @returns the complete connector view after disconnection settles.
+   */
+  @Remote('disconnect')
+  async disconnect(id: McpConnectorId): Promise<McpConnectorView> {
+    const connector = this.requireConnector(id)
+    return this.fullView(connector, await connector.lifecycle.disconnect())
+  }
+
+  private requireConnector(id: McpConnectorId): ManagedConnector {
+    const connector = this.connectors.find(candidate => candidate.id === id)
+    if (connector === undefined) throw new Error(`unknown managed MCP connector: ${id}`)
+    return connector
+  }
+
+  private fullView(connector: ManagedConnector, snapshot: McpConnectorSnapshot): McpConnectorView {
+    return {
+      id: connector.id,
+      credentialRef: connector.credentialRef,
+      presentation: connector.presentation,
+      snapshot,
+    }
+  }
+
+  private publicSnapshot(): McpConnectorsPublicSnapshot {
+    return {
+      connectors: this.connectors.map((connector): McpConnectorPublicView => ({
+        id: connector.id,
+        presentation: connector.presentation,
+        snapshot: connector.lifecycle.publicGet(),
+      })),
+    }
+  }
+}
+
+export default McpConnectorsGateway

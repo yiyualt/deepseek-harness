@@ -4,7 +4,8 @@ import { useId, type ReactNode } from 'react'
 import clsx from 'clsx'
 import type {
   KingsoftDocsConnectorStatus,
-  TencentDocsConnectorStatus,
+  McpConnectorId,
+  McpConnectorStatus,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import {
@@ -18,17 +19,18 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import {
   CONNECTOR_REQUEST_FAILED,
   type BrowserLoginConnectorState,
-  type ConnectorsPanelState,
+  type ManagedMcpConnectorCardState,
+  type ManagedMcpConnectorsState,
 } from './controller.ts'
 import type { ConnectorKey } from './locales.ts'
 import css from './ConnectorsPanel.module.css'
 
 /** Document connectors rendered by this panel. */
-export type ConnectorId = 'tencentDocs' | 'kingsoftDocs'
+export type ConnectorId = McpConnectorId | 'kingsoftDocs'
 
-type ConnectorStatus = TencentDocsConnectorStatus | KingsoftDocsConnectorStatus
+type ConnectorStatus = McpConnectorStatus | KingsoftDocsConnectorStatus
 
-const TENCENT_ERRORS: Readonly<Record<string, ConnectorKey>> = {
+const MCP_ERRORS: Readonly<Record<string, ConnectorKey>> = {
   CREDENTIAL_MISSING: 'errorCredentialMissing',
   CREDENTIAL_LOOKUP_FAILED: 'errorCredentialLookup',
   AUTH_REJECTED: 'errorAuthRejected',
@@ -49,15 +51,14 @@ const KINGSOFT_ERRORS: Readonly<Record<string, ConnectorKey>> = {
 /** Registration-private controller face. */
 export interface ConnectorsPanelInjected {
   hooks: {
-    /** Tencent Docs Token card state. */
-    tencentDocs: SnapshotStore<ConnectorsPanelState>
+    /** Declaratively configured hosted MCP card state. */
+    managedMcp: SnapshotStore<ManagedMcpConnectorsState>
     /** Kingsoft Docs browser-login card state. */
     kingsoftDocs: SnapshotStore<BrowserLoginConnectorState>
   }
   open: () => void
   close: () => void
-  setTencentDraft: (value: string) => void
-  clearTencentDraft: () => void
+  setManagedDraft: (id: McpConnectorId, value: string) => void
   connect: (id: ConnectorId) => Promise<void>
   disconnect: (id: ConnectorId) => Promise<void>
 }
@@ -130,42 +131,52 @@ function CardFrame(props: CardFrameProps) {
   )
 }
 
-interface TencentCardProps {
-  readonly state: ConnectorsPanelState
+interface ManagedMcpCardProps {
+  readonly state: ManagedMcpConnectorCardState
+  readonly loopback: boolean
   readonly setDraft: (value: string) => void
-  readonly clearDraft: () => void
   readonly connect: () => Promise<void>
   readonly disconnect: () => Promise<void>
   readonly t: ConnectorsPanelProps['t']
 }
 
-function TencentDocsCard({ state, setDraft, clearDraft, connect, disconnect, t }: TencentCardProps) {
+function replace(template: string, values: Readonly<Record<string, string>>): string {
+  return template.replace(/\{([a-z]+)\}/g, (_, key: string) => values[key] ?? `{${key}}`)
+}
+
+function ManagedMcpCard({ state, loopback, setDraft, connect, disconnect, t }: ManagedMcpCardProps) {
   const inputId = useId()
   const status = state.connector.status
   const busy = isBusy(state)
   const connected = isConnected(status)
-  const credentialEditable = state.loopback && state.connector.credentialWritable && !connected
-  const canConnect = state.loopback
+  const locale = t('providerLocale') === 'zh' ? 'zh' : 'en'
+  const name = state.presentation.name[locale]
+  const credentialName = state.presentation.credentialName[locale]
+  const translatedError = localizedError(state, MCP_ERRORS, t)
+  const credentialEditable = loopback && state.connector.credentialWritable && !connected
+  const canConnect = loopback
     && !busy
     && !connected
     && (state.draft.trim() !== '' || state.connector.credentialConfigured)
 
   return (
     <CardFrame
-      id="tencentDocs"
-      logo="文"
+      id={state.id}
+      logo={state.presentation.logo}
       logoClass={undefined}
-      name={t('tencentDocsName')}
-      description={t('tencentDocsDescription')}
+      name={name}
+      description={state.presentation.description[locale]}
       status={status}
       busy={busy}
       toolCount={state.connector.toolCount}
-      error={localizedError(state, TENCENT_ERRORS, t)}
+      error={translatedError === null
+        ? null
+        : replace(translatedError, { name, credential: credentialName })}
       t={t}
     >
-      {state.loopback && (
+      {loopback && (
         <div className={css.credential}>
-          <label className={css.label} htmlFor={inputId}>{t('tokenLabel')}</label>
+          <label className={css.label} htmlFor={inputId}>{credentialName}</label>
           <div className={css.inputRow}>
             <input
               id={inputId}
@@ -174,36 +185,42 @@ function TencentDocsCard({ state, setDraft, clearDraft, connect, disconnect, t }
               autoComplete="off"
               spellCheck={false}
               value={state.draft}
-              placeholder={state.connector.credentialConfigured
+              placeholder={replace(state.connector.credentialConfigured
                 ? t('tokenConfiguredPlaceholder')
-                : t('tokenPlaceholder')}
+                : t('tokenPlaceholder'), { credential: credentialName })}
               disabled={!credentialEditable || busy}
               onChange={(event) => { setDraft(event.currentTarget.value) }}
             />
             {state.draft !== '' && (
-              <button type="button" className={css.clear} onClick={clearDraft}>{t('clearToken')}</button>
+              <button type="button" className={css.clear} onClick={() => { setDraft('') }}>{t('clearToken')}</button>
             )}
           </div>
           <div className={css.credentialMeta}>
-            <span>{state.connector.credentialConfigured ? t('tokenConfigured') : t('tokenMissing')}</span>
+            <span>{replace(state.connector.credentialConfigured ? t('tokenConfigured') : t('tokenMissing'), {
+              credential: credentialName,
+            })}</span>
             {state.connector.credentialSource !== null && (
               <span>{t('credentialSource')}: {state.connector.credentialSource}</span>
             )}
           </div>
           {!state.connector.credentialWritable && state.connector.credentialConfigured && (
-            <p className={css.notice}><IconWarningOutline16 size={14} />{t('tokenReadOnly')}</p>
+            <p className={css.notice}><IconWarningOutline16 size={14} />{replace(t('tokenReadOnly'), {
+              credential: credentialName,
+            })}</p>
           )}
-          <a className={css.tokenLink} href="https://docs.qq.com/open/document/mcp/get-token/" target="_blank" rel="noreferrer">
-            {t('getToken')}
+          <a className={css.tokenLink} href={state.presentation.credentialHelpUrl} target="_blank" rel="noreferrer">
+            {state.presentation.credentialHelpLabel[locale]}
           </a>
         </div>
       )}
-      {state.loopback && (
+      {loopback && (
         <div className={css.actions}>
           {connected
             ? (
               <button type="button" className={css.secondary} disabled={busy} onClick={() => { void disconnect() }}>
-                {busy ? t('working') : state.connector.credentialWritable ? t('disconnect') : t('disconnectKeepToken')}
+                {busy ? t('working') : state.connector.credentialWritable
+                  ? replace(t('disconnect'), { credential: credentialName })
+                  : t('disconnectKeepToken')}
               </button>
             )
             : (
@@ -278,20 +295,19 @@ function KingsoftDocsCard({ state, connect, disconnect, t }: KingsoftCardProps) 
 /** Render the connectors trigger and its full-viewport panel. */
 export function ConnectorsPanel({
   wide,
-  useTencentDocs,
+  useManagedMcp,
   useKingsoftDocs,
   open,
   close,
-  setTencentDraft,
-  clearTencentDraft,
+  setManagedDraft,
   connect,
   disconnect,
   t,
 }: ConnectorsPanelProps) {
-  const tencentDocs = useTencentDocs(value => value)
+  const managedMcp = useManagedMcp(value => value)
   const kingsoftDocs = useKingsoftDocs(value => value)
-  const panelOpen = tencentDocs.open || kingsoftDocs.open
-  const active = [tencentDocs.connector.status, kingsoftDocs.connector.status]
+  const panelOpen = managedMcp.open || kingsoftDocs.open
+  const active = [...managedMcp.connectors.map(connector => connector.connector.status), kingsoftDocs.connector.status]
     .some(status => isConnected(status) || status === 'connecting')
 
   return (
@@ -317,14 +333,17 @@ export function ConnectorsPanel({
         className={css.panel as string}
       >
         <div className={css.cards}>
-          <TencentDocsCard
-            state={tencentDocs}
-            setDraft={setTencentDraft}
-            clearDraft={clearTencentDraft}
-            connect={() => connect('tencentDocs')}
-            disconnect={() => disconnect('tencentDocs')}
-            t={t}
-          />
+          {managedMcp.connectors.map(connector => (
+            <ManagedMcpCard
+              key={connector.id}
+              state={connector}
+              loopback={managedMcp.loopback}
+              setDraft={(value) => { setManagedDraft(connector.id, value) }}
+              connect={() => connect(connector.id)}
+              disconnect={() => disconnect(connector.id)}
+              t={t}
+            />
+          ))}
           <KingsoftDocsCard
             state={kingsoftDocs}
             connect={() => connect('kingsoftDocs')}
@@ -332,7 +351,7 @@ export function ConnectorsPanel({
             t={t}
           />
         </div>
-        {!tencentDocs.loopback && (
+        {!managedMcp.loopback && (
           <p className={css.readOnly}><IconWarningOutline16 size={16} />{t('readOnly')}</p>
         )}
       </Modal>

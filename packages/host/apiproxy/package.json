@@ -56,7 +56,7 @@
     "@deepseek-ai/dsh-host-directory-picker": "workspace:^",
     "@deepseek-ai/dsh-host-meeting-presence": "workspace:^",
     "@deepseek-ai/dsh-host-kingsoft-docs-connector": "workspace:^",
-    "@deepseek-ai/dsh-host-tencent-docs-connector": "workspace:^",
+    "@deepseek-ai/dsh-host-mcp-connector": "workspace:^",
     "@deepseek-ai/dsh-llm": "workspace:^",
     "@deepseek-ai/dsh-native-command": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",

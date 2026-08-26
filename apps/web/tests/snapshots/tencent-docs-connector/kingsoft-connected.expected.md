@@ -13,8 +13,8 @@
       - text: 个工具
     - text: 空间 MCP Token
     - textbox "空间 MCP Token" [disabled]:
-      - /placeholder: 空间 MCP Token 已配置；留空可直接重试
-    - text: "空间 MCP Token 已配置 凭据来源: file"
+      - /placeholder: 空间 MCP Token已配置；留空可直接重试
+    - text: "空间 MCP Token已配置 凭据来源: file"
     - link "前往腾讯文档获取空间 MCP Token":
       - /url: https://docs.qq.com/open/document/mcp/get-token/
     - button "断开并删除空间 MCP Token"

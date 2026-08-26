@@ -50,6 +50,9 @@
       "path": "../../host/kingsoft-docs-connector"
     },
     {
+      "path": "../../host/mcp-connector"
+    },
+    {
       "path": "../../host/tencent-docs-connector"
     },
     {

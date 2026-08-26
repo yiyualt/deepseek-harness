@@ -175,6 +175,7 @@ describe('connection node half', () => {
       'llm.discoverModels',
       'kingsoftDocsConnector.get', 'kingsoftDocsConnector.connect', 'kingsoftDocsConnector.disconnect',
       'tencentDocsConnector.get', 'tencentDocsConnector.connect', 'tencentDocsConnector.disconnect',
+      'mcpConnectors.list', 'mcpConnectors.connect', 'mcpConnectors.disconnect',
       // A composition names the plugins a session runs: reading one is
       // reconnaissance, and copy/remove/openDocument manage the roster and
       // drive the host desktop.
@@ -477,6 +478,7 @@ describe('connection node half over a real HTTP server', () => {
         'llm.discoverModels',
         'kingsoftDocsConnector.get', 'kingsoftDocsConnector.connect', 'kingsoftDocsConnector.disconnect',
         'tencentDocsConnector.get', 'tencentDocsConnector.connect', 'tencentDocsConnector.disconnect',
+        'mcpConnectors.list', 'mcpConnectors.connect', 'mcpConnectors.disconnect',
         'agentPreset.read', 'agentPreset.copy', 'agentPreset.openDocument', 'agentPreset.remove',
       ]) {
         expect([method, await call(port, method, 'harness.example')]).toEqual([method, 403])
@@ -493,6 +495,7 @@ describe('connection node half over a real HTTP server', () => {
         'llm.providers', 'llm.models', 'agentPreset.list', 'agentPreset.select',
         'kingsoftDocsConnector.publicGet',
         'tencentDocsConnector.publicGet',
+        'mcpConnectors.publicList',
       ]) {
         expect([method, await call(port, method, 'harness.example')]).toEqual([method, 404])
       }

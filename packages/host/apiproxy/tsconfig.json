@@ -102,7 +102,7 @@
       "path": "../kingsoft-docs-connector"
     },
     {
-      "path": "../tencent-docs-connector"
+      "path": "../mcp-connector"
     },
     {
       "path": "../../runtime-diagnostics/invariants"

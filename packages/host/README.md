@@ -14,7 +14,7 @@ The host side of the dsh web GUI: the API gateway every client shape shares, and
 | [`directory-picker-browse/`](directory-picker-browse/README.md) | In-app directory-browser backend and interaction | registers `ctx.directoryPicker` |
 | [`directory-picker-auto/`](directory-picker-auto/README.md) | Host-adaptive picker composition | mounts a backend |
 | [`plugin-inventory/`](plugin-inventory/README.md) | Read-only projection of current Loader entries | Remote `pluginInventory/list` |
-| [`mcp-connector/`](mcp-connector/README.md) | Shared lifecycle for user-managed Streamable HTTP MCP connectors | consumes `ctx.credentials` and `ctx.mcp` |
+| [`mcp-connector/`](mcp-connector/README.md) | Declarative catalog and lifecycle for Token-authenticated Streamable HTTP MCP connectors | Remote `mcpConnectors/*` |
 | [`tencent-docs-connector/`](tencent-docs-connector/README.md) | Tencent Docs hosted-MCP connection gateway | Remote `tencentDocsConnector/*` |
 | [`kingsoft-docs-connector/`](kingsoft-docs-connector/README.md) | Kingsoft Docs browser-login and CLI gateway | Remote `kingsoftDocsConnector/*` |
 | [`meeting-presence/`](meeting-presence/README.md) | Presence-only Google Meet and Zoom browser participant | Remote `meetingPresence/*` |

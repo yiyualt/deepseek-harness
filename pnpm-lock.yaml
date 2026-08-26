@@ -876,6 +876,9 @@ importers:
       '@deepseek-ai/dsh-host-kingsoft-docs-connector':
         specifier: workspace:^
         version: link:../../host/kingsoft-docs-connector
+      '@deepseek-ai/dsh-host-mcp-connector':
+        specifier: workspace:^
+        version: link:../../host/mcp-connector
       '@deepseek-ai/dsh-host-meeting-presence':
         specifier: workspace:^
         version: link:../../host/meeting-presence
@@ -1435,15 +1438,15 @@ importers:
       '@deepseek-ai/dsh-host-kingsoft-docs-connector':
         specifier: workspace:^
         version: link:../../host/kingsoft-docs-connector
+      '@deepseek-ai/dsh-host-mcp-connector':
+        specifier: workspace:^
+        version: link:../../host/mcp-connector
       '@deepseek-ai/dsh-host-meeting-presence':
         specifier: workspace:^
         version: link:../../host/meeting-presence
       '@deepseek-ai/dsh-host-plugin-inventory':
         specifier: workspace:^
         version: link:../../host/plugin-inventory
-      '@deepseek-ai/dsh-host-tencent-docs-connector':
-        specifier: workspace:^
-        version: link:../../host/tencent-docs-connector
       '@deepseek-ai/dsh-host-webserver':
         specifier: workspace:^
         version: link:../../host/webserver
@@ -4874,12 +4877,12 @@ importers:
       '@deepseek-ai/dsh-host-kingsoft-docs-connector':
         specifier: workspace:^
         version: link:../kingsoft-docs-connector
+      '@deepseek-ai/dsh-host-mcp-connector':
+        specifier: workspace:^
+        version: link:../mcp-connector
       '@deepseek-ai/dsh-host-meeting-presence':
         specifier: workspace:^
         version: link:../meeting-presence
-      '@deepseek-ai/dsh-host-tencent-docs-connector':
-        specifier: workspace:^
-        version: link:../tencent-docs-connector
       '@deepseek-ai/dsh-jobs':
         specifier: workspace:^
         version: link:../../jobs/jobs
@@ -5097,10 +5100,20 @@ importers:
         version: link:../../interaction/user-approval
 
   packages/host/mcp-connector:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:^
+        version: link:../../util/brand
       '@deepseek-ai/dsh-credentials':
         specifier: workspace:^
         version: link:../../credentials/credentials
@@ -5113,6 +5126,9 @@ importers:
       '@deepseek-ai/dsh-session':
         specifier: workspace:^
         version: link:../../core/session
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
 
   packages/host/meeting-presence:
     dependencies:

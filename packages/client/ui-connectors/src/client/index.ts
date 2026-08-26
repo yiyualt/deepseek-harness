@@ -6,8 +6,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import {
   BrowserLoginConnectorController,
-  ConnectorsPanelController,
-  TENCENT_DOCS_CREDENTIAL_REF,
+  ManagedMcpConnectorsController,
 } from './controller.ts'
 import {
   ConnectorsPanel,
@@ -28,7 +27,7 @@ export const inject = [
   'locale',
   'remote',
   'remote.kingsoftDocsConnector',
-  'remote.tencentDocsConnector',
+  'remote.mcpConnectors',
   'connection',
 ]
 
@@ -36,20 +35,16 @@ export const inject = [
 export function apply(ctx: ClientContext): void {
   const connection = ctx.get('connection') as ConnectionHandle
   const credentials = connection.isLoopback ? connection.api : undefined
-  const tencentDocs = new ConnectorsPanelController(
-    ctx.remote.tencentDocsConnector,
-    credentials,
-    TENCENT_DOCS_CREDENTIAL_REF,
-  )
+  const managedMcp = new ManagedMcpConnectorsController(ctx.remote.mcpConnectors, credentials)
   const kingsoftDocs = new BrowserLoginConnectorController(
     ctx.remote.kingsoftDocsConnector,
     connection.isLoopback,
   )
 
   ctx.effect(() => {
-    const disposeTencent = ctx.remote.$on(
-      'tencent-docs-connector/change',
-      (snapshot) => { tencentDocs.accept(snapshot) },
+    const disposeManagedMcp = ctx.remote.$on(
+      'mcp-connectors/change',
+      (snapshot) => { managedMcp.accept(snapshot) },
     )
     const disposeKingsoft = ctx.remote.$on(
       'kingsoft-docs-connector/change',
@@ -57,14 +52,14 @@ export function apply(ctx: ClientContext): void {
     )
     const disposeCredential = connection.isLoopback
       ? ctx.remote.$on('credentials/updated', (ref) => {
-        tencentDocs.credentialsUpdated(ref)
+        managedMcp.credentialsUpdated(ref)
       })
       : undefined
     return () => {
-      disposeTencent()
+      disposeManagedMcp()
       disposeKingsoft()
       disposeCredential?.()
-      tencentDocs.dispose()
+      managedMcp.dispose()
       kingsoftDocs.dispose()
     }
   }, 'ui-connectors: controller lifecycle')
@@ -72,21 +67,20 @@ export function apply(ctx: ClientContext): void {
 
   const injected = (): ConnectorsPanelInjected => ({
     hooks: {
-      tencentDocs: tencentDocs.store,
+      managedMcp: managedMcp.store,
       kingsoftDocs: kingsoftDocs.store,
     },
     open: () => {
-      tencentDocs.open()
+      managedMcp.open()
       kingsoftDocs.open()
     },
     close: () => {
-      tencentDocs.close()
+      managedMcp.close()
       kingsoftDocs.close()
     },
-    setTencentDraft: (value) => { tencentDocs.setDraft(value) },
-    clearTencentDraft: () => { tencentDocs.clearDraft() },
-    connect: id => id === 'tencentDocs' ? tencentDocs.connect() : kingsoftDocs.connect(),
-    disconnect: id => id === 'tencentDocs' ? tencentDocs.disconnect() : kingsoftDocs.disconnect(),
+    setManagedDraft: (id, value) => { managedMcp.setDraft(id, value) },
+    connect: id => id === 'kingsoftDocs' ? kingsoftDocs.connect() : managedMcp.connect(id),
+    disconnect: id => id === 'kingsoftDocs' ? kingsoftDocs.disconnect() : managedMcp.disconnect(id),
   })
 
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({

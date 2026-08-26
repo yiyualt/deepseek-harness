@@ -15,6 +15,7 @@ import type {} from '@deepseek-ai/dsh-agent-presets/types'
 import type {} from '@deepseek-ai/dsh-settings/types'
 import type {} from '@deepseek-ai/dsh-host-meeting-presence/types'
 import type {} from '@deepseek-ai/dsh-host-kingsoft-docs-connector/types'
+import type {} from '@deepseek-ai/dsh-host-mcp-connector/types'
 import type {} from '@deepseek-ai/dsh-host-tencent-docs-connector/types'
 
 export {
