@@ -505,6 +505,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'The package-root Remote and its preset-scoped tool subpath share one concrete kdocs-cli login, process, and teardown owner; it is provider-specific rather than a replaceable seam.',
   },
   {
+    key: 'qqMailConnector',
+    pkg: 'host-qq-mail-connector',
+    title: 'Personal QQ Mail IMAP/SMTP gateway',
+    mode: 'bundle',
+    note: 'The package-root Remote and its preset-scoped tool subpath share one concrete personal-mail credential, IMAP, SMTP, and teardown owner; it is provider-specific rather than a replaceable seam.',
+  },
+  {
     key: 'spillStore',
     pkg: 'spill',
     title: 'Spill storage seam',

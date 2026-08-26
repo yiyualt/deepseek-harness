@@ -21,12 +21,13 @@ import {
   type BrowserLoginConnectorState,
   type ManagedMcpConnectorCardState,
   type ManagedMcpConnectorsState,
+  type QqMailConnectorState,
 } from './controller.ts'
 import type { ConnectorKey } from './locales.ts'
 import css from './ConnectorsPanel.module.css'
 
 /** Document connectors rendered by this panel. */
-export type ConnectorId = McpConnectorId | 'kingsoftDocs'
+export type ConnectorId = McpConnectorId | 'kingsoftDocs' | 'qqMail'
 
 type ConnectorStatus = McpConnectorStatus | KingsoftDocsConnectorStatus
 
@@ -48,6 +49,12 @@ const KINGSOFT_ERRORS: Readonly<Record<string, ConnectorKey>> = {
   DISCONNECT_FAILED: 'kingsoftErrorDisconnectFailed',
 }
 
+const QQ_MAIL_ERRORS: Readonly<Record<string, ConnectorKey>> = {
+  CREDENTIAL_MISSING: 'qqMailErrorCredentialMissing',
+  AUTH_REJECTED: 'qqMailErrorAuthRejected',
+  CONNECTION_FAILED: 'qqMailErrorConnectionFailed',
+}
+
 /** Registration-private controller face. */
 export interface ConnectorsPanelInjected {
   hooks: {
@@ -55,10 +62,13 @@ export interface ConnectorsPanelInjected {
     managedMcp: SnapshotStore<ManagedMcpConnectorsState>
     /** Kingsoft Docs browser-login card state. */
     kingsoftDocs: SnapshotStore<BrowserLoginConnectorState>
+    /** Personal QQ Mail credential card state. */
+    qqMail: SnapshotStore<QqMailConnectorState>
   }
   open: () => void
   close: () => void
   setManagedDraft: (id: McpConnectorId, value: string) => void
+  setQqMailDraft: (field: 'email' | 'authorizationCode', value: string) => void
   connect: (id: ConnectorId) => Promise<void>
   disconnect: (id: ConnectorId) => Promise<void>
 }
@@ -234,42 +244,58 @@ function ManagedMcpCard({ state, loopback, setDraft, connect, disconnect, t }: M
   )
 }
 
-interface KingsoftCardProps {
+interface BrowserLoginCardProps {
+  readonly id: 'kingsoftDocs'
+  readonly logo: string
+  readonly logoClass: string | undefined
+  readonly nameKey: ConnectorKey
+  readonly descriptionKey: ConnectorKey
+  readonly loginExplanationKey: ConnectorKey
+  readonly credentialStorageKey: ConnectorKey
+  readonly authHelpKey: ConnectorKey
+  readonly authHelpUrl: string
+  readonly loginKey: ConnectorKey
+  readonly retryKey: ConnectorKey
+  readonly logoutKey: ConnectorKey
+  readonly errors: Readonly<Record<string, ConnectorKey>>
   readonly state: BrowserLoginConnectorState
   readonly connect: () => Promise<void>
   readonly disconnect: () => Promise<void>
   readonly t: ConnectorsPanelProps['t']
 }
 
-function KingsoftDocsCard({ state, connect, disconnect, t }: KingsoftCardProps) {
+function BrowserLoginCard({
+  id, logo, logoClass, nameKey, descriptionKey, loginExplanationKey, credentialStorageKey,
+  authHelpKey, authHelpUrl, loginKey, retryKey, logoutKey, errors, state, connect, disconnect, t,
+}: BrowserLoginCardProps) {
   const status = state.connector.status
   const busy = isBusy(state)
   const connected = isConnected(status)
 
   return (
     <CardFrame
-      id="kingsoftDocs"
-      logo="W"
-      logoClass={css.logoKingsoft}
-      name={t('kingsoftDocsName')}
-      description={t('kingsoftDocsDescription')}
+      id={id}
+      logo={logo}
+      logoClass={logoClass}
+      name={t(nameKey)}
+      description={t(descriptionKey)}
       status={status}
       busy={busy}
       toolCount={state.connector.toolCount}
-      error={localizedError(state, KINGSOFT_ERRORS, t)}
+      error={localizedError(state, errors, t)}
       t={t}
     >
       {state.loopback && (
         <div className={css.credential}>
-          <p className={css.notice}>{t('kingsoftLoginExplanation')}</p>
-          <p className={css.credentialMeta}>{t('kingsoftCredentialStorage')}</p>
+          <p className={css.notice}>{t(loginExplanationKey)}</p>
+          <p className={css.credentialMeta}>{t(credentialStorageKey)}</p>
           <a
             className={css.tokenLink}
-            href="https://github.com/kdocs-app/kdocs-skill/blob/master/references/auth.md"
+            href={authHelpUrl}
             target="_blank"
             rel="noreferrer"
           >
-            {t('kingsoftAuthHelp')}
+            {t(authHelpKey)}
           </a>
         </div>
       )}
@@ -278,12 +304,103 @@ function KingsoftDocsCard({ state, connect, disconnect, t }: KingsoftCardProps) 
           {connected
             ? (
               <button type="button" className={css.secondary} disabled={busy} onClick={() => { void disconnect() }}>
-                {busy ? t('working') : t('kingsoftLogout')}
+                {busy ? t('working') : t(logoutKey)}
               </button>
             )
             : (
               <button type="button" className={css.primary} disabled={busy} onClick={() => { void connect() }}>
-                {busy ? t('working') : status === 'failed' ? t('kingsoftRetryLogin') : t('kingsoftWebLogin')}
+                {busy ? t('working') : status === 'failed' ? t(retryKey) : t(loginKey)}
+              </button>
+            )}
+        </div>
+      )}
+    </CardFrame>
+  )
+}
+
+interface QqMailCardProps {
+  readonly state: QqMailConnectorState
+  readonly setDraft: (field: 'email' | 'authorizationCode', value: string) => void
+  readonly connect: () => Promise<void>
+  readonly disconnect: () => Promise<void>
+  readonly t: ConnectorsPanelProps['t']
+}
+
+function QqMailCard({ state, setDraft, connect, disconnect, t }: QqMailCardProps) {
+  const emailId = useId()
+  const codeId = useId()
+  const status = state.connector.status
+  const busy = isBusy(state)
+  const connected = isConnected(status)
+  const editable = state.loopback && state.connector.credentialWritable && !connected
+  const canConnect = state.loopback && !busy && !connected && (
+    state.connector.credentialConfigured
+    || (state.emailDraft.trim() !== '' && state.authorizationCodeDraft.trim() !== '')
+  )
+
+  return (
+    <CardFrame
+      id="qqMail"
+      logo="邮"
+      logoClass={undefined}
+      name={t('qqMailName')}
+      description={t('qqMailDescription')}
+      status={status}
+      busy={busy}
+      toolCount={state.connector.toolCount}
+      error={localizedError(state, QQ_MAIL_ERRORS, t)}
+      t={t}
+    >
+      {state.loopback && (
+        <div className={css.credential}>
+          <label className={css.label} htmlFor={emailId}>{t('qqMailEmailLabel')}</label>
+          <div className={css.inputRow}>
+            <input
+              id={emailId}
+              className={css.input}
+              type="email"
+              autoComplete="username"
+              spellCheck={false}
+              value={state.emailDraft}
+              placeholder={state.connector.credentialConfigured ? t('qqMailConfiguredPlaceholder') : 'example@qq.com'}
+              disabled={!editable || busy}
+              onChange={(event) => { setDraft('email', event.currentTarget.value) }}
+            />
+          </div>
+          <label className={css.label} htmlFor={codeId}>{t('qqMailAuthorizationCodeLabel')}</label>
+          <div className={css.inputRow}>
+            <input
+              id={codeId}
+              className={css.input}
+              type="password"
+              autoComplete="new-password"
+              spellCheck={false}
+              value={state.authorizationCodeDraft}
+              placeholder={state.connector.credentialConfigured
+                ? t('qqMailConfiguredPlaceholder')
+                : t('qqMailAuthorizationCodePlaceholder')}
+              disabled={!editable || busy}
+              onChange={(event) => { setDraft('authorizationCode', event.currentTarget.value) }}
+            />
+          </div>
+          <p className={css.notice}>{t('qqMailAuthorizationHelp')}</p>
+          <p className={css.credentialMeta}>{t('qqMailCredentialStorage')}</p>
+          <a className={css.tokenLink} href="https://mail.qq.com/" target="_blank" rel="noreferrer">
+            {t('qqMailOpenSettings')}
+          </a>
+        </div>
+      )}
+      {state.loopback && (
+        <div className={css.actions}>
+          {connected
+            ? (
+              <button type="button" className={css.secondary} disabled={busy} onClick={() => { void disconnect() }}>
+                {busy ? t('working') : t('qqMailDisconnect')}
+              </button>
+            )
+            : (
+              <button type="button" className={css.primary} disabled={!canConnect} onClick={() => { void connect() }}>
+                {busy ? t('working') : status === 'failed' ? t('retry') : t('connect')}
               </button>
             )}
         </div>
@@ -297,17 +414,24 @@ export function ConnectorsPanel({
   wide,
   useManagedMcp,
   useKingsoftDocs,
+  useQqMail,
   open,
   close,
   setManagedDraft,
+  setQqMailDraft,
   connect,
   disconnect,
   t,
 }: ConnectorsPanelProps) {
   const managedMcp = useManagedMcp(value => value)
   const kingsoftDocs = useKingsoftDocs(value => value)
-  const panelOpen = managedMcp.open || kingsoftDocs.open
-  const active = [...managedMcp.connectors.map(connector => connector.connector.status), kingsoftDocs.connector.status]
+  const qqMail = useQqMail(value => value)
+  const panelOpen = managedMcp.open || kingsoftDocs.open || qqMail.open
+  const active = [
+    ...managedMcp.connectors.map(connector => connector.connector.status),
+    kingsoftDocs.connector.status,
+    qqMail.connector.status,
+  ]
     .some(status => isConnected(status) || status === 'connecting')
 
   return (
@@ -344,10 +468,30 @@ export function ConnectorsPanel({
               t={t}
             />
           ))}
-          <KingsoftDocsCard
+          <BrowserLoginCard
+            id="kingsoftDocs"
+            logo="W"
+            logoClass={css.logoKingsoft}
+            nameKey="kingsoftDocsName"
+            descriptionKey="kingsoftDocsDescription"
+            loginExplanationKey="kingsoftLoginExplanation"
+            credentialStorageKey="kingsoftCredentialStorage"
+            authHelpKey="kingsoftAuthHelp"
+            authHelpUrl="https://github.com/kdocs-app/kdocs-skill/blob/master/references/auth.md"
+            loginKey="kingsoftWebLogin"
+            retryKey="kingsoftRetryLogin"
+            logoutKey="kingsoftLogout"
+            errors={KINGSOFT_ERRORS}
             state={kingsoftDocs}
             connect={() => connect('kingsoftDocs')}
             disconnect={() => disconnect('kingsoftDocs')}
+            t={t}
+          />
+          <QqMailCard
+            state={qqMail}
+            setDraft={setQqMailDraft}
+            connect={() => connect('qqMail')}
+            disconnect={() => disconnect('qqMail')}
             t={t}
           />
         </div>

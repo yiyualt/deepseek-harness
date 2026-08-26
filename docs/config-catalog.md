@@ -893,6 +893,38 @@ export interface Config {
 
 Source: [`packages/host/meeting-presence/src/index.ts:20`](../packages/host/meeting-presence/src/index.ts)
 
+<a id="deepseek-aidsh-host-qq-mail-connector"></a>
+
+## `@deepseek-ai/dsh-host-qq-mail-connector`
+
+Requires: `credentials`
+
+```ts config-catalog
+/** Personal QQ Mail network and result bounds. */
+export interface Config {
+  /** QQ Mail IMAP hostname. */
+  imapHost: string
+  /** QQ Mail implicit-TLS IMAP port. */
+  imapPort: number
+  /** Whether the IMAP socket starts with TLS. */
+  imapSecure: boolean
+  /** QQ Mail SMTP hostname. */
+  smtpHost: string
+  /** QQ Mail implicit-TLS SMTP port. */
+  smtpPort: number
+  /** Whether the SMTP socket starts with TLS. */
+  smtpSecure: boolean
+  /** Complete connection and command inactivity budget. */
+  operationTimeoutMs: number
+  /** Maximum source bytes accepted for one read message. */
+  maxMessageBytes: number
+  /** Maximum characters returned from each text or HTML body. */
+  maxBodyChars: number
+}
+```
+
+Source: [`packages/host/qq-mail-connector/src/index.ts:30`](../packages/host/qq-mail-connector/src/index.ts)
+
 <a id="deepseek-aidsh-host-webserver"></a>
 
 ## `@deepseek-ai/dsh-host-webserver`

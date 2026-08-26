@@ -71,6 +71,11 @@ import type {
   KingsoftDocsConnectorSnapshot,
 } from '@deepseek-ai/dsh-host-kingsoft-docs-connector'
 import * as ToolKingsoftDocs from '@deepseek-ai/dsh-host-kingsoft-docs-connector/tool'
+import type {
+  QqMailConnectorGateway,
+  QqMailConnectorEventSnapshot,
+} from '@deepseek-ai/dsh-host-qq-mail-connector'
+import * as ToolQqMail from '@deepseek-ai/dsh-host-qq-mail-connector/tool'
 import * as ToolSkill from '@deepseek-ai/dsh-tool-skill'
 import * as ToolSessionQuery from '@deepseek-ai/dsh-tool-session-query'
 import * as ToolTasks from '@deepseek-ai/dsh-tool-jobs'
@@ -495,6 +500,42 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'The standard, code, and Cordis presets mount this provider-owned Consumer only while its browser-login gateway reports connected. Help inspects the installed CLI without a document API call; every authenticated action requires one executor-owned approval.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-host-qq-mail-connector',
+    dir: 'qq-mail-connector',
+    source: 'packages/host/qq-mail-connector/src/tool.ts',
+    requires: [
+      'ctx.tools',
+      'ctx.qqMailConnector',
+      'ctx.approval at action execution time',
+      'a calling Agent at action execution time',
+    ],
+    writes: ['tool/call', 'external QQ Mail effects for qq_mail_send', 'tool/result'],
+    async mount(ctx) {
+      const snapshot: QqMailConnectorEventSnapshot = {
+        status: 'connected',
+        toolCount: 4,
+        errorCode: null,
+        errorMessage: null,
+        updatedAt: new Date(0).toISOString(),
+      }
+      const gateway = {
+        toolCallTimeoutMs: 60_000,
+        current: () => snapshot,
+        listMessages: () => Promise.reject(new Error('tool-catalog QQ Mail fixture cannot list messages')),
+        searchMessages: () => Promise.reject(new Error('tool-catalog QQ Mail fixture cannot search messages')),
+        readMessage: () => Promise.reject(new Error('tool-catalog QQ Mail fixture cannot read messages')),
+        sendMessage: () => Promise.reject(new Error('tool-catalog QQ Mail fixture cannot send messages')),
+      }
+      ctx.effect(
+        () => ctx.provide('qqMailConnector', gateway as unknown as QqMailConnectorGateway),
+        'tool-catalog: QQ Mail connected gateway fixture',
+      )
+      await ctx.plugin(ToolQqMail)
+    },
+    note:
+      'The standard, code, and Cordis presets mount this provider-owned Consumer only while IMAP credentials are verified. Every personal-mail action requires one executor-owned approval.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-ralph',

@@ -106,6 +106,12 @@
       name: '@deepseek-ai/dsh-host-kingsoft-docs-connector'
       config: {}
 
+    # Process-wide personal QQ Mail IMAP/SMTP connection. The credential
+    # provider keeps the address and authorization code outside Web and models.
+    - id: qq-mail-connector
+      name: '@deepseek-ai/dsh-host-qq-mail-connector'
+      config: {}
+
     # Declarative hosted-MCP catalog. Adding another Token-authenticated
     # Streamable HTTP provider is one more entry here, not another gateway.
     - id: mcp-connectors

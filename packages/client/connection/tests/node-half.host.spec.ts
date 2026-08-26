@@ -174,6 +174,7 @@ describe('connection node half', () => {
       'credentials.describe', 'credentials.set', 'credentials.unset',
       'llm.discoverModels',
       'kingsoftDocsConnector.get', 'kingsoftDocsConnector.connect', 'kingsoftDocsConnector.disconnect',
+      'qqMailConnector.get', 'qqMailConnector.connect', 'qqMailConnector.disconnect',
       'tencentDocsConnector.get', 'tencentDocsConnector.connect', 'tencentDocsConnector.disconnect',
       'mcpConnectors.list', 'mcpConnectors.connect', 'mcpConnectors.disconnect',
       // A composition names the plugins a session runs: reading one is
@@ -189,12 +190,14 @@ describe('connection node half', () => {
       expect(denied.state.status).toBe(403)
       expect(denied.state.body).toBe('forbidden')
     }
-    const read = fakeResponse()
-    await routes[0]!.handler(
-      fakeRequest({ host: 'harness.example' }, `${API_PATH}/kingsoftDocsConnector.publicGet`),
-      read.response,
-    )
-    expect(read.state.status).toBe(404)
+    for (const method of ['kingsoftDocsConnector.publicGet', 'qqMailConnector.publicGet']) {
+      const read = fakeResponse()
+      await routes[0]!.handler(
+        fakeRequest({ host: 'harness.example' }, `${API_PATH}/${method}`),
+        read.response,
+      )
+      expect(read.state.status).toBe(404)
+    }
     await dispose()
   })
 
@@ -477,6 +480,7 @@ describe('connection node half over a real HTTP server', () => {
         // URL the caller picked: an anonymous LAN caller must not reach it.
         'llm.discoverModels',
         'kingsoftDocsConnector.get', 'kingsoftDocsConnector.connect', 'kingsoftDocsConnector.disconnect',
+        'qqMailConnector.get', 'qqMailConnector.connect', 'qqMailConnector.disconnect',
         'tencentDocsConnector.get', 'tencentDocsConnector.connect', 'tencentDocsConnector.disconnect',
         'mcpConnectors.list', 'mcpConnectors.connect', 'mcpConnectors.disconnect',
         'agentPreset.read', 'agentPreset.copy', 'agentPreset.openDocument', 'agentPreset.remove',
@@ -494,6 +498,7 @@ describe('connection node half over a real HTTP server', () => {
       for (const method of [
         'llm.providers', 'llm.models', 'agentPreset.list', 'agentPreset.select',
         'kingsoftDocsConnector.publicGet',
+        'qqMailConnector.publicGet',
         'tencentDocsConnector.publicGet',
         'mcpConnectors.publicList',
       ]) {

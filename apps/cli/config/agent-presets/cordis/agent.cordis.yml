@@ -249,6 +249,10 @@
 - id: tool-kingsoft-docs
   name: '@deepseek-ai/dsh-host-kingsoft-docs-connector/tool'
 
+# The QQ Mail OAuth session is process-wide; these tools appear only while it is active.
+- id: tool-qq-mail
+  name: '@deepseek-ai/dsh-host-qq-mail-connector/tool'
+
 # ── self-modification ───────────────────────────────────────────────────────
 
 # Read the live runtime, mount a temporary plugin, unmount it. The toolset is a

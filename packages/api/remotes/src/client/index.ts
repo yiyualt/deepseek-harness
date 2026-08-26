@@ -7,6 +7,7 @@ import dynamicRemote from '@deepseek-ai/dsh-cordis-host-runner/remote'
 import pluginInventoryRemote from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 import meetingPresenceRemote from '@deepseek-ai/dsh-host-meeting-presence/remote'
 import kingsoftDocsConnectorRemote from '@deepseek-ai/dsh-host-kingsoft-docs-connector/remote'
+import qqMailConnectorRemote from '@deepseek-ai/dsh-host-qq-mail-connector/remote'
 import mcpConnectorsRemote from '@deepseek-ai/dsh-host-mcp-connector/remote'
 import tencentDocsConnectorRemote from '@deepseek-ai/dsh-host-tencent-docs-connector/remote'
 import messageFeedbackRemote from '@deepseek-ai/dsh-message-feedback/remote'
@@ -24,6 +25,11 @@ export type {
   KingsoftDocsConnectorSnapshot,
   KingsoftDocsConnectorStatus,
 } from '@deepseek-ai/dsh-host-kingsoft-docs-connector/types'
+export type {
+  QqMailConnectorEventSnapshot,
+  QqMailConnectorSnapshot,
+  QqMailConnectorStatus,
+} from '@deepseek-ai/dsh-host-qq-mail-connector/types'
 export type {
   McpConnectorEventSnapshot,
   McpConnectorId,
@@ -45,6 +51,7 @@ export type {} from '@deepseek-ai/dsh-goal/remote'
 export type {} from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 export type {} from '@deepseek-ai/dsh-host-meeting-presence/remote'
 export type {} from '@deepseek-ai/dsh-host-kingsoft-docs-connector/remote'
+export type {} from '@deepseek-ai/dsh-host-qq-mail-connector/remote'
 export type {} from '@deepseek-ai/dsh-host-mcp-connector/remote'
 export type {} from '@deepseek-ai/dsh-host-tencent-docs-connector/remote'
 export type {} from '@deepseek-ai/dsh-message-feedback/remote'
@@ -62,6 +69,7 @@ export type {} from '@deepseek-ai/dsh-agent-presets/types'
 export type {} from '@deepseek-ai/dsh-settings/types'
 export type {} from '@deepseek-ai/dsh-host-meeting-presence/types'
 export type {} from '@deepseek-ai/dsh-host-kingsoft-docs-connector/types'
+export type {} from '@deepseek-ai/dsh-host-qq-mail-connector/types'
 export type {} from '@deepseek-ai/dsh-host-mcp-connector/types'
 export type {} from '@deepseek-ai/dsh-host-tencent-docs-connector/types'
 
@@ -145,7 +153,8 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   try {
     for (const contribution of [
       commandsRemote, goalsRemote, dynamicRemote, pluginInventoryRemote, meetingPresenceRemote,
-      kingsoftDocsConnectorRemote, mcpConnectorsRemote, tencentDocsConnectorRemote, messageFeedbackRemote,
+      kingsoftDocsConnectorRemote, qqMailConnectorRemote, mcpConnectorsRemote,
+      tencentDocsConnectorRemote, messageFeedbackRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
     }

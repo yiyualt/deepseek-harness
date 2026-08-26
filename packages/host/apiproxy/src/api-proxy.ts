@@ -77,6 +77,7 @@ import type {} from '@deepseek-ai/dsh-commands'
 import type {} from '@deepseek-ai/dsh-cordis-host-runner/types'
 import type {} from '@deepseek-ai/dsh-host-meeting-presence/types'
 import type {} from '@deepseek-ai/dsh-host-kingsoft-docs-connector/types'
+import type {} from '@deepseek-ai/dsh-host-qq-mail-connector/types'
 import type {} from '@deepseek-ai/dsh-host-mcp-connector/types'
 import type {} from '@deepseek-ai/dsh-skill'
 // The settings/credentials seams: brand guards run at this wire boundary; the

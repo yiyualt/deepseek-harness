@@ -11,6 +11,8 @@ import type {
   McpConnectorSnapshot,
   McpConnectorView,
   McpConnectorsPublicSnapshot,
+  QqMailConnectorEventSnapshot,
+  QqMailConnectorSnapshot,
   RpcResponse,
   TencentDocsConnectorEventSnapshot,
   TencentDocsConnectorSnapshot,
@@ -24,6 +26,7 @@ type ConnectorSnapshot = TencentDocsConnectorSnapshot
 type ConnectorEventSnapshot = TencentDocsConnectorEventSnapshot
 type ConnectorRemote = ClientRemote['tencentDocsConnector']
 type BrowserLoginRemote = ClientRemote['kingsoftDocsConnector']
+type QqMailRemote = ClientRemote['qqMailConnector']
 type ManagedMcpRemote = ClientRemote['mcpConnectors']
 
 /** Browser-local state for one declaratively configured hosted MCP product. */
@@ -64,6 +67,17 @@ export interface BrowserLoginConnectorState {
   connector: KingsoftDocsConnectorSnapshot
 }
 
+/** Browser-local write-only drafts and value-free personal QQ Mail state. */
+export interface QqMailConnectorState {
+  open: boolean
+  emailDraft: string
+  authorizationCodeDraft: string
+  pending: 'connect' | 'disconnect' | null
+  error: string | null
+  loopback: boolean
+  connector: QqMailConnectorSnapshot
+}
+
 type MutationKind = Exclude<ConnectorsPanelState['pending'], null>
 
 interface ActiveMutation {
@@ -90,6 +104,17 @@ const ACTIVE_AFTER_DISCONNECT = new Set<ConnectorSnapshot['status']>([
 
 const INITIAL_BROWSER_LOGIN_CONNECTOR: KingsoftDocsConnectorSnapshot = {
   status: 'disconnected',
+  toolCount: 0,
+  errorCode: null,
+  errorMessage: null,
+  updatedAt: new Date(0).toISOString(),
+}
+
+const INITIAL_QQ_MAIL_CONNECTOR: QqMailConnectorSnapshot = {
+  status: 'disconnected',
+  credentialConfigured: false,
+  credentialSource: null,
+  credentialWritable: false,
   toolCount: 0,
   errorCode: null,
   errorMessage: null,
@@ -701,7 +726,7 @@ export class ConnectorsPanelController {
   }
 }
 
-/** Owns the Kingsoft Docs browser-login card without handling any credential value. */
+/** Owns one CLI-backed browser-login card without handling any credential value. */
 export class BrowserLoginConnectorController {
   /** Observable complete state rendered by the slot contribution. */
   readonly store: SnapshotStore<BrowserLoginConnectorState>
@@ -714,7 +739,7 @@ export class BrowserLoginConnectorController {
   private carrierFailedMutation: MutationKind | null = null
 
   /**
-   * @param remote - Kingsoft Docs browser-login Remote namespace.
+   * @param remote - Structurally compatible browser-login Remote namespace.
    * @param loopback - whether this page may start or remove a local keychain login.
    */
   constructor(private readonly remote: BrowserLoginRemote, loopback: boolean) {
@@ -742,7 +767,7 @@ export class BrowserLoginConnectorController {
 
   /**
    * Accept a credential-free lifecycle push from the Host.
-   * @param snapshot - latest public Kingsoft Docs state.
+   * @param snapshot - Latest public state from the selected CLI connector.
    */
   // oxlint-disable-next-line sonarjs/no-identical-functions -- Keep credential-free and credential-backed state ownership separate.
   accept(snapshot: KingsoftDocsConnectorEventSnapshot): void {
@@ -769,7 +794,7 @@ export class BrowserLoginConnectorController {
     }
   }
 
-  /** Ask the Host to remove Kingsoft Docs authentication from the system keychain. */
+  /** Ask the Host to remove the selected CLI connector's local authentication. */
   async disconnect(): Promise<void> {
     const current = this.store.getSnapshot()
     if (this.disposed || !current.loopback || current.pending !== null) return
@@ -916,6 +941,175 @@ export class BrowserLoginConnectorController {
       if (!this.disposed && sequence === this.lifecycleSequence) {
         this.store.update((state) => { state.error = errorMessage(error) })
       }
+    }
+  }
+}
+
+/** Owns the personal QQ Mail address and authorization-code connection card. */
+export class QqMailConnectorController {
+  /** Observable complete state rendered by the connectors panel. */
+  readonly store: SnapshotStore<QqMailConnectorState>
+
+  private disposed = false
+  private sequence = 0
+  private mutationSequence = 0
+
+  /**
+   * @param remote - Personal QQ Mail Remote namespace.
+   * @param credentials - Loopback-only credential API; absent makes the card read-only.
+   */
+  constructor(
+    private readonly remote: QqMailRemote,
+    private readonly credentials: Pick<IApiClient, 'credentials'> | undefined,
+  ) {
+    this.store = createSnapshotStore({
+      open: false,
+      emailDraft: '',
+      authorizationCodeDraft: '',
+      pending: null,
+      error: null,
+      loopback: credentials !== undefined,
+      connector: INITIAL_QQ_MAIL_CONNECTOR,
+    })
+  }
+
+  /** Open the card and reconcile complete loopback or public state. */
+  // oxlint-disable-next-line sonarjs/no-identical-functions -- Each provider controller owns independent refresh sequencing.
+  open(): void {
+    if (this.disposed) return
+    this.store.update((state) => { state.open = true })
+    void this.refresh()
+  }
+
+  /** Close the card and erase both browser-held credential drafts. */
+  close(): void {
+    this.sequence += 1
+    this.store.update((state) => {
+      state.open = false
+      state.emailDraft = ''
+      state.authorizationCodeDraft = ''
+    })
+  }
+
+  /**
+   * Replace one browser-local credential draft.
+   * @param field - Email address or authorization-code draft.
+   * @param value - Current input value.
+   */
+  setDraft(field: 'email' | 'authorizationCode', value: string): void {
+    if (this.credentials === undefined) return
+    this.store.update((state) => {
+      if (field === 'email') state.emailDraft = value
+      else state.authorizationCodeDraft = value
+      state.error = null
+    })
+  }
+
+  /**
+   * Merge credential-free lifecycle state pushed by the Host.
+   * @param snapshot - Current public personal QQ Mail state.
+   */
+  accept(snapshot: QqMailConnectorEventSnapshot): void {
+    if (this.disposed) return
+    this.sequence += 1
+    this.store.update((state) => {
+      state.connector = { ...state.connector, ...snapshot }
+      state.error = null
+    })
+  }
+
+  /**
+   * Re-read value-free metadata after either personal-mail credential changes.
+   * @param ref - Credential reference named by `credentials/updated`.
+   */
+  credentialsUpdated(ref: string): void {
+    if (!['QQ_MAIL_EMAIL', 'QQ_MAIL_AUTHORIZATION_CODE'].includes(ref)) return
+    if (!this.disposed && this.store.getSnapshot().open) void this.refresh()
+  }
+
+  /** Save supplied drafts, verify IMAP authentication, and activate tools. */
+  async connect(): Promise<void> {
+    const state = this.store.getSnapshot()
+    if (this.disposed || this.credentials === undefined || state.pending !== null) return
+    const email = state.emailDraft.trim()
+    const authorizationCode = state.authorizationCodeDraft.trim()
+    if (!state.connector.credentialConfigured && (email === '' || authorizationCode === '')) return
+    const mutation = ++this.mutationSequence
+    this.sequence += 1
+    this.store.update((current) => {
+      current.pending = 'connect'
+      current.error = null
+      current.emailDraft = ''
+      current.authorizationCodeDraft = ''
+    })
+    try {
+      if (email !== '') unwrapRpc(await this.credentials.credentials.set({ ref: 'QQ_MAIL_EMAIL', value: email }))
+      if (authorizationCode !== '') {
+        unwrapRpc(await this.credentials.credentials.set({ ref: 'QQ_MAIL_AUTHORIZATION_CODE', value: authorizationCode }))
+      }
+      const response = await this.remote.connect()
+      if (!response.ok) throw new Error(response.error.message)
+      if (!this.isCurrentMutation(mutation)) return
+      this.store.update((current) => { current.connector = response.value })
+    } catch (error: unknown) {
+      if (this.isCurrentMutation(mutation)) this.store.update((current) => { current.error = errorMessage(error) })
+    } finally {
+      if (this.isCurrentMutation(mutation)) this.store.update((current) => { current.pending = null })
+    }
+  }
+
+  /** Disconnect tools, then remove both writable credential values. */
+  async disconnect(): Promise<void> {
+    const state = this.store.getSnapshot()
+    if (this.disposed || this.credentials === undefined || state.pending !== null) return
+    const mutation = ++this.mutationSequence
+    this.sequence += 1
+    this.store.update((current) => { current.pending = 'disconnect'; current.error = null })
+    try {
+      const response = await this.remote.disconnect()
+      if (!response.ok) throw new Error(response.error.message)
+      if (response.value.credentialWritable) {
+        unwrapRpc(await this.credentials.credentials.unset({ ref: 'QQ_MAIL_EMAIL' }))
+        unwrapRpc(await this.credentials.credentials.unset({ ref: 'QQ_MAIL_AUTHORIZATION_CODE' }))
+      }
+      if (!this.isCurrentMutation(mutation)) return
+      const refreshed = await this.remote.get()
+      if (!refreshed.ok) throw new Error(refreshed.error.message)
+      if (this.isCurrentMutation(mutation)) this.store.update((current) => { current.connector = refreshed.value })
+    } catch (error: unknown) {
+      if (this.isCurrentMutation(mutation)) this.store.update((current) => { current.error = errorMessage(error) })
+    } finally {
+      if (this.isCurrentMutation(mutation)) this.store.update((current) => { current.pending = null })
+    }
+  }
+
+  /** Ignore late settlements and erase browser-held credential drafts. */
+  dispose(): void {
+    this.disposed = true
+    this.sequence += 1
+    this.mutationSequence += 1
+    this.store.update((state) => {
+      state.emailDraft = ''
+      state.authorizationCodeDraft = ''
+    })
+  }
+
+  private isCurrentMutation(mutation: number): boolean {
+    return !this.disposed && mutation === this.mutationSequence
+  }
+
+  private async refresh(): Promise<void> {
+    const sequence = ++this.sequence
+    try {
+      const response = this.credentials === undefined ? await this.remote.publicGet() : await this.remote.get()
+      if (!response.ok) throw new Error(response.error.message)
+      if (this.disposed || sequence !== this.sequence) return
+      this.store.update((state) => {
+        state.connector = { ...state.connector, ...response.value }
+        state.error = null
+      })
+    } catch (error: unknown) {
+      if (!this.disposed && sequence === this.sequence) this.store.update((state) => { state.error = errorMessage(error) })
     }
   }
 }

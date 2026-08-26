@@ -262,6 +262,10 @@
 - id: tool-kingsoft-docs
   name: '@deepseek-ai/dsh-host-kingsoft-docs-connector/tool'
 
+# The QQ Mail OAuth session is process-wide; these tools appear only while it is active.
+- id: tool-qq-mail
+  name: '@deepseek-ai/dsh-host-qq-mail-connector/tool'
+
 # ── presentation ────────────────────────────────────────────────────────────
 
 # Code Mode for this agent alone. The row waits for the host's `codeRuntime`

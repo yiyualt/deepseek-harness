@@ -136,6 +136,8 @@
   font-weight: 500;
 }
 
+.inputRow + .label { margin-top: 14px; }
+
 .inputRow { display: flex; align-items: center; gap: 8px; }
 
 .input {

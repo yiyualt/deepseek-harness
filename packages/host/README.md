@@ -17,6 +17,7 @@ The host side of the dsh web GUI: the API gateway every client shape shares, and
 | [`mcp-connector/`](mcp-connector/README.md) | Declarative catalog and lifecycle for Token-authenticated Streamable HTTP MCP connectors | Remote `mcpConnectors/*` |
 | [`tencent-docs-connector/`](tencent-docs-connector/README.md) | Tencent Docs hosted-MCP connection gateway | Remote `tencentDocsConnector/*` |
 | [`kingsoft-docs-connector/`](kingsoft-docs-connector/README.md) | Kingsoft Docs browser-login and CLI gateway | Remote `kingsoftDocsConnector/*` |
+| [`qq-mail-connector/`](qq-mail-connector/README.md) | Personal QQ Mail IMAP/SMTP credentials and tools | Remote `qqMailConnector/*` |
 | [`meeting-presence/`](meeting-presence/README.md) | Presence-only Google Meet and Zoom browser participant | Remote `meetingPresence/*` |
 
 `apiproxy` remains transport-independent; [`client/connection`](../client/connection/README.md) supplies the browser/HTTP carrier. Picker implementations replace one another behind the shared seam.

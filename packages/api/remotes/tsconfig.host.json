@@ -50,6 +50,9 @@
       "path": "../../host/kingsoft-docs-connector"
     },
     {
+      "path": "../../host/qq-mail-connector"
+    },
+    {
       "path": "../../host/mcp-connector"
     },
     {

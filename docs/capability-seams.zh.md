@@ -177,6 +177,8 @@ flowchart LR
   pkg_host_tencent_docs_connector["host-tencent-docs-connector"]
   pkg_host_kingsoft_docs_connector["host-kingsoft-docs-connector"]
   svc_kingsoftDocsConnector["ctx.kingsoftDocsConnector<br/>Kingsoft Docs browser-login CLI gateway"]
+  pkg_host_qq_mail_connector["host-qq-mail-connector"]
+  svc_qqMailConnector["ctx.qqMailConnector<br/>Personal QQ Mail IMAP/SMTP gateway"]
   pkg_spill["spill"]
   svc_spillStore["ctx.spillStore<br/>Spill storage seam"]
   pkg_spill_local["spill-local"]
@@ -235,6 +237,7 @@ flowchart LR
   pkg_fs_sandbox --> svc_fs
   pkg_goal --> svc_goals
   pkg_host_kingsoft_docs_connector --> svc_kingsoftDocsConnector
+  pkg_host_qq_mail_connector --> svc_qqMailConnector
   pkg_invariants --> svc_invariants
   pkg_jobs --> svc_jobs
   pkg_jobs_local --> svc_jobs
@@ -476,6 +479,7 @@ flowchart LR
 | `ctx.web` | `seam` | [`web`](../packages/web/web) | [`web-search-exa`](../packages/web/web-search-exa), [`web-search-perplexity`](../packages/web/web-search-perplexity), [`web-search-deepseek`](../packages/web/web-search-deepseek), [`web-fetch-http`](../packages/web/web-fetch-http) | [`tool-web`](../packages/web/tool-web) | - | 搜索和抓取提供方注册到同一个 ctx.web seam；tool-web 负责稳定的面向模型名称。 |
 | `ctx.mcp` | `seam` | [`mcp`](../packages/mcp/mcp) | [`mcp-client`](../packages/mcp/mcp-client) | [`tool-mcp`](../packages/mcp/tool-mcp), [`host-mcp-connector`](../packages/host/mcp-connector), [`host-tencent-docs-connector`](../packages/host/tencent-docs-connector) | - | Host 提供方持有进程级传输与安全目录；连接器包请求生命周期变更，限定在 preset 内的 Consumer 则投影工具并持有 last-mile 批准。 |
 | `ctx.kingsoftDocsConnector` | `bundle` | [`host-kingsoft-docs-connector`](../packages/host/kingsoft-docs-connector) | - | - | - | 包根 Remote 与 preset 作用域工具子路径共用同一个具体的 kdocs-cli 登录、进程与 teardown 所有者；这是供应商专属组合，不是可替换 seam。 |
+| `ctx.qqMailConnector` | `bundle` | [`host-qq-mail-connector`](../packages/host/qq-mail-connector) | - | - | - | 包根 Remote 与 preset 作用域工具子路径共用同一个具体的个人邮箱凭据、IMAP、SMTP 和 teardown 所有者；这是供应商专属组合，不是可替换 seam。 |
 | `ctx.spillStore` | `seam` | [`spill`](../packages/spill/spill) | [`spill-local`](../packages/spill/spill-local) | [`spill-policy`](../packages/spill/spill-policy) | - | 后端保存过大的工具文本，并返回面向模型的定位信息和取回提示；spill-policy 是 tools/post-execute 消费方，负责决定何时 spill。 |
 | `ctx.directoryPicker` | `seam` | `directory-picker` | `directory-picker-native`, `directory-picker-browse` | `apiproxy` | - | 带判别标记的交互能力：原生后端在 Host 显示设备上打开一个操作系统选择器，浏览后端为应用内浏览器提供列表与创建原语；双端后端通过其浏览器侧填充 ui-workspace 目录流程的 slot（不通过协议发布）。 |
 | `ctx.webServer` | `core` | `webserver` | - | `connection`, `modules`, `hmr` | - | 普通的 node:http 载体：具名路由注册表、索引转换 tap，以及静态 dist 回退；Web 传输插件注册自己的路由。 |

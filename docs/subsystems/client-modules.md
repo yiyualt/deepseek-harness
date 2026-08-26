@@ -174,6 +174,84 @@ Types: [KdocsCliActionRequest](../../packages/host/kingsoft-docs-connector/READM
 
 Source: [`packages/host/kingsoft-docs-connector/src/index.ts:191`](../../packages/host/kingsoft-docs-connector/src/index.ts)
 
+<a id="ctxqqmailconnector--qqmailconnectorgateway"></a>
+
+### `ctx.qqMailConnector` — `QqMailConnectorGateway`
+
+Remote service and same-process provider for personal QQ Mail operations.
+
+```ts cordis-catalog
+/**
+ * Read lifecycle and value-free credential metadata for the loopback UI.
+ * @returns Current connector state and credential availability.
+ */
+@Remote('get') async get(): Promise<QqMailConnectorSnapshot>
+
+/**
+ * Read credential-free connector state for trusted non-loopback clients.
+ * @returns Current credential-free connector state.
+ */
+@Remote('publicGet') publicGet(): Promise<QqMailConnectorEventSnapshot>
+
+/**
+ * Verify configured personal QQ Mail credentials over IMAP.
+ * @returns State after the verification attempt.
+ */
+@Remote('connect') connect(): Promise<QqMailConnectorSnapshot>
+
+/**
+ * Withdraw personal-mail tools after active operations settle.
+ * @returns Disconnected state; the loopback UI removes writable credentials separately.
+ */
+@Remote('disconnect') disconnect(): Promise<QqMailConnectorSnapshot>
+
+/**
+ * Read the state used by the same-process tool Consumer.
+ * @returns Current credential-free in-process state.
+ */
+current(): QqMailConnectorEventSnapshot
+
+/**
+ * List the newest messages in the personal inbox.
+ * @param limit - Maximum message count.
+ * @param unreadOnly - Whether to select only messages without the IMAP Seen flag.
+ * @param signal - Cancellation signal for the complete operation.
+ * @returns Bounded JSON message summaries ordered newest first.
+ */
+listMessages(limit: number, unreadOnly: boolean, signal: AbortSignal): Promise<JsonValue>
+
+/**
+ * Search subject, sender, and body text in the personal inbox.
+ * @param query - Nonempty search text.
+ * @param limit - Maximum message count.
+ * @param signal - Cancellation signal for the complete operation.
+ * @returns Bounded JSON message summaries ordered newest first.
+ */
+searchMessages(query: string, limit: number, signal: AbortSignal): Promise<JsonValue>
+
+/**
+ * Read one personal inbox message by IMAP UID.
+ * @param uid - Positive IMAP UID in Inbox.
+ * @param signal - Cancellation signal for the complete operation.
+ * @returns Parsed headers and bounded bodies without attachment content.
+ */
+readMessage(uid: number, signal: AbortSignal): Promise<JsonValue>
+
+/**
+ * Send one plain-text message from the configured personal QQ mailbox.
+ * @param recipients - Validated recipient addresses.
+ * @param subject - Reviewed message subject.
+ * @param body - Reviewed plain-text message body.
+ * @param signal - Cancellation signal for the complete operation.
+ * @returns SMTP message id and accepted or rejected recipients.
+ */
+sendMessage(recipients: readonly string[], subject: string, body: string, signal: AbortSignal): Promise<JsonValue>
+```
+
+Types: [QqMailConnectorEventSnapshot](../../packages/host/qq-mail-connector/README.md) · [QqMailConnectorSnapshot](../../packages/host/qq-mail-connector/README.md)
+
+Source: [`packages/host/qq-mail-connector/src/index.ts:160`](../../packages/host/qq-mail-connector/src/index.ts)
+
 <a id="kingsoft-docs-connector-events"></a>
 
 ### `kingsoft-docs-connector/*` events
@@ -219,4 +297,27 @@ A process-wide meeting participant changed state.
 Types: [MeetingPresenceSnapshot](../../packages/host/meeting-presence/README.md)
 
 Source: [`packages/host/meeting-presence/src/types.ts:46`](../../packages/host/meeting-presence/src/types.ts)
+
+<a id="qq-mail-connector-events"></a>
+
+### `qq-mail-connector/*` events
+
+<a id="qq-mail-connectorchange--emit"></a>
+
+#### `qq-mail-connector/change` — emit
+
+The personal QQ Mail connector changed public state.
+
+```ts cordis-catalog
+/**
+ * The personal QQ Mail connector changed public state.
+ * @mode emit
+ * @param snapshot - Current credential-free state after the transition.
+ */
+'qq-mail-connector/change'(snapshot: QqMailConnectorEventSnapshot): void
+```
+
+Types: [QqMailConnectorEventSnapshot](../../packages/host/qq-mail-connector/README.md)
+
+Source: [`packages/host/qq-mail-connector/src/types.ts:42`](../../packages/host/qq-mail-connector/src/types.ts)
 <!-- END GENERATED cordis-surface -->

@@ -31,3 +31,22 @@
     - link "查看金山文档官方登录与安装说明":
       - /url: https://github.com/kdocs-app/kdocs-skill/blob/master/references/auth.md
     - button "退出登录"
+  - article:
+    - heading "个人 QQ 邮箱" [level=3]
+    - paragraph: 读取、搜索和发送个人 QQ 邮箱中的邮件。
+    - text: 已连接
+    - paragraph:
+      - text: 已发现
+      - strong: "4"
+      - text: 个工具
+    - text: 个人 QQ 邮箱地址
+    - textbox "个人 QQ 邮箱地址" [disabled]:
+      - /placeholder: 已配置；留空可直接重试
+    - text: IMAP/SMTP 授权码
+    - textbox "IMAP/SMTP 授权码" [disabled]:
+      - /placeholder: 已配置；留空可直接重试
+    - paragraph: 请先在 QQ 邮箱设置中开启 IMAP/SMTP 服务并生成授权码。授权码不是 QQ 密码。
+    - paragraph: 邮箱地址和授权码只保存在这台 Mac 的凭据库中，不会进入模型上下文。
+    - link "打开 QQ 邮箱获取授权码":
+      - /url: https://mail.qq.com/
+    - button "断开并删除邮箱凭据"

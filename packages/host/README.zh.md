@@ -17,6 +17,7 @@ dsh Web GUI 的宿主侧：所有客户端形态共享的 API 网关，以及承
 | [`mcp-connector/`](mcp-connector/README.md) | Token 认证 Streamable HTTP MCP 连接器的声明式目录与生命周期 | Remote `mcpConnectors/*` |
 | [`tencent-docs-connector/`](tencent-docs-connector/README.md) | 腾讯文档托管 MCP 连接网关 | Remote `tencentDocsConnector/*` |
 | [`kingsoft-docs-connector/`](kingsoft-docs-connector/README.md) | 金山文档网页登录与 CLI 网关 | Remote `kingsoftDocsConnector/*` |
+| [`qq-mail-connector/`](qq-mail-connector/README.md) | 个人 QQ 邮箱 IMAP/SMTP 凭据与工具 | Remote `qqMailConnector/*` |
 | [`meeting-presence/`](meeting-presence/README.md) | 仅参会的 Google Meet 和 Zoom 浏览器参与者 | Remote `meetingPresence/*` |
 
 `apiproxy` 保持传输无关；[`client/connection`](../client/connection/README.md) 提供浏览器／HTTP 载体。选择器实现可在共享 seam 后互相替换。

@@ -102,6 +102,9 @@
       "path": "../kingsoft-docs-connector"
     },
     {
+      "path": "../qq-mail-connector"
+    },
+    {
       "path": "../mcp-connector"
     },
     {

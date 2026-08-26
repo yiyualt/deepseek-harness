@@ -294,6 +294,7 @@
     { "path": "./packages/host/meeting-presence" },
     { "path": "./packages/host/mcp-connector" },
     { "path": "./packages/host/kingsoft-docs-connector" },
+    { "path": "./packages/host/qq-mail-connector" },
     { "path": "./packages/host/tencent-docs-connector" },
     { "path": "./packages/host/webserver" },
     { "path": "./packages/sdk/client" },

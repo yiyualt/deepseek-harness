@@ -7,6 +7,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import {
   BrowserLoginConnectorController,
   ManagedMcpConnectorsController,
+  QqMailConnectorController,
 } from './controller.ts'
 import {
   ConnectorsPanel,
@@ -27,6 +28,7 @@ export const inject = [
   'locale',
   'remote',
   'remote.kingsoftDocsConnector',
+  'remote.qqMailConnector',
   'remote.mcpConnectors',
   'connection',
 ]
@@ -40,6 +42,10 @@ export function apply(ctx: ClientContext): void {
     ctx.remote.kingsoftDocsConnector,
     connection.isLoopback,
   )
+  const qqMail = new QqMailConnectorController(
+    ctx.remote.qqMailConnector,
+    credentials,
+  )
 
   ctx.effect(() => {
     const disposeManagedMcp = ctx.remote.$on(
@@ -50,17 +56,24 @@ export function apply(ctx: ClientContext): void {
       'kingsoft-docs-connector/change',
       (snapshot) => { kingsoftDocs.accept(snapshot) },
     )
+    const disposeQqMail = ctx.remote.$on(
+      'qq-mail-connector/change',
+      (snapshot) => { qqMail.accept(snapshot) },
+    )
     const disposeCredential = connection.isLoopback
       ? ctx.remote.$on('credentials/updated', (ref) => {
         managedMcp.credentialsUpdated(ref)
+        qqMail.credentialsUpdated(ref)
       })
       : undefined
     return () => {
       disposeManagedMcp()
       disposeKingsoft()
+      disposeQqMail()
       disposeCredential?.()
       managedMcp.dispose()
       kingsoftDocs.dispose()
+      qqMail.dispose()
     }
   }, 'ui-connectors: controller lifecycle')
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-connectors: dictionaries')
@@ -69,18 +82,26 @@ export function apply(ctx: ClientContext): void {
     hooks: {
       managedMcp: managedMcp.store,
       kingsoftDocs: kingsoftDocs.store,
+      qqMail: qqMail.store,
     },
     open: () => {
       managedMcp.open()
       kingsoftDocs.open()
+      qqMail.open()
     },
     close: () => {
       managedMcp.close()
       kingsoftDocs.close()
+      qqMail.close()
     },
     setManagedDraft: (id, value) => { managedMcp.setDraft(id, value) },
-    connect: id => id === 'kingsoftDocs' ? kingsoftDocs.connect() : managedMcp.connect(id),
-    disconnect: id => id === 'kingsoftDocs' ? kingsoftDocs.disconnect() : managedMcp.disconnect(id),
+    setQqMailDraft: (field, value) => { qqMail.setDraft(field, value) },
+    connect: id => id === 'kingsoftDocs'
+      ? kingsoftDocs.connect()
+      : id === 'qqMail' ? qqMail.connect() : managedMcp.connect(id),
+    disconnect: id => id === 'kingsoftDocs'
+      ? kingsoftDocs.disconnect()
+      : id === 'qqMail' ? qqMail.disconnect() : managedMcp.disconnect(id),
   })
 
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({

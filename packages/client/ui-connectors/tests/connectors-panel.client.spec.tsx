@@ -6,6 +6,7 @@ import type {
   BrowserLoginConnectorState,
   ConnectorsPanelState,
   ManagedMcpConnectorsState,
+  QqMailConnectorState,
 } from '../src/client/controller.ts'
 import { CONNECTOR_REQUEST_FAILED } from '../src/client/controller.ts'
 import { ConnectorsPanel } from '../src/client/ConnectorsPanel.tsx'
@@ -36,6 +37,25 @@ const KINGSOFT_BASE: BrowserLoginConnectorState = {
   loopback: true,
   connector: {
     status: 'disconnected',
+    toolCount: 0,
+    errorCode: null,
+    errorMessage: null,
+    updatedAt: '2026-08-26T00:00:00.000Z',
+  },
+}
+
+const QQ_MAIL_BASE: QqMailConnectorState = {
+  open: true,
+  emailDraft: '',
+  authorizationCodeDraft: '',
+  pending: null,
+  error: null,
+  loopback: true,
+  connector: {
+    status: 'disconnected',
+    credentialConfigured: false,
+    credentialSource: null,
+    credentialWritable: true,
     toolCount: 0,
     errorCode: null,
     errorMessage: null,
@@ -86,12 +106,14 @@ function renderPanel(state: ConnectorsPanelState, actions: {
     useWorkspaces={(() => undefined) as never}
     useManagedMcp={selector => selector(managedState(state))}
     useKingsoftDocs={selector => selector(kingsoftState)}
+    useQqMail={selector => selector({ ...QQ_MAIL_BASE, open: state.open, loopback: false })}
     open={actions.open ?? vi.fn()}
     close={actions.close ?? vi.fn()}
     setManagedDraft={(_, value) => {
       if (value === '') actions.clearDraft?.()
       else actions.setDraft?.(value)
     }}
+    setQqMailDraft={vi.fn()}
     connect={async (id) => { if (id === TENCENT_ID) await actions.connect?.() }}
     disconnect={async (id) => { if (id === TENCENT_ID) await actions.disconnect?.() }}
     t={((key: keyof typeof en): string => en[key]) as never}
@@ -109,9 +131,11 @@ function renderPanelWithCopy(
     useWorkspaces={(() => undefined) as never}
     useManagedMcp={selector => selector(managedState(state))}
     useKingsoftDocs={selector => selector(kingsoftState)}
+    useQqMail={selector => selector({ ...QQ_MAIL_BASE, open: state.open, loopback: false })}
     open={vi.fn()}
     close={vi.fn()}
     setManagedDraft={vi.fn()}
+    setQqMailDraft={vi.fn()}
     connect={vi.fn(async () => {})}
     disconnect={vi.fn(async () => {})}
     t={((key: keyof typeof en): string => copy[key]) as never}
@@ -132,9 +156,11 @@ function renderKingsoftPanel(
     useWorkspaces={(() => undefined) as never}
     useManagedMcp={selector => selector(managedState(tencentState))}
     useKingsoftDocs={selector => selector(state)}
+    useQqMail={selector => selector({ ...QQ_MAIL_BASE, open: state.open, loopback: false })}
     open={vi.fn()}
     close={vi.fn()}
     setManagedDraft={vi.fn()}
+    setQqMailDraft={vi.fn()}
     connect={async (id) => { if (id === 'kingsoftDocs') await actions.connect?.() }}
     disconnect={async (id) => { if (id === 'kingsoftDocs') await actions.disconnect?.() }}
     t={((key: keyof typeof en): string => en[key]) as never}
@@ -164,9 +190,11 @@ describe('ConnectorsPanel', () => {
       useWorkspaces={(() => undefined) as never}
       useManagedMcp={selector => selector({ ...state, connectors: [...state.connectors, mail] })}
       useKingsoftDocs={selector => selector({ ...KINGSOFT_BASE, loopback: false })}
+      useQqMail={selector => selector({ ...QQ_MAIL_BASE, loopback: false })}
       open={vi.fn()}
       close={vi.fn()}
       setManagedDraft={vi.fn()}
+      setQqMailDraft={vi.fn()}
       connect={vi.fn(async () => {})}
       disconnect={vi.fn(async () => {})}
       t={((key: keyof typeof en): string => en[key]) as never}
@@ -207,9 +235,11 @@ describe('ConnectorsPanel', () => {
       useWorkspaces={(() => undefined) as never}
       useManagedMcp={selector => selector(managedState(tencentState))}
       useKingsoftDocs={selector => selector(kingsoftState)}
+      useQqMail={selector => selector({ ...QQ_MAIL_BASE, loopback: false })}
       open={vi.fn()}
       close={vi.fn()}
       setManagedDraft={vi.fn()}
+      setQqMailDraft={vi.fn()}
       connect={connect}
       disconnect={vi.fn(async () => {})}
       t={((key: keyof typeof en): string => en[key]) as never}
@@ -223,6 +253,109 @@ describe('ConnectorsPanel', () => {
     expect(connect).toHaveBeenCalledWith('kingsoftDocs')
     expect(within(card as HTMLElement).getByRole('link', { name: en.kingsoftAuthHelp }).getAttribute('href'))
       .toBe('https://github.com/kdocs-app/kdocs-skill/blob/master/references/auth.md')
+  })
+
+  it('collects a personal QQ Mail address and authorization code', () => {
+    const connect = vi.fn(async () => {})
+    const setDraft = vi.fn()
+    const tencentState = { ...BASE, loopback: false }
+    render(<ConnectorsPanel
+      wide={true}
+      useSessions={(() => undefined) as never}
+      useWorkspaces={(() => undefined) as never}
+      useManagedMcp={selector => selector(managedState(tencentState))}
+      useKingsoftDocs={selector => selector({ ...KINGSOFT_BASE, loopback: false })}
+      useQqMail={selector => selector({
+        ...QQ_MAIL_BASE,
+        emailDraft: 'user@qq.com',
+        authorizationCodeDraft: 'authorization-code',
+      })}
+      open={vi.fn()}
+      close={vi.fn()}
+      setManagedDraft={vi.fn()}
+      setQqMailDraft={setDraft}
+      connect={connect}
+      disconnect={vi.fn(async () => {})}
+      t={((key: keyof typeof en): string => en[key]) as never}
+    />)
+
+    const card = document.querySelector('[data-connector-id="qqMail"]')
+    expect(card).not.toBeNull()
+    expect(within(card as HTMLElement).getByText(en.qqMailName)).toBeTruthy()
+    const email = within(card as HTMLElement).getByLabelText(en.qqMailEmailLabel)
+    const code = within(card as HTMLElement).getByLabelText(en.qqMailAuthorizationCodeLabel)
+    expect(email.getAttribute('type')).toBe('email')
+    expect(code.getAttribute('type')).toBe('password')
+    fireEvent.change(email, { target: { value: 'next@qq.com' } })
+    fireEvent.change(code, { target: { value: 'next-code' } })
+    expect(setDraft).toHaveBeenCalledWith('email', 'next@qq.com')
+    expect(setDraft).toHaveBeenCalledWith('authorizationCode', 'next-code')
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: en.connect }))
+    expect(connect).toHaveBeenCalledWith('qqMail')
+    expect(within(card as HTMLElement).getByRole('link', { name: en.qqMailOpenSettings }).getAttribute('href'))
+      .toBe('https://mail.qq.com/')
+  })
+
+  it('routes QQ Mail logout from its connected card', () => {
+    const disconnect = vi.fn(async () => {})
+    const tencentState = { ...BASE, loopback: false }
+    const connected = {
+      ...QQ_MAIL_BASE,
+      connector: { ...QQ_MAIL_BASE.connector, status: 'connected' as const, toolCount: 4 },
+    }
+    render(<ConnectorsPanel
+      wide={true}
+      useSessions={(() => undefined) as never}
+      useWorkspaces={(() => undefined) as never}
+      useManagedMcp={selector => selector(managedState(tencentState))}
+      useKingsoftDocs={selector => selector({ ...KINGSOFT_BASE, loopback: false })}
+      useQqMail={selector => selector(connected)}
+      open={vi.fn()}
+      close={vi.fn()}
+      setManagedDraft={vi.fn()}
+      setQqMailDraft={vi.fn()}
+      connect={vi.fn(async () => {})}
+      disconnect={disconnect}
+      t={((key: keyof typeof en): string => en[key]) as never}
+    />)
+    const card = document.querySelector('[data-connector-id="qqMail"]') as HTMLElement
+    fireEvent.click(within(card).getByRole('button', { name: en.qqMailDisconnect }))
+    expect(disconnect).toHaveBeenCalledWith('qqMail')
+  })
+
+  it('renders QQ Mail retry and busy actions', () => {
+    const tencentState = { ...BASE, loopback: false }
+    const renderQq = (state: QqMailConnectorState) => render(<ConnectorsPanel
+      wide={true}
+      useSessions={(() => undefined) as never}
+      useWorkspaces={(() => undefined) as never}
+      useManagedMcp={selector => selector(managedState(tencentState))}
+      useKingsoftDocs={selector => selector({ ...KINGSOFT_BASE, loopback: false })}
+      useQqMail={selector => selector(state)}
+      open={vi.fn()}
+      close={vi.fn()}
+      setManagedDraft={vi.fn()}
+      setQqMailDraft={vi.fn()}
+      connect={vi.fn(async () => {})}
+      disconnect={vi.fn(async () => {})}
+      t={((key: keyof typeof en): string => en[key]) as never}
+    />)
+
+    renderQq({ ...QQ_MAIL_BASE, pending: 'connect' })
+    expect(screen.getByRole('button', { name: en.working }).hasAttribute('disabled')).toBe(true)
+    cleanup()
+    renderQq({
+      ...QQ_MAIL_BASE,
+      pending: 'disconnect',
+      connector: { ...QQ_MAIL_BASE.connector, status: 'connected', credentialConfigured: true, toolCount: 4 },
+    })
+    expect(screen.getByRole('button', { name: en.working }).hasAttribute('disabled')).toBe(true)
+    cleanup()
+    renderQq({
+      ...QQ_MAIL_BASE,
+      connector: { ...QQ_MAIL_BASE.connector, status: 'failed', credentialConfigured: true, errorCode: 'AUTH_REJECTED' },
+    })
+    expect(screen.getByRole('button', { name: en.retry })).toBeTruthy()
   })
 
   it('renders Kingsoft logout, retry, and busy browser-login actions', () => {
@@ -306,6 +439,19 @@ describe('ConnectorsPanel', () => {
       name: en.disconnect.replace('{credential}', en.tokenLabel),
     }))
     expect(disconnect).toHaveBeenCalledOnce()
+  })
+
+  it('preserves an unknown localization placeholder while replacing known values', () => {
+    renderPanelWithCopy({
+      ...BASE,
+      connector: {
+        ...BASE.connector,
+        status: 'connected',
+        credentialConfigured: true,
+        credentialSource: 'file',
+      },
+    }, { ...en, disconnect: 'Remove {credential} from {unknown}' })
+    expect(screen.getByRole('button', { name: `Remove ${en.tokenLabel} from {unknown}` })).toBeTruthy()
   })
 
   it('keeps a read-only credential on disconnect and presents retry failures', () => {

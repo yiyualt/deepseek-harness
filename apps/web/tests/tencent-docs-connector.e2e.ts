@@ -1,9 +1,10 @@
 // Web e2e: the shipped Connectors sidebar contribution drives the real
-// credential store, document-provider Host Remotes, dynamic MCP runtime, and
-// the Kingsoft Docs kdocs-cli process boundary. Tencent's fixed endpoint is
-// redirected to a local MCP fixture; Kingsoft uses a temporary executable
-// configured through the normal overlay seam.
+// credential store, provider Host Remotes, dynamic MCP runtime, Kingsoft Docs
+// kdocs-cli process boundary, and personal QQ Mail IMAP connection. Tencent's
+// fixed endpoint is redirected to a local MCP fixture; Kingsoft and QQ Mail use
+// temporary providers configured through the normal overlay seam.
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { createServer as createNetServer } from 'node:net'
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -30,6 +31,8 @@ import { connectFreshWorkspaceZh, saveFailureShot, ZH_BROWSER_LOCALE } from './s
 const TENCENT_DOCS_ENDPOINT = 'https://docs.qq.com/openapi/mcp'
 const VALID_TOKEN = 'web-e2e-valid-token'
 const INVALID_TOKEN = 'web-e2e-invalid-token'
+const QQ_MAIL_EMAIL = 'web-e2e@qq.com'
+const QQ_MAIL_AUTHORIZATION_CODE = 'web-e2e-mail-authorization-code'
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/tencent-docs-connector', import.meta.url))
 const DISCONNECTED_EXPECTED = join(SNAPSHOT_DIR, 'disconnected.expected.md')
 const FAILED_EXPECTED = join(SNAPSHOT_DIR, 'failed.expected.md')
@@ -58,6 +61,12 @@ interface KdocsFixture {
   readonly command: string
   readonly invocationLog: string
   readonly overlayPath: string
+  close(): Promise<void>
+}
+
+interface ImapFixture {
+  readonly port: number
+  readonly log: string[]
   close(): Promise<void>
 }
 
@@ -165,7 +174,61 @@ function interceptTencentDocsFetch(endpoint: string): () => void {
   return () => { globalThis.fetch = originalFetch }
 }
 
-async function launchKdocsFixture(): Promise<KdocsFixture> {
+async function launchImapFixture(): Promise<ImapFixture> {
+  const log: string[] = []
+  const server = createNetServer((socket) => {
+    socket.setEncoding('utf8')
+    socket.write('* OK QQ Mail web fixture ready\r\n')
+    let buffered = ''
+    socket.on('data', (chunk: string) => {
+      buffered += chunk
+      while (buffered.includes('\r\n')) {
+        const boundary = buffered.indexOf('\r\n')
+        const line = buffered.slice(0, boundary)
+        buffered = buffered.slice(boundary + 2)
+        if (line === '') continue
+        log.push(line)
+        const [tag = '*', command = ''] = line.split(' ', 2)
+        switch (command.toUpperCase()) {
+          case 'CAPABILITY':
+            socket.write(`* CAPABILITY IMAP4rev1 AUTH=PLAIN SASL-IR IDLE\r\n${tag} OK CAPABILITY completed\r\n`)
+            break
+          case 'AUTHENTICATE':
+          case 'LOGIN':
+            socket.write(`${tag} OK authenticated\r\n`)
+            break
+          case 'ID':
+            socket.write(`* ID NIL\r\n${tag} OK ID completed\r\n`)
+            break
+          case 'NAMESPACE':
+            socket.write(`* NAMESPACE (("" "/")) NIL NIL\r\n${tag} OK NAMESPACE completed\r\n`)
+            break
+          case 'LOGOUT':
+            socket.end(`* BYE logout\r\n${tag} OK LOGOUT completed\r\n`)
+            break
+          default:
+            socket.write(`${tag} OK completed\r\n`)
+        }
+      }
+    })
+  })
+  const listening: PromiseWithResolvers<void> = Promise.withResolvers()
+  server.listen(0, '127.0.0.1', listening.resolve)
+  await listening.promise
+  const address = server.address()
+  if (address === null || typeof address === 'string') throw new Error('QQ Mail IMAP fixture did not bind TCP')
+  return {
+    port: address.port,
+    log,
+    close: async () => {
+      const closed: PromiseWithResolvers<void> = Promise.withResolvers()
+      server.close(() => { closed.resolve() })
+      await closed.promise
+    },
+  }
+}
+
+async function launchKdocsFixture(imapPort: number): Promise<KdocsFixture> {
   const root = await mkdtemp(join(tmpdir(), 'dsh-kdocs-web-e2e-'))
   const command = join(root, 'kdocs-cli')
   const authState = join(root, 'authenticated')
@@ -193,7 +256,7 @@ if (argv[0] === 'auth' && argv[1] === 'status') {
 `
   await writeFile(command, script, 'utf8')
   await chmod(command, 0o755)
-  await writeFile(overlayPath, `- id: kingsoft-docs-connector\n  config:\n    command: ${JSON.stringify(command)}\n    loginTimeoutMs: 30000\n    commandTimeoutMs: 10000\n    toolCallTimeoutMs: 30000\n    processGraceMs: 1000\n    maxInputBytes: 1048576\n    maxOutputBytes: 1048576\n`, 'utf8')
+  await writeFile(overlayPath, `- id: kingsoft-docs-connector\n  config:\n    command: ${JSON.stringify(command)}\n    loginTimeoutMs: 30000\n    commandTimeoutMs: 10000\n    toolCallTimeoutMs: 30000\n    processGraceMs: 1000\n    maxInputBytes: 1048576\n    maxOutputBytes: 1048576\n- id: qq-mail-connector\n  config:\n    imapHost: 127.0.0.1\n    imapPort: ${imapPort}\n    imapSecure: false\n    smtpHost: 127.0.0.1\n    smtpPort: 2525\n    smtpSecure: false\n    operationTimeoutMs: 10000\n    maxMessageBytes: 1048576\n    maxBodyChars: 100000\n`, 'utf8')
   return {
     command,
     invocationLog,
@@ -246,6 +309,7 @@ describe('web e2e: document connectors', () => {
   let page: Page
   let tripwire: ReturnType<typeof watchConsole>
   let fixture: McpFixture
+  let imap: ImapFixture
   let kdocs: KdocsFixture
   let restoreFetch: () => void
   const browserConsole: string[] = []
@@ -253,7 +317,8 @@ describe('web e2e: document connectors', () => {
 
   beforeAll(async () => {
     fixture = await launchMcpFixture()
-    kdocs = await launchKdocsFixture()
+    imap = await launchImapFixture()
+    kdocs = await launchKdocsFixture(imap.port)
     restoreFetch = interceptTencentDocsFetch(fixture.endpoint)
     scaffold = await launchWebScaffold({
       extraOverlayPath: kdocs.overlayPath,
@@ -273,10 +338,11 @@ describe('web e2e: document connectors', () => {
     await scaffold?.close()
     restoreFetch?.()
     await fixture?.close()
+    await imap?.close()
     await kdocs?.close()
   })
 
-  it('uses a write-only Tencent Token and a credential-free Kingsoft browser login', async () => {
+  it('connects Tencent Docs, Kingsoft Docs, and a personal QQ mailbox', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-tencent-docs-connector'))
     const trigger = page.getByRole('button', { name: '连接器', exact: true })
     await trigger.waitFor({ timeout: 15_000 })
@@ -286,6 +352,7 @@ describe('web e2e: document connectors', () => {
     const dialog = page.getByRole('dialog', { name: '连接器' })
     const tencentCard = dialog.locator('[data-connector-id="tencent-docs"]')
     const kingsoftCard = dialog.locator('[data-connector-id="kingsoftDocs"]')
+    const qqMailCard = dialog.locator('[data-connector-id="qqMail"]')
     const tokenInput = tencentCard.getByRole('textbox', { name: '空间 MCP Token' })
     await dialog.waitFor({ timeout: 10_000 })
     await tencentCard.getByText('尚未配置空间 MCP Token', { exact: true }).waitFor({ timeout: 10_000 })
@@ -337,6 +404,19 @@ describe('web e2e: document connectors', () => {
     ])
     expect(loginInvocations.every(invocation => !invocation.legacyTokenPresent)).toBe(true)
     await assertSecretAbsent(page, 'fixture-secret-never-export')
+
+    const qqMailEmail = qqMailCard.getByRole('textbox', { name: '个人 QQ 邮箱地址' })
+    const qqMailCode = qqMailCard.getByRole('textbox', { name: 'IMAP/SMTP 授权码' })
+    await qqMailEmail.fill(QQ_MAIL_EMAIL)
+    await qqMailCode.fill(QQ_MAIL_AUTHORIZATION_CODE)
+    await assertSecretConfinedToPasswordInput(page, QQ_MAIL_AUTHORIZATION_CODE)
+    await qqMailCard.getByRole('button', { name: '连接', exact: true }).click()
+    await qqMailCard.getByText('已连接', { exact: true }).waitFor({ timeout: 15_000 })
+    await qqMailCard.getByText('已发现').waitFor({ timeout: 10_000 })
+    expect(await qqMailCard.getByText('4', { exact: true }).count()).toBe(1)
+    expect(imap.log.some(line => line.includes('AUTHENTICATE PLAIN'))).toBe(true)
+    expect(imap.log.join('\n')).not.toContain(QQ_MAIL_AUTHORIZATION_CODE)
+    await assertSecretAbsent(page, QQ_MAIL_AUTHORIZATION_CODE)
     const kingsoftConnected = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(KINGSOFT_CONNECTED_EXPECTED, kingsoftConnected, MODE)
 
@@ -375,6 +455,10 @@ describe('web e2e: document connectors', () => {
       },
     })
     expect(requestHeader?.data.header.tools?.some(tool => tool.name === 'kingsoft_docs_help')).toBe(true)
+    expect(requestHeader?.data.header.tools?.some(tool => tool.name === 'qq_mail_list')).toBe(true)
+    expect(requestHeader?.data.header.tools?.some(tool => tool.name === 'qq_mail_search')).toBe(true)
+    expect(requestHeader?.data.header.tools?.some(tool => tool.name === 'qq_mail_read')).toBe(true)
+    expect(requestHeader?.data.header.tools?.some(tool => tool.name === 'qq_mail_send')).toBe(true)
     const kingsoftCall = sessionEvents.find(
       (event): event is Extract<SessionEvent, { type: 'tool/call' }> =>
         event.type === 'tool/call' && event.data.name === 'kingsoft_docs_call',
@@ -410,8 +494,12 @@ describe('web e2e: document connectors', () => {
     await kingsoftCard.getByRole('button', { name: '退出登录', exact: true }).click()
     await kingsoftCard.getByText('未连接', { exact: true }).waitFor({ timeout: 15_000 })
     expect((await readFile(kdocs.invocationLog, 'utf8')).includes('"logout"')).toBe(true)
+    await qqMailCard.getByRole('button', { name: '断开并删除邮箱凭据', exact: true }).click()
+    await qqMailCard.getByText('未连接', { exact: true }).waitFor({ timeout: 15_000 })
     const credentialDocument = await readFile(join(scaffold.harnessHome, '.credentials.yaml'), 'utf8')
     expect(credentialDocument).not.toMatch(/web-e2e-(?:invalid|valid)-token/)
+    expect(credentialDocument).not.toContain(QQ_MAIL_EMAIL)
+    expect(credentialDocument).not.toContain(QQ_MAIL_AUTHORIZATION_CODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
   }, 90_000)

@@ -27,6 +27,7 @@ export const API_REMOTE_FORWARDED_EVENTS = [
   'llm/adapters-updated',
   'meeting-presence/change',
   'kingsoft-docs-connector/change',
+  'qq-mail-connector/change',
   'mcp-connectors/change',
   'settings/document-updated',
 ] as const

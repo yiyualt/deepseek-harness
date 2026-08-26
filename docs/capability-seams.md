@@ -175,6 +175,8 @@ flowchart LR
   pkg_host_tencent_docs_connector["host-tencent-docs-connector"]
   pkg_host_kingsoft_docs_connector["host-kingsoft-docs-connector"]
   svc_kingsoftDocsConnector["ctx.kingsoftDocsConnector<br/>Kingsoft Docs browser-login CLI gateway"]
+  pkg_host_qq_mail_connector["host-qq-mail-connector"]
+  svc_qqMailConnector["ctx.qqMailConnector<br/>Personal QQ Mail IMAP/SMTP gateway"]
   pkg_spill["spill"]
   svc_spillStore["ctx.spillStore<br/>Spill storage seam"]
   pkg_spill_local["spill-local"]
@@ -233,6 +235,7 @@ flowchart LR
   pkg_fs_sandbox --> svc_fs
   pkg_goal --> svc_goals
   pkg_host_kingsoft_docs_connector --> svc_kingsoftDocsConnector
+  pkg_host_qq_mail_connector --> svc_qqMailConnector
   pkg_invariants --> svc_invariants
   pkg_jobs --> svc_jobs
   pkg_jobs_local --> svc_jobs
@@ -474,6 +477,7 @@ flowchart LR
 | `ctx.web` | `seam` | [`web`](../packages/web/web) | [`web-search-exa`](../packages/web/web-search-exa), [`web-search-perplexity`](../packages/web/web-search-perplexity), [`web-search-deepseek`](../packages/web/web-search-deepseek), [`web-fetch-http`](../packages/web/web-fetch-http) | [`tool-web`](../packages/web/tool-web) | - | Search and fetch providers register into one ctx.web seam; tool-web owns the stable model-facing names. |
 | `ctx.mcp` | `seam` | [`mcp`](../packages/mcp/mcp) | [`mcp-client`](../packages/mcp/mcp-client) | [`tool-mcp`](../packages/mcp/tool-mcp), [`host-mcp-connector`](../packages/host/mcp-connector), [`host-tencent-docs-connector`](../packages/host/tencent-docs-connector) | - | The Host provider owns process-wide transports and safe catalogs; connector packages request lifecycle changes, while preset-scoped Consumers project tools and own last-mile approval. |
 | `ctx.kingsoftDocsConnector` | `bundle` | [`host-kingsoft-docs-connector`](../packages/host/kingsoft-docs-connector) | - | - | - | The package-root Remote and its preset-scoped tool subpath share one concrete kdocs-cli login, process, and teardown owner; it is provider-specific rather than a replaceable seam. |
+| `ctx.qqMailConnector` | `bundle` | [`host-qq-mail-connector`](../packages/host/qq-mail-connector) | - | - | - | The package-root Remote and its preset-scoped tool subpath share one concrete personal-mail credential, IMAP, SMTP, and teardown owner; it is provider-specific rather than a replaceable seam. |
 | `ctx.spillStore` | `seam` | [`spill`](../packages/spill/spill) | [`spill-local`](../packages/spill/spill-local) | [`spill-policy`](../packages/spill/spill-policy) | - | The backend saves oversized tool text and returns a model-facing locator plus retrieval hint; spill-policy is the tools/post-execute consumer that decides when to spill. |
 | `ctx.directoryPicker` | `seam` | `directory-picker` | `directory-picker-native`, `directory-picker-browse` | `apiproxy` | - | Discriminated interaction capability: the native backend opens one OS chooser on the host display, the browse backend serves listing/creation primitives for the in-app browser; dual-face backends fill ui-workspace directory-flow slots from their browser halves (no wire advertisement). |
 | `ctx.webServer` | `core` | `webserver` | - | `connection`, `modules`, `hmr` | - | Plain node:http carrier: named-route registry, index transform taps, and the static dist fallback; web-transport plugins register their own routes. |

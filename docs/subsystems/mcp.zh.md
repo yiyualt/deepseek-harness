@@ -231,7 +231,7 @@ interface McpResult {
 
 随产品交付的 Provider 提交 `connecting`，初始化全新传输 generation，发现完整工具列表，再提交 `connected` 或安全 `failed` 状态。已建立的连接关闭后会进入有界指数恢复。缺少凭据和认证被拒绝时会直接失败，不进行重试。断开时先发布带空目录的 `disconnecting`，关闭客户端与服务端支持的 HTTP session，等待目录同步和进行中的调用结束，再移除条目。如果服务器在结果中回显已知凭据值，这些值会被替换为 `[REDACTED]`。
 
-腾讯文档连接器通过 raw 凭据引用提供已经签发的[空间 MCP Token](https://docs.qq.com/open/document/mcp/get-token/)，不负责登录、帐号选择或 Token 签发。金山文档使用供应商官方 `kdocs-cli` 的浏览器登录流程，因此不属于这个 MCP seam；其生命周期与模型工具位于[金山文档 Host 包](../../packages/host/kingsoft-docs-connector/README.md)。
+腾讯文档连接器通过 raw 凭据引用提供已经签发的[空间 MCP Token](https://docs.qq.com/open/document/mcp/get-token/)，不负责登录、帐号选择或 Token 签发。金山文档使用供应商 CLI，个人 QQ 邮箱则使用 IMAP/SMTP 和授权码；两者都不属于这个 MCP seam，其生命周期与模型工具分别位于[金山文档](../../packages/host/kingsoft-docs-connector/README.md)和 [QQ 邮箱](../../packages/host/qq-mail-connector/README.md) Host 包。
 
 每个 `tool-mcp` Consumer 都会把安全目录原子投影到一个 agent preset。公开名称是确定性的 `mcp__<serverName>__<rawName>` 身份；只有原始名称会发送到 `tools/call`。需要 task 的工具会在派发前失败，因为 task 执行尚未实现。
 

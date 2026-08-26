@@ -7,6 +7,7 @@ import type {
   KingsoftDocsConnectorSnapshot,
   McpConnectorId,
   McpConnectorSnapshot,
+  QqMailConnectorSnapshot,
   TencentDocsConnectorSnapshot,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
@@ -15,6 +16,8 @@ import { apply, inject } from '../src/client/index.ts'
 import { apply as applyNode } from '../src/index.ts'
 import * as ConnectorsInvariant from '../src/invariant.ts'
 import {
+  QQ_MAIL_AUTHORIZATION_CODE_REF,
+  QQ_MAIL_EMAIL_REF,
   TENCENT_DOCS_CREDENTIAL_REF,
 } from '../src/client/controller.ts'
 import { en, NS, zh } from '../src/client/locales.ts'
@@ -103,10 +106,33 @@ async function bench(isLoopback = true) {
     } })),
     disconnect: vi.fn(async () => ({ ok: true as const, value: kingsoftSnapshot })),
   }
+  const qqMailSnapshot: QqMailConnectorSnapshot = {
+    ...kingsoftSnapshot,
+    credentialConfigured: false,
+    credentialWritable: true,
+    credentialSource: null,
+  }
+  const qqMailConnector = {
+    get: vi.fn(async () => ({ ok: true as const, value: qqMailSnapshot })),
+    publicGet: vi.fn(async () => ({ ok: true as const, value: {
+      ...kingsoftSnapshot,
+      status: 'connected' as const,
+      toolCount: 4,
+    } })),
+    connect: vi.fn(async () => ({ ok: true as const, value: {
+      ...kingsoftSnapshot,
+      status: 'connected' as const,
+      toolCount: 4,
+    } })),
+    disconnect: vi.fn(async () => ({ ok: true as const, value: qqMailSnapshot })),
+  }
   ctx.provide('remote.mcpConnectors', connector as never)
   ctx.provide('remote.kingsoftDocsConnector', kingsoftConnector as never)
+  ctx.provide('remote.qqMailConnector', qqMailConnector as never)
   const describe = vi.fn(async () => ({ result: { ok: true, value: { credentials: {
     [TENCENT_DOCS_CREDENTIAL_REF]: { configured: false, writable: true },
+    [QQ_MAIL_EMAIL_REF]: { configured: false, writable: true },
+    [QQ_MAIL_AUTHORIZATION_CODE_REF]: { configured: false, writable: true },
   } } } }))
   const set = vi.fn(async () => ({ result: { ok: true, value: {} } }))
   const unset = vi.fn(async () => ({ result: { ok: true, value: {} } }))
@@ -119,6 +145,7 @@ async function bench(isLoopback = true) {
     unsubscribe,
     connector,
     kingsoftConnector,
+    qqMailConnector,
     describe,
     subscribedEvents: () => remoteService.$on.mock.calls.map(([event]) => event),
     dispatch: (event: string, value: unknown) => { listeners.get(event)?.(value as never) },
@@ -132,6 +159,7 @@ describe('ui-connectors browser plugin', () => {
       'locale',
       'remote',
       'remote.kingsoftDocsConnector',
+      'remote.qqMailConnector',
       'remote.mcpConnectors',
       'connection',
     ])
@@ -145,27 +173,30 @@ describe('ui-connectors browser plugin', () => {
     expect(subscribedEvents()).toEqual([
       'mcp-connectors/change',
       'kingsoft-docs-connector/change',
+      'qq-mail-connector/change',
       'credentials/updated',
     ])
     await fiber.dispose()
     expect(ctx.slots.entries('sidebar.footer.action')).toHaveLength(0)
-    expect(unsubscribe).toHaveBeenCalledTimes(3)
+    expect(unsubscribe).toHaveBeenCalledTimes(4)
     await ctx.fiber.dispose()
   })
 
   it('binds pushed snapshots and loopback credential reconciliation to the injected face', async () => {
-    const { ctx, fiber, connector, kingsoftConnector, describe, dispatch } = await bench()
+    const { ctx, fiber, connector, kingsoftConnector, qqMailConnector, describe, dispatch } = await bench()
     const entry = ctx.slots.entries('sidebar.footer.action')[0]!
     const face = (entry.inject as unknown as () => {
       hooks: {
         managedMcp: { getSnapshot(): { connectors: readonly [{ connector: McpConnectorSnapshot }] } }
         kingsoftDocs: { getSnapshot(): { connector: KingsoftDocsConnectorSnapshot } }
+        qqMail: { getSnapshot(): { connector: QqMailConnectorSnapshot } }
       }
       open(): void
       close(): void
       setManagedDraft(id: McpConnectorId, value: string): void
-      connect(id: McpConnectorId | 'kingsoftDocs'): Promise<void>
-      disconnect(id: McpConnectorId | 'kingsoftDocs'): Promise<void>
+      setQqMailDraft(field: 'email' | 'authorizationCode', value: string): void
+      connect(id: McpConnectorId | 'kingsoftDocs' | 'qqMail'): Promise<void>
+      disconnect(id: McpConnectorId | 'kingsoftDocs' | 'qqMail'): Promise<void>
     })()
     face.open()
     await vi.waitFor(() => { expect(connector.list).toHaveBeenCalledOnce() })
@@ -181,8 +212,14 @@ describe('ui-connectors browser plugin', () => {
     await face.disconnect(TENCENT_ID)
     await face.connect('kingsoftDocs')
     await face.disconnect('kingsoftDocs')
+    face.setQqMailDraft('email', 'user@qq.com')
+    face.setQqMailDraft('authorizationCode', 'authorization-code')
+    await face.connect('qqMail')
+    await face.disconnect('qqMail')
     expect(kingsoftConnector.connect).toHaveBeenCalledOnce()
     expect(kingsoftConnector.disconnect).toHaveBeenCalledOnce()
+    expect(qqMailConnector.connect).toHaveBeenCalledOnce()
+    expect(qqMailConnector.disconnect).toHaveBeenCalledOnce()
     face.close()
     dispatch('mcp-connectors/change', { connectors: [{ id: TENCENT_ID, presentation: PRESENTATION, snapshot: {
       status: 'connected', toolCount: 6, errorCode: null, errorMessage: null,
@@ -198,12 +235,17 @@ describe('ui-connectors browser plugin', () => {
       updatedAt: '2026-08-25T00:00:02.000Z',
     })
     expect(face.hooks.kingsoftDocs.getSnapshot().connector).toMatchObject({ status: 'connected', toolCount: 2 })
+    dispatch('qq-mail-connector/change', {
+      status: 'connected', toolCount: 4, errorCode: null, errorMessage: null,
+      updatedAt: '2026-08-25T00:00:03.000Z',
+    })
+    expect(face.hooks.qqMail.getSnapshot().connector).toMatchObject({ status: 'connected', toolCount: 4 })
     await fiber.dispose()
     await ctx.fiber.dispose()
   })
 
   it('reads public state without calling loopback-pinned or credential methods for a non-loopback page', async () => {
-    const { ctx, fiber, connector, kingsoftConnector, describe, dispatch, subscribedEvents } = await bench(false)
+    const { ctx, fiber, connector, kingsoftConnector, qqMailConnector, describe, dispatch, subscribedEvents } = await bench(false)
     const entry = ctx.slots.entries('sidebar.footer.action')[0]!
     const face = (entry.inject as unknown as () => {
       hooks: {
@@ -215,11 +257,13 @@ describe('ui-connectors browser plugin', () => {
     face.open()
     await vi.waitFor(() => { expect(connector.publicList).toHaveBeenCalledOnce() })
     expect(kingsoftConnector.publicGet).toHaveBeenCalledOnce()
+    expect(qqMailConnector.publicGet).toHaveBeenCalledOnce()
     expect(connector.list).not.toHaveBeenCalled()
     expect(describe).not.toHaveBeenCalled()
     expect(subscribedEvents()).toEqual([
       'mcp-connectors/change',
       'kingsoft-docs-connector/change',
+      'qq-mail-connector/change',
     ])
     expect(face.hooks.managedMcp.getSnapshot().connectors[0].connector)
       .toMatchObject({ status: 'connected', toolCount: 5 })

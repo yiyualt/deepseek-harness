@@ -6,7 +6,7 @@ dsh 浏览器表层组合包。[`cordis.patch.yml`](cordis.patch.yml) 叠加在 
 
 交付的浏览器插件名录包含一个由 [`meeting-presence`](../../host/meeting-presence/README.md) 支撑的“会议”操作。它在本机 Chrome 中启动一个匿名 Google Meet 或 Zoom 参会者，在侧栏面板中报告准入状态和平台，并在用户离会或插件卸载时停止完整的浏览器进程树。这个参会者不录制、不转写，也不上传会议内容。
 
-该名录还包含“连接器”操作，由声明式 [`mcp-connector`](../../host/mcp-connector/README.md) 目录和独立的 [`kingsoft-docs-connector`](../../host/kingsoft-docs-connector/README.md) 支撑。腾讯文档是第一条托管 MCP 目录配置，使用在 Mac loopback 页面输入的[空间 MCP Token](https://docs.qq.com/open/document/mcp/get-token/)。另一个 raw 或 Bearer Token 提供方只需增加一条 bundle 配置，无需新增 Remote 或浏览器卡片。金山没有 Token 输入框：“网页登录”运行官方 `kdocs-cli auth login`，由它打开默认浏览器并把认证信息保存到系统钥匙串；“退出登录”运行 `auth logout`。非 loopback 页面可以查看安全的连接器状态，但不能开始或移除认证。
+该名录还包含“连接器”操作，由声明式 [`mcp-connector`](../../host/mcp-connector/README.md) 目录、[金山文档](../../host/kingsoft-docs-connector/README.md) CLI 适配器和[个人 QQ 邮箱](../../host/qq-mail-connector/README.md) IMAP/SMTP 适配器支撑。腾讯文档是第一条托管 MCP 目录配置，使用在 Mac loopback 页面输入的[空间 MCP Token](https://docs.qq.com/open/document/mcp/get-token/)。另一个 raw 或 Bearer Token 提供方只需增加一条 bundle 配置，无需新增 Remote 或浏览器卡片。金山文档网页登录运行其官方 CLI 命令。QQ 邮箱通过 Host 凭据提供方保存地址和邮件客户端授权码。非 loopback 页面可以查看安全的连接器状态，但不能开始或移除认证。
 
 只有挂载 [`dsh-tool-mcp`](../../mcp/tool-mcp/README.md) 的 preset 才能看到已连接的文档工具。每个 MCP 工具都会在外部调用前请求用户批准，因为远端 annotation 不受信任，绝不会授予免确认权限。
 

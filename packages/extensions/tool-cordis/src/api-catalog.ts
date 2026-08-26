@@ -1044,6 +1044,67 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'qqMailConnector',
+    summary: 'Remote service and same-process provider for personal QQ Mail operations.',
+    description: 'Remote service and same-process provider for personal QQ Mail operations.',
+    methods: [
+      {
+        signature: '@Remote(\'get\') async get(): Promise<QqMailConnectorSnapshot>',
+        description: 'Read lifecycle and value-free credential metadata for the loopback UI.',
+        parameters: [],
+        returns: 'Current connector state and credential availability.',
+      },
+      {
+        signature: '@Remote(\'publicGet\') publicGet(): Promise<QqMailConnectorEventSnapshot>',
+        description: 'Read credential-free connector state for trusted non-loopback clients.',
+        parameters: [],
+        returns: 'Current credential-free connector state.',
+      },
+      {
+        signature: '@Remote(\'connect\') connect(): Promise<QqMailConnectorSnapshot>',
+        description: 'Verify configured personal QQ Mail credentials over IMAP.',
+        parameters: [],
+        returns: 'State after the verification attempt.',
+      },
+      {
+        signature: '@Remote(\'disconnect\') disconnect(): Promise<QqMailConnectorSnapshot>',
+        description: 'Withdraw personal-mail tools after active operations settle.',
+        parameters: [],
+        returns: 'Disconnected state; the loopback UI removes writable credentials separately.',
+      },
+      {
+        signature: 'current(): QqMailConnectorEventSnapshot',
+        description: 'Read the state used by the same-process tool Consumer.',
+        parameters: [],
+        returns: 'Current credential-free in-process state.',
+      },
+      {
+        signature: 'listMessages(limit: number, unreadOnly: boolean, signal: AbortSignal): Promise<JsonValue>',
+        description: 'List the newest messages in the personal inbox.',
+        parameters: [{ name: 'limit', description: 'Maximum message count.' }, { name: 'unreadOnly', description: 'Whether to select only messages without the IMAP Seen flag.' }, { name: 'signal', description: 'Cancellation signal for the complete operation.' }],
+        returns: 'Bounded JSON message summaries ordered newest first.',
+      },
+      {
+        signature: 'searchMessages(query: string, limit: number, signal: AbortSignal): Promise<JsonValue>',
+        description: 'Search subject, sender, and body text in the personal inbox.',
+        parameters: [{ name: 'query', description: 'Nonempty search text.' }, { name: 'limit', description: 'Maximum message count.' }, { name: 'signal', description: 'Cancellation signal for the complete operation.' }],
+        returns: 'Bounded JSON message summaries ordered newest first.',
+      },
+      {
+        signature: 'readMessage(uid: number, signal: AbortSignal): Promise<JsonValue>',
+        description: 'Read one personal inbox message by IMAP UID.',
+        parameters: [{ name: 'uid', description: 'Positive IMAP UID in Inbox.' }, { name: 'signal', description: 'Cancellation signal for the complete operation.' }],
+        returns: 'Parsed headers and bounded bodies without attachment content.',
+      },
+      {
+        signature: 'sendMessage(recipients: readonly string[], subject: string, body: string, signal: AbortSignal): Promise<JsonValue>',
+        description: 'Send one plain-text message from the configured personal QQ mailbox.',
+        parameters: [{ name: 'recipients', description: 'Validated recipient addresses.' }, { name: 'subject', description: 'Reviewed message subject.' }, { name: 'body', description: 'Reviewed plain-text message body.' }, { name: 'signal', description: 'Cancellation signal for the complete operation.' }],
+        returns: 'SMTP message id and accepted or rejected recipients.',
+      },
+    ],
+  },
+  {
     key: 'sandbox',
     summary: 'Abstract process-sandbox service.',
     description: 'Abstract process-sandbox service. confine must return enforcing argv or fail closed at wrap or runner-execution time; silent unconfined passthrough is forbidden. Functional probes arbitrate multi-runner chains and may be skipped for a sole candidate, whose own refusal remains the fail-closed end.',
@@ -2510,6 +2571,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'snapshot', description: 'Current complete state after the transition.' }],
   },
   {
+    name: 'qq-mail-connector/change',
+    mode: 'emit',
+    signature: '\'qq-mail-connector/change\'(snapshot: QqMailConnectorEventSnapshot): void',
+    summary: 'The personal QQ Mail connector changed public state.',
+    description: 'The personal QQ Mail connector changed public state.',
+    parameters: [{ name: 'snapshot', description: 'Current credential-free state after the transition.' }],
+  },
+  {
     name: 'session-telemetry/record',
     mode: 'waterfall',
     signature: '\'session-telemetry/record\'(record: SessionTelemetryRecord, next: () => SessionTelemetryRecord): SessionTelemetryRecord',
@@ -3808,6 +3877,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PruneResult',
     declaration: 'export interface PruneResult {\n    readonly pruned: readonly PrunedEntry[];\n    readonly charsRemoved: number;\n}',
+  },
+  {
+    name: 'QqMailConnectorEventSnapshot',
+    declaration: 'export interface QqMailConnectorEventSnapshot {\n    readonly status: QqMailConnectorStatus;\n    readonly toolCount: number;\n    readonly errorCode: string | null;\n    readonly errorMessage: string | null;\n    readonly updatedAt: string;\n}',
+  },
+  {
+    name: 'QqMailConnectorSnapshot',
+    declaration: 'export interface QqMailConnectorSnapshot extends QqMailConnectorEventSnapshot {\n    readonly credentialConfigured: boolean;\n    readonly credentialSource: string | null;\n    readonly credentialWritable: boolean;\n}',
+  },
+  {
+    name: 'QqMailConnectorStatus',
+    declaration: 'export type QqMailConnectorStatus = \'disconnected\' | \'connecting\' | \'connected\' | \'disconnecting\' | \'failed\';',
   },
   {
     name: 'ReadFileLine',
