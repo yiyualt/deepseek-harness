@@ -35,6 +35,8 @@ export const SIDEBAR_AUTO_COLLAPSE = 1024
 export const DETAILS_MIN = 300
 /** Details drag clamp ceiling. */
 export const DETAILS_MAX = 520
+/** Details drag clamp ceiling for document-scale occupants. */
+export const DETAILS_WIDE_MAX = 960
 /** Details width before any user drag. */
 export const DETAILS_DEFAULT = 360
 /** Center floor while a wide details occupant needs the maximum details width. */
@@ -60,6 +62,7 @@ export function clampWidth(px: number, min: number, max: number): number {
  * @param sidebar - sidebar width preference in px (0 = closed).
  * @param details - details width preference in px (0 = closed).
  * @param centerMinimum - center width protected before details concedes.
+ * @param detailsMaximum - drag preference ceiling selected by the active occupant.
  * @returns resolved widths; details 0 means visually closed (never unmounted), while a closed sidebar keeps its compact rail.
  */
 export function computeColumns(
@@ -67,10 +70,11 @@ export function computeColumns(
   sidebar: number,
   details: number,
   centerMinimum = CENTER_MIN,
+  detailsMaximum = DETAILS_MAX,
 ): Columns {
   // The sidebar is fixed at its preference (or the rail) — it never concedes.
   const s = sidebar === 0 ? SIDEBAR_COLLAPSED : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
-  const d0 = details === 0 ? 0 : clampWidth(details, DETAILS_MIN, DETAILS_MAX)
+  const d0 = details === 0 ? 0 : clampWidth(details, DETAILS_MIN, detailsMaximum)
 
   // Step 1: everything fits at preferred widths.
   if (s + d0 + centerMinimum <= viewport) return { sidebar: s, center: viewport - s - d0, details: d0 }

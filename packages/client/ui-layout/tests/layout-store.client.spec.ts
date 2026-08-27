@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createLayoutStore } from '@deepseek-ai/dsh-client-ui-layout/src/client/stores.ts'
 import {
-  CENTER_MIN, DETAILS_DEFAULT, DETAILS_MAX, DETAILS_MIN, DETAILS_WIDE_CENTER_MIN,
+  CENTER_MIN, DETAILS_DEFAULT, DETAILS_MAX, DETAILS_MIN, DETAILS_WIDE_CENTER_MIN, DETAILS_WIDE_MAX,
   SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN,
 } from '@deepseek-ai/dsh-client-ui-layout/src/client/columns.ts'
 
@@ -23,6 +23,7 @@ describe('createLayoutStore', () => {
       sidebar: SIDEBAR_DEFAULT,
       details: 0,
       detailsCenterMinimum: CENTER_MIN,
+      detailsMaximum: DETAILS_MAX,
       detailsPanel: 'conversation',
       narrow: false,
       narrowExpanded: false,
@@ -66,6 +67,7 @@ describe('createLayoutStore', () => {
       sidebar: 400,
       details: 0,
       detailsCenterMinimum: CENTER_MIN,
+      detailsMaximum: DETAILS_MAX,
       detailsPanel: 'conversation',
       narrow: true,
       narrowExpanded: true,
@@ -99,15 +101,24 @@ describe('createLayoutStore', () => {
     expect(store.getSnapshot().details).toBe(0)
   })
 
-  it('wide details requests the maximum width and compact center floor', () => {
+  it('wide details opens at 520px but permits document-scale dragging', () => {
     const { store, actions } = createLayoutStore().create()
     actions.openDetails('conversation', 'wide')
     expect(store.getSnapshot()).toMatchObject({
       details: DETAILS_MAX,
       detailsCenterMinimum: DETAILS_WIDE_CENTER_MIN,
+      detailsMaximum: DETAILS_WIDE_MAX,
     })
+    actions.setDetails(9999)
+    expect(store.getSnapshot().details).toBe(DETAILS_WIDE_MAX)
+    actions.openDetails('conversation', 'wide')
+    expect(store.getSnapshot().details).toBe(DETAILS_WIDE_MAX)
     actions.openDetails('conversation')
-    expect(store.getSnapshot().detailsCenterMinimum).toBe(CENTER_MIN)
+    expect(store.getSnapshot()).toMatchObject({
+      details: DETAILS_MAX,
+      detailsCenterMinimum: CENTER_MIN,
+      detailsMaximum: DETAILS_MAX,
+    })
   })
 
   it('does not persist panel geometry', () => {
@@ -122,6 +133,7 @@ describe('createLayoutStore', () => {
       sidebar: SIDEBAR_DEFAULT,
       details: 0,
       detailsCenterMinimum: CENTER_MIN,
+      detailsMaximum: DETAILS_MAX,
       detailsPanel: 'conversation',
       narrow: false,
       narrowExpanded: false,

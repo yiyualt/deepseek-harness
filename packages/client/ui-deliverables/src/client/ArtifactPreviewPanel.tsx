@@ -4,12 +4,14 @@ import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DetailsOwnerProps } from '@deepseek-ai/dsh-client-ui-layout/client'
 import { useState, type FormEvent } from 'react'
+import type { GenOfficeDocxBlock } from '@deepseek-ai/dsh-client-connection/client'
 import type { ArtifactPreviewState } from './artifact-preview-store.ts'
 import type { NS } from './locales.ts'
 import css from './ArtifactPreviewPanel.module.css'
 import { OnlyOfficeEditor } from './OnlyOfficeEditor.tsx'
 import { MarkdownEditor } from './MarkdownEditor.tsx'
 import { TencentDocsPreview } from './TencentDocsPreview.tsx'
+import { GenOfficeDocxEditor } from './GenOfficeDocxEditor.tsx'
 
 /** Layout action injected into the preview entry. */
 export interface ArtifactPreviewPanelInjected {
@@ -27,6 +29,10 @@ export interface ArtifactPreviewPanelInjected {
   editMarkdown: (id: string, content: string) => void
   /** Save one Markdown tab's current draft. */
   saveMarkdown: (id: string) => void
+  /** Replace one DOCX rich-text draft. */
+  editGenOfficeDocx: (id: string, blocks: GenOfficeDocxBlock[]) => void
+  /** Save one local GenOffice DOCX draft. */
+  saveGenOfficeDocx: (id: string) => void
   /** Close one preview tab. */
   closePreviewTab: (id: string) => void
   /** Close the shared right column without discarding its tabs. */
@@ -82,7 +88,8 @@ function UrlEntry({ id, openPreviewUrl, t }: {
 /** Render retained artifact previews as a browser-style tab strip. */
 export function ArtifactPreviewPanel({
   usePreview, activatePreview, newPreviewTab, openPreviewUrl,
-  editMarkdown, saveMarkdown, closePreviewTab, closePreview, t,
+  editMarkdown, saveMarkdown, editGenOfficeDocx, saveGenOfficeDocx,
+  closePreviewTab, closePreview, t,
 }: ArtifactPreviewPanelProps) {
   const preview = usePreview(state => state)
   const active = preview.tabs.find(tab => tab.id === preview.activeId)
@@ -163,6 +170,27 @@ export function ArtifactPreviewPanel({
               referrerPolicy="no-referrer"
             />
           </div>
+        ))}
+        {preview.tabs.map(tab => (
+          tab.status === 'ready'
+          && tab.kind === 'genoffice-docx'
+          && tab.genOfficeGrantId !== undefined
+          && tab.genOfficeBlocks !== undefined
+          && (
+            <div
+              key={tab.id}
+              className={css.framePane}
+              role="tabpanel"
+              hidden={tab.id !== preview.activeId}
+            >
+              <GenOfficeDocxEditor
+                tab={tab}
+                edit={(blocks) => { editGenOfficeDocx(tab.id, blocks) }}
+                save={() => { saveGenOfficeDocx(tab.id) }}
+                t={t}
+              />
+            </div>
+          )
         ))}
         {preview.tabs.map(tab => (
           tab.status === 'ready'

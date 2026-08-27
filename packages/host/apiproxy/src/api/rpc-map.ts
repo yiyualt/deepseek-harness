@@ -45,6 +45,7 @@ export interface RpcMethodMap {
   'host.openPath': HostApi['openPath']
   'host.prepareArtifactPreview': HostApi['prepareArtifactPreview']
   'host.saveMarkdownArtifact': HostApi['saveMarkdownArtifact']
+  'host.saveGenOfficeDocxArtifact': HostApi['saveGenOfficeDocxArtifact']
   'workspace.list': WorkspaceApi['list']
   'workspace.create': WorkspaceApi['create']
   'workspace.rename': WorkspaceApi['rename']

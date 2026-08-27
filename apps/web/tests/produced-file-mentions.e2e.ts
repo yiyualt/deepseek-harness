@@ -13,6 +13,7 @@ import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { CallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { buildBlankDocx, parseDocx, saveDocx } from '@deepseek-ai/dsh-genoffice-docx-engine'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-title'
 import {
@@ -177,7 +178,11 @@ describe('web e2e: inline-code mentions of produced files', () => {
       join(scaffold.workspaceCwd, 'site', 'other.html'),
       '<!doctype html><html><body><h1>Second HTML preview</h1></body></html>',
     )
-    await writeFile(join(scaffold.workspaceCwd, 'site', 'report.docx'), 'fixture-docx')
+    const blankDocx = await buildBlankDocx()
+    const parsedDocx = await parseDocx(blankDocx)
+    await writeFile(join(scaffold.workspaceCwd, 'site', 'report.docx'), await saveDocx(parsedDocx, [{
+      kind: 'generated', block: { type: 'paragraph', runs: [{ text: 'GenOffice original text' }] },
+    }]))
     await writeFile(join(scaffold.workspaceCwd, 'report.pdf'), 'fixture-pdf')
     await writeFile(join(scaffold.workspaceCwd, 'site', 'notes.md'), '# Markdown ready\n\nInitial text.\n')
     await seedSession(scaffold, mentionFixture(), SEED_ID)
@@ -242,9 +247,26 @@ describe('web e2e: inline-code mentions of produced files', () => {
 
     await page.getByRole('button', { name: 'Open site/report.docx', exact: true }).first().click()
     await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(3)
-    await expect.poll(() => preview.getByRole('button', { name: 'Tencent preview docx', exact: true }).count(), {
-      timeout: 10_000,
-    }).toBe(1)
+    const initialPreviewWidth = await preview.evaluate(element => element.getBoundingClientRect().width)
+    const detailsHandle = page.locator('[data-side="details"]')
+    const handleBox = await detailsHandle.boundingBox()
+    if (handleBox === null) throw new Error('details resize handle is not rendered')
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(handleBox.x - 240, handleBox.y + handleBox.height / 2, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(() => preview.evaluate(element => element.getBoundingClientRect().width))
+      .toBeGreaterThan(initialPreviewWidth + 200)
+    const docxDocument = preview.getByLabel('DOCX document editor', { exact: true })
+    await docxDocument.fill('Edited locally with GenOffice')
+    await docxDocument.selectText()
+    await preview.getByRole('button', { name: 'Bold', exact: true }).click()
+    await preview.getByRole('button', { name: 'Save to file', exact: true }).click()
+    await expect.poll(() => preview.getByText('Saved', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
+    const savedDocx = await parseDocx(await readFile(join(scaffold.workspaceCwd, 'site', 'report.docx')))
+    expect(savedDocx.blocks.find(block => !block.hidden)?.runs?.map(run => run.text).join(''))
+      .toBe('Edited locally with GenOffice')
+    expect(savedDocx.blocks.find(block => !block.hidden)?.runs?.[0]?.bold).toBe(true)
 
     await page.getByRole('button', { name: 'Open report.pdf', exact: true }).click()
     await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(4)

@@ -732,10 +732,22 @@ export interface Config {
 ```ts config-catalog
 /** Gateway plugin configuration. */
 export interface Config {
+  /** Enable local GenOffice paragraph editing for DOCX artifacts. */
+  genOfficeDocxEditing?: boolean
+  /** Maximum source and saved DOCX size accepted by the local GenOffice editor. */
+  genOfficeDocxMaxBytes?: number
   /** Document Server origin reachable from the user's browser. */
   onlyOfficeBrowserUrl?: string
   /** Harness origin reachable from the Document Server. */
   onlyOfficeHarnessUrl?: string
+  /** Application id assigned to the Tencent Docs WebSDK integration. */
+  tencentDocsAppId?: string
+  /** Credential reference that resolves the Tencent Docs application secret. */
+  tencentDocsAppSecretEnv?: string
+  /** Public Harness origin reachable by Tencent Docs callback and download requests. */
+  tencentDocsPublicUrl?: string
+  /** Tencent Docs browser SDK URL; the official public bundle is used when absent. */
+  tencentDocsSdkUrl?: string
   /**
    * Whether this deployment can hand paths to a native desktop opener —
    * the `hasDocument` capability the agent-preset roster reports. Absent,
@@ -759,7 +771,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/host/apiproxy/src/index.ts:41`](../packages/host/apiproxy/src/index.ts)
+来源：[`packages/host/apiproxy/src/index.ts:43`](../packages/host/apiproxy/src/index.ts)
 
 <a id="deepseek-aidsh-host-directory-picker-browse"></a>
 

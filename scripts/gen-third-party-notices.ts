@@ -392,6 +392,10 @@ export interface VendoredRow {
   upstream: string
 }
 
+interface LicensedVendoredRow extends VendoredRow {
+  license: 'MIT' | 'Apache-2.0'
+}
+
 /**
  * Parse the vendored-package manifest table out of `vendor/README.md`.
  * @param text - the complete `vendor/README.md` contents.
@@ -416,7 +420,7 @@ export function parseVendoredRows(text: string): VendoredRow[] {
  * disclosed, so a row that stops matching the table format is a hard error
  * rather than a package that quietly vanishes from the notices.
  */
-function collectVendored(): VendoredRow[] {
+function collectVendored(): LicensedVendoredRow[] {
   const rows = parseVendoredRows(readFileSync(resolve(root, 'vendor/README.md'), 'utf8'))
   const onDisk = new Map<string, string>()
   for (const entry of readdirSync(resolve(root, 'vendor'), { withFileTypes: true })) {
@@ -430,15 +434,15 @@ function collectVendored(): VendoredRow[] {
   if (missing.length > 0) {
     throw new Error(`gen-third-party-notices: vendor/README.md has no manifest-table row for ${missing.join(', ')}; its table format changed or the sync is incomplete.`)
   }
-  for (const row of rows) {
+  return rows.map((row): LicensedVendoredRow => {
     const dir = onDisk.get(row.npmName)
     if (dir === undefined) throw new Error(`gen-third-party-notices: vendored package ${row.npmName} from vendor/README.md has no vendor/ directory.`)
     const license = readManifest(`vendor/${dir}/package.json`).license
-    if (license !== 'MIT') {
-      throw new Error(`gen-third-party-notices: vendored ${row.npmName} declares license ${JSON.stringify(license)}; the vendored section assumes MIT throughout.`)
+    if (license !== 'MIT' && license !== 'Apache-2.0') {
+      throw new Error(`gen-third-party-notices: vendored ${row.npmName} declares unsupported license ${JSON.stringify(license)}.`)
     }
-  }
-  return rows
+    return { ...row, license }
+  })
 }
 
 /** Whether a parsed TOML value is a table rather than an array or scalar. */
@@ -582,7 +586,7 @@ function verifyBuildTimePins(): void {
 }
 
 /** SPDX identifiers this project may ship without further review. */
-const PERMISSIVE_LICENSES = new Set(['MIT', 'ISC', 'BSD-2-Clause', 'BSD-3-Clause', 'Apache-2.0', '0BSD', 'Unlicense', 'CC0-1.0', 'BlueOak-1.0.0', 'Python-2.0'])
+const PERMISSIVE_LICENSES = new Set(['MIT', 'MIT-0', 'ISC', 'BSD-2-Clause', 'BSD-3-Clause', 'Apache-2.0', '0BSD', 'Unlicense', 'CC0-1.0', 'BlueOak-1.0.0', 'Python-2.0'])
 
 /** Evaluate a parsed SPDX expression under the repository's license policy. */
 function isPermissiveSpdx(expression: ReturnType<typeof parseSpdx>): boolean {
@@ -699,11 +703,11 @@ The complete npm transitive closure, including the Landlock launcher workspace, 
 
 ## Vendored source (\`vendor/\`)
 
-The Cordis framework and its foundation libraries are source-vendored into this repository rather than consumed from npm, and republished under the \`@deepseek-ai\` scope. All are MIT-licensed; each directory preserves its upstream \`LICENSE\` file. Exact upstream commits and local modifications are recorded in [\`vendor/README.md\`](vendor/README.md).
+The Cordis framework, its foundation libraries, and the GenOffice document engines are source-vendored into this repository rather than consumed from npm, and republished under the \`@deepseek-ai\` scope. Each directory preserves its upstream \`LICENSE\` file. Exact upstream commits and local modifications are recorded in [\`vendor/README.md\`](vendor/README.md).
 
 | Package | Upstream name | Upstream | License |
 | --- | --- | --- | --- |
-${vendored.map(row => `| \`${row.npmName}\` | \`${row.upstreamName}\` | [${row.upstream.replace('https://', '')}](${row.upstream}) | MIT |`).join('\n')}
+${vendored.map(row => `| \`${row.npmName}\` | \`${row.upstreamName}\` | [${row.upstream.replace('https://', '')}](${row.upstream}) | ${row.license} |`).join('\n')}
 
 ## Runtime npm dependencies
 

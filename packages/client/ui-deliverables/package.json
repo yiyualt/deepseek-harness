@@ -48,6 +48,14 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@tiptap/core": "3.30.5",
+    "@tiptap/extension-highlight": "3.30.5",
+    "@tiptap/extension-text-align": "3.30.5",
+    "@tiptap/extension-text-style": "3.30.5",
+    "@tiptap/extension-underline": "3.30.5",
+    "@tiptap/pm": "3.30.5",
+    "@tiptap/react": "3.30.5",
+    "@tiptap/starter-kit": "3.30.5",
     "react": "^18.2.0"
   },
   "peerDependencies": {

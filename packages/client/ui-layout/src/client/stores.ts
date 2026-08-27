@@ -9,7 +9,7 @@
  */
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
 import {
-  CENTER_MIN, clampWidth, DETAILS_DEFAULT, DETAILS_MAX, DETAILS_MIN, DETAILS_WIDE_CENTER_MIN,
+  CENTER_MIN, clampWidth, DETAILS_DEFAULT, DETAILS_MAX, DETAILS_MIN, DETAILS_WIDE_CENTER_MIN, DETAILS_WIDE_MAX,
   SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN,
 } from './columns.ts'
 import type { DetailsPanelId } from './service.ts'
@@ -25,6 +25,7 @@ type LayoutState = {
   sidebar: number
   details: number
   detailsCenterMinimum: number
+  detailsMaximum: number
   detailsPanel: DetailsPanelId
   narrow: boolean
   narrowExpanded: boolean
@@ -59,13 +60,14 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
       sidebar: SIDEBAR_DEFAULT,
       details: 0,
       detailsCenterMinimum: CENTER_MIN,
+      detailsMaximum: DETAILS_MAX,
       detailsPanel: 'conversation',
       narrow: false,
       narrowExpanded: false,
     }),
     actions: {
       setSidebar: (d, px: number) => { d.sidebar = clampWidth(px, SIDEBAR_MIN, SIDEBAR_MAX) },
-      setDetails: (d, px: number) => { d.details = clampWidth(px, DETAILS_MIN, DETAILS_MAX) },
+      setDetails: (d, px: number) => { d.details = clampWidth(px, DETAILS_MIN, d.detailsMaximum) },
       // Narrow toggles flip only the override: the width preference survives
       // untouched, so re-widening restores the pre-squeeze layout.
       toggleSidebar: (d) => {
@@ -80,10 +82,14 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
         d.narrowExpanded = false
       },
       openDetails: (d, panel: DetailsPanelId, mode: 'default' | 'wide' = 'default') => {
+        const wasWide = d.detailsMaximum === DETAILS_WIDE_MAX
         d.detailsPanel = panel
         d.detailsCenterMinimum = mode === 'wide' ? DETAILS_WIDE_CENTER_MIN : CENTER_MIN
-        if (mode === 'wide') d.details = DETAILS_MAX
-        else if (d.details === 0) d.details = DETAILS_DEFAULT
+        d.detailsMaximum = mode === 'wide' ? DETAILS_WIDE_MAX : DETAILS_MAX
+        if (mode === 'wide') {
+          if (!wasWide || d.details === 0) d.details = DETAILS_MAX
+        } else if (d.details === 0) d.details = DETAILS_DEFAULT
+        else d.details = clampWidth(d.details, DETAILS_MIN, DETAILS_MAX)
       },
       closeDetails: (d) => { d.details = 0 },
     },

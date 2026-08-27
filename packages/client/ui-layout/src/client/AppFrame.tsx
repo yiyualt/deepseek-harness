@@ -145,6 +145,7 @@ export function AppFrame({
     sidebarPreference,
     detailsSession === undefined ? 0 : panels.details,
     panels.detailsCenterMinimum,
+    panels.detailsMaximum,
   )
   const colsRef = useRef(cols)
   colsRef.current = cols

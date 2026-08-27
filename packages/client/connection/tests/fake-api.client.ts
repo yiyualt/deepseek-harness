@@ -158,6 +158,9 @@ export class FakeApiClient implements IApiClient {
     saveMarkdownArtifact: payload => this.record(
       'host.saveMarkdownArtifact', payload, Promise.resolve(ok({ revision: payload.revision })),
     ),
+    saveGenOfficeDocxArtifact: payload => this.record(
+      'host.saveGenOfficeDocxArtifact', payload, Promise.resolve(ok({ revision: payload.revision, blocks: [] })),
+    ),
   }
 
   readonly workspace: IApiClient['workspace'] = {

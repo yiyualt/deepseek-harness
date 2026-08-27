@@ -41,10 +41,43 @@ export interface TencentDocsEditorConfig {
   mode: 'simple'
 }
 
+/** Editable run fields exchanged with the browser DOCX editor. */
+export interface GenOfficeDocxRun {
+  text: string
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+  strike?: boolean
+  color?: string
+  sizeHalfPoints?: number
+  font?: string
+  shading?: string
+}
+
+/** One browser-safe DOCX block projected by the local GenOffice engine. */
+export interface GenOfficeDocxBlock {
+  docxIndex: number
+  type: 'paragraph' | 'heading' | 'listItem' | 'table' | 'image' | 'passthrough'
+  text: string
+  editable: boolean
+  runs?: GenOfficeDocxRun[]
+  align?: 'left' | 'center' | 'right' | 'both'
+  level?: number
+  label?: string
+}
+
+/** One editable paragraph value sent back to the local GenOffice engine. */
+export interface GenOfficeDocxEdit {
+  docxIndex: number
+  runs: GenOfficeDocxRun[]
+  align?: 'left' | 'center' | 'right' | 'both'
+}
+
 /** Prepared renderer selected from the artifact's file type. */
 export type ArtifactPreviewValue =
   | { kind: 'html'; name: string; url: string }
   | { kind: 'markdown'; name: string; grantId: string; content: string; revision: string }
+  | { kind: 'genoffice-docx'; name: string; grantId: string; blocks: GenOfficeDocxBlock[]; revision: string }
   | { kind: 'office'; name: string; apiUrl: string; config: OfficeEditorConfig }
   | { kind: 'tencent-docs'; name: string; scriptUrl: string; config: TencentDocsEditorConfig }
 
@@ -138,10 +171,10 @@ export interface HostApi {
   ): Promise<RpcResponse<{ opened: true }>>
 
   /**
-   * Prepare one existing HTML, Markdown, or DOCX file for the Web preview
-   * column. HTML returns a same-origin iframe URL; Markdown returns UTF-8
-   * source and an edit grant; DOCX returns a Host-issued ONLYOFFICE editor
-   * configuration when that integration is configured.
+   * Prepare one existing HTML, Markdown, or supported document file for the
+   * Web preview column. HTML returns a same-origin iframe URL, Markdown returns
+   * UTF-8 source and an edit grant, local GenOffice returns DOCX paragraph
+   * projections, and configured external providers return browser editor data.
    */
   prepareArtifactPreview(
     request: RpcRequest<{ path: string }>,
@@ -155,4 +188,13 @@ export interface HostApi {
   saveMarkdownArtifact(
     request: RpcRequest<{ grantId: string; content: string; revision: string }>,
   ): Promise<RpcResponse<{ revision: string }>>
+
+  /**
+   * Save editable DOCX paragraph values through a local GenOffice grant. The
+   * save fails with `artifact-preview-conflict` when the file changed since
+   * the supplied revision.
+   */
+  saveGenOfficeDocxArtifact(
+    request: RpcRequest<{ grantId: string; edits: GenOfficeDocxEdit[]; revision: string }>,
+  ): Promise<RpcResponse<{ revision: string; blocks: GenOfficeDocxBlock[] }>>
 }

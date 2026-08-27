@@ -119,6 +119,11 @@ import {
 import { canOpenNativePath, openNativePath, openNativeTextFile } from './native-path-opener.ts'
 import { ArtifactPreviewError, ArtifactPreviewGrants } from './artifact-preview.ts'
 import { MarkdownPreviewError, MarkdownPreviewGrants } from './markdown-preview.ts'
+import {
+  DEFAULT_GENOFFICE_DOCX_MAX_BYTES,
+  GenOfficeDocxError,
+  GenOfficeDocxGrants,
+} from './genoffice-docx.ts'
 
 /** Page size when history is called without maxMessages. */
 const DEFAULT_MAX_MESSAGES = 50
@@ -681,6 +686,10 @@ export interface ApiProxyDefaults {
   onlyOffice?: OfficePreviewConfig
   /** Optional Tencent Docs deployment used for read-only Office and PDF previews. */
   tencentDocs?: TencentDocsPreviewConfig
+  /** Enable local GenOffice paragraph editing for DOCX artifacts. */
+  genOfficeDocxEditing?: boolean
+  /** Maximum source and saved DOCX size accepted by the local GenOffice editor. */
+  genOfficeDocxMaxBytes?: number
 }
 
 /** The tool/call payload fields the presenter path reads. */
@@ -1124,6 +1133,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     ?? DEFAULT_COLD_BLANK_PROBE_MAX_BYTES
   const artifactPreviews = new ArtifactPreviewGrants()
   const markdownPreviews = new MarkdownPreviewGrants()
+  const genOfficeDocxPreviews = new GenOfficeDocxGrants({
+    maxBytes: defaults.genOfficeDocxMaxBytes ?? DEFAULT_GENOFFICE_DOCX_MAX_BYTES,
+  })
   const officePreviews = new OfficePreviewGrants(defaults.onlyOffice)
   const tencentDocsPreviews = new TencentDocsPreviewGrants(defaults.tencentDocs)
   /** The seed model each create/resume declares; re-read so it never goes stale. */
@@ -3029,6 +3041,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
 
       async prepareArtifactPreview(request) {
         try {
+          if (defaults.genOfficeDocxEditing === true && /\.docx$/i.test(request.payload.path)) {
+            return ok(request, await genOfficeDocxPreviews.prepare(request.payload.path))
+          }
           if (
             defaults.tencentDocs !== undefined
             && /\.(?:doc|docx|txt|xls|xlsx|csv|ppt|pptx|pdf)$/i.test(request.payload.path)
@@ -3048,6 +3063,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             && !(error instanceof MarkdownPreviewError)
             && !(error instanceof OfficePreviewError)
             && !(error instanceof TencentDocsPreviewError)
+            && !(error instanceof GenOfficeDocxError)
           ) throw error
           return err(request, {
             code: error.reason === 'unsupported'
@@ -3070,6 +3086,23 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           ))
         } catch (error: unknown) {
           if (!(error instanceof MarkdownPreviewError)) throw error
+          return err(request, {
+            code: error.reason === 'conflict' ? 'artifact-preview-conflict' : 'artifact-preview-unavailable',
+            message: error.message,
+            details: { path: error.path },
+          })
+        }
+      },
+
+      async saveGenOfficeDocxArtifact(request) {
+        try {
+          return ok(request, await genOfficeDocxPreviews.save(
+            request.payload.grantId,
+            request.payload.edits,
+            request.payload.revision,
+          ))
+        } catch (error: unknown) {
+          if (!(error instanceof GenOfficeDocxError)) throw error
           return err(request, {
             code: error.reason === 'conflict' ? 'artifact-preview-conflict' : 'artifact-preview-unavailable',
             message: error.message,

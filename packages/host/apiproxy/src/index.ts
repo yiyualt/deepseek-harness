@@ -18,6 +18,7 @@ import type {} from '@deepseek-ai/dsh-agent-default-model'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import type { ApiProxy } from './api/index.ts'
 import { createApiProxy, DEFAULT_COLD_BLANK_PROBE_MAX_BYTES } from './api-proxy.ts'
+import { DEFAULT_GENOFFICE_DOCX_MAX_BYTES } from './genoffice-docx.ts'
 import {
   DEFAULT_SESSION_LOG_COMPRESSION_LEVEL,
   type SessionLogCompressionLevel,
@@ -40,6 +41,10 @@ declare module '@deepseek-ai/cordis' {
 
 /** Gateway plugin configuration. */
 export interface Config {
+  /** Enable local GenOffice paragraph editing for DOCX artifacts. */
+  genOfficeDocxEditing?: boolean
+  /** Maximum source and saved DOCX size accepted by the local GenOffice editor. */
+  genOfficeDocxMaxBytes?: number
   /** Document Server origin reachable from the user's browser. */
   onlyOfficeBrowserUrl?: string
   /** Harness origin reachable from the Document Server. */
@@ -86,6 +91,8 @@ export class ApiProxyService extends Service implements ApiProxy {
   ]
 
   static Config: z<Config> = z.object({
+    genOfficeDocxEditing: z.boolean().default(false),
+    genOfficeDocxMaxBytes: z.natural().min(1).default(DEFAULT_GENOFFICE_DOCX_MAX_BYTES),
     onlyOfficeBrowserUrl: z.string(),
     onlyOfficeHarnessUrl: z.string(),
     tencentDocsAppId: z.string(),
@@ -141,6 +148,8 @@ export class ApiProxyService extends Service implements ApiProxy {
       defaultModelSelection: () => ctx.agentDefaultModel.currentSelection(),
       saveDefaultModelSelection: selection => ctx.agentDefaultModel.saveSelection(selection),
       cwd: process.cwd(),
+      genOfficeDocxEditing: config.genOfficeDocxEditing ?? false,
+      genOfficeDocxMaxBytes: config.genOfficeDocxMaxBytes ?? DEFAULT_GENOFFICE_DOCX_MAX_BYTES,
       ...(onlyOffice === undefined ? {} : { onlyOffice }),
       ...(tencentDocs === undefined ? {} : { tencentDocs }),
       ...config.nativeOpen === undefined ? {} : { canOpenPath: () => config.nativeOpen as boolean },

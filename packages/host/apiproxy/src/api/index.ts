@@ -48,7 +48,8 @@ export type {
   SessionListMetadata, SessionProjectionsBlock, SessionSearchItem, SessionsApi, SessionSummary,
 } from './sessions.ts'
 export type {
-  ArtifactPreviewValue, DirectoryEntry, DirectoryListing, HostApi, OfficeEditorConfig,
+  ArtifactPreviewValue, DirectoryEntry, DirectoryListing, GenOfficeDocxBlock, GenOfficeDocxEdit, GenOfficeDocxRun,
+  HostApi, OfficeEditorConfig,
   TencentDocsEditorConfig, TencentDocsOfficeType,
 } from './host.ts'
 export type {

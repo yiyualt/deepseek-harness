@@ -192,6 +192,9 @@ export class FakeApiClient implements IApiClient {
     saveMarkdownArtifact: (payload: { revision: string }) => this.record(
       'host.saveMarkdownArtifact', payload, Promise.resolve(ok({ revision: payload.revision })),
     ),
+    saveGenOfficeDocxArtifact: (payload: { revision: string }) => this.record(
+      'host.saveGenOfficeDocxArtifact', payload, Promise.resolve(ok({ revision: payload.revision, blocks: [] })),
+    ),
   }
 
   // The archive-set field defaults at the binding below so list stubs keep

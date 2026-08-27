@@ -1,6 +1,6 @@
 /** Artifact interception with Host preparation for the preview panel. */
 
-import type { IApiClient, SessionId } from '@deepseek-ai/dsh-client-connection/client'
+import type { GenOfficeDocxBlock, IApiClient, SessionId } from '@deepseek-ai/dsh-client-connection/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ChatFilePreview, ChatFilePreviewRequest } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ILayout } from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -193,6 +193,83 @@ export class ArtifactPreviewController implements ChatFilePreview {
     }
   }
 
+  /**
+   * Replace one DOCX rich-text draft.
+   * @param sessionId Session that owns the tab.
+   * @param id GenOffice DOCX tab id.
+   * @param blocks Complete browser-safe block values.
+   */
+  editGenOfficeDocx(sessionId: SessionId, id: string, blocks: GenOfficeDocxBlock[]): void {
+    this.sourceFor(sessionId).update((state) => {
+      const tab = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-docx')
+      if (tab === undefined) return
+      tab.genOfficeBlocks = structuredClone(blocks)
+      delete tab.genOfficeConflict
+      delete tab.genOfficeError
+    })
+  }
+
+  /**
+   * Save one local DOCX draft through its GenOffice Host grant.
+   * @param sessionId Session that owns the tab.
+   * @param id GenOffice DOCX tab id.
+   */
+  async saveGenOfficeDocx(sessionId: SessionId, id: string): Promise<void> {
+    const store = this.sourceFor(sessionId)
+    const tab = store.getSnapshot().tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-docx')
+    if (
+      tab?.genOfficeGrantId === undefined
+      || tab.genOfficeBlocks === undefined
+      || tab.genOfficeRevision === undefined
+      || tab.genOfficeSaving === true
+    ) return
+    const revision = tab.genOfficeRevision
+    const edits = tab.genOfficeBlocks
+      .filter(block => block.editable)
+      .map(block => ({
+        docxIndex: block.docxIndex,
+        runs: block.runs ?? [{ text: block.text }],
+        ...(block.align === undefined ? {} : { align: block.align }),
+      }))
+    store.update((state) => {
+      const target = state.tabs.find(candidate => candidate.id === id)
+      if (target === undefined) return
+      target.genOfficeSaving = true
+      delete target.genOfficeConflict
+      delete target.genOfficeError
+    })
+    try {
+      const response = await this.api.host.saveGenOfficeDocxArtifact({
+        grantId: tab.genOfficeGrantId,
+        edits,
+        revision,
+      })
+      const result = response.result
+      store.update((state) => {
+        const target = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-docx')
+        if (target === undefined) return
+        target.genOfficeSaving = false
+        if (result.ok) {
+          target.genOfficeBlocks = structuredClone(result.value.blocks)
+          target.genOfficeSavedBlocks = structuredClone(result.value.blocks)
+          target.genOfficeRevision = result.value.revision
+          delete target.genOfficeConflict
+          delete target.genOfficeError
+        } else {
+          target.genOfficeConflict = result.error.code === 'artifact-preview-conflict'
+          target.genOfficeError = result.error.message
+        }
+      })
+    } catch (error: unknown) {
+      store.update((state) => {
+        const target = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-docx')
+        if (target === undefined) return
+        target.genOfficeSaving = false
+        target.genOfficeError = error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
   /** Claim supported paths, add or activate their tab, and prepare its renderer. */
   async open(request: ChatFilePreviewRequest): Promise<boolean> {
     if (
@@ -250,6 +327,10 @@ export class ArtifactPreviewController implements ChatFilePreview {
             delete tab.officeConfig
             delete tab.tencentDocsScriptUrl
             delete tab.tencentDocsConfig
+            delete tab.genOfficeGrantId
+            delete tab.genOfficeBlocks
+            delete tab.genOfficeSavedBlocks
+            delete tab.genOfficeRevision
           } else if (prepared.kind === 'markdown') {
             tab.markdownGrantId = prepared.grantId
             tab.markdownContent = prepared.content
@@ -259,6 +340,27 @@ export class ArtifactPreviewController implements ChatFilePreview {
             delete tab.markdownConflict
             delete tab.markdownError
             delete tab.url
+            delete tab.officeApiUrl
+            delete tab.officeConfig
+            delete tab.tencentDocsScriptUrl
+            delete tab.tencentDocsConfig
+            delete tab.genOfficeGrantId
+            delete tab.genOfficeBlocks
+            delete tab.genOfficeSavedBlocks
+            delete tab.genOfficeRevision
+          } else if (prepared.kind === 'genoffice-docx') {
+            tab.genOfficeGrantId = prepared.grantId
+            tab.genOfficeBlocks = structuredClone(prepared.blocks)
+            tab.genOfficeSavedBlocks = structuredClone(prepared.blocks)
+            tab.genOfficeRevision = prepared.revision
+            tab.genOfficeSaving = false
+            delete tab.genOfficeConflict
+            delete tab.genOfficeError
+            delete tab.url
+            delete tab.markdownGrantId
+            delete tab.markdownContent
+            delete tab.markdownSavedContent
+            delete tab.markdownRevision
             delete tab.officeApiUrl
             delete tab.officeConfig
             delete tab.tencentDocsScriptUrl
@@ -273,6 +375,10 @@ export class ArtifactPreviewController implements ChatFilePreview {
             delete tab.markdownRevision
             delete tab.tencentDocsScriptUrl
             delete tab.tencentDocsConfig
+            delete tab.genOfficeGrantId
+            delete tab.genOfficeBlocks
+            delete tab.genOfficeSavedBlocks
+            delete tab.genOfficeRevision
           } else {
             tab.tencentDocsScriptUrl = prepared.scriptUrl
             tab.tencentDocsConfig = prepared.config
@@ -283,6 +389,10 @@ export class ArtifactPreviewController implements ChatFilePreview {
             delete tab.markdownRevision
             delete tab.officeApiUrl
             delete tab.officeConfig
+            delete tab.genOfficeGrantId
+            delete tab.genOfficeBlocks
+            delete tab.genOfficeSavedBlocks
+            delete tab.genOfficeRevision
           }
           delete tab.error
         })
@@ -322,6 +432,10 @@ export class ArtifactPreviewController implements ChatFilePreview {
           delete tab.markdownContent
           delete tab.markdownSavedContent
           delete tab.markdownRevision
+          delete tab.genOfficeGrantId
+          delete tab.genOfficeBlocks
+          delete tab.genOfficeSavedBlocks
+          delete tab.genOfficeRevision
         })
       }
     } catch (error: unknown) {
@@ -340,6 +454,10 @@ export class ArtifactPreviewController implements ChatFilePreview {
         delete tab.markdownContent
         delete tab.markdownSavedContent
         delete tab.markdownRevision
+        delete tab.genOfficeGrantId
+        delete tab.genOfficeBlocks
+        delete tab.genOfficeSavedBlocks
+        delete tab.genOfficeRevision
       })
     }
     return true

@@ -85,6 +85,40 @@ export const hostSaveMarkdownArtifactRequestSchema = z.object({
   revision: z.string().length(64),
 }) satisfies z.ZodType<Wire<RequestPayload<'host.saveMarkdownArtifact'>>>
 
+/** host.saveGenOfficeDocxArtifact request payload. */
+const genOfficeDocxRunSchema = z.object({
+  text: z.string(),
+  bold: z.boolean().optional(),
+  italic: z.boolean().optional(),
+  underline: z.boolean().optional(),
+  strike: z.boolean().optional(),
+  color: z.string().regex(/^[0-9A-F]{6}$/).optional(),
+  sizeHalfPoints: z.number().int().min(2).max(326).optional(),
+  font: z.string().min(1).max(128).optional(),
+  shading: z.string().regex(/^[0-9A-F]{6}$/).optional(),
+})
+
+const genOfficeDocxBlockSchema = z.object({
+  docxIndex: z.number().int().nonnegative(),
+  type: z.enum(['paragraph', 'heading', 'listItem', 'table', 'image', 'passthrough']),
+  text: z.string(),
+  editable: z.boolean(),
+  runs: z.array(genOfficeDocxRunSchema).optional(),
+  align: z.enum(['left', 'center', 'right', 'both']).optional(),
+  level: z.number().int().min(1).max(9).optional(),
+  label: z.string().optional(),
+})
+
+export const hostSaveGenOfficeDocxArtifactRequestSchema = z.object({
+  grantId: z.uuid(),
+  edits: z.array(z.object({
+    docxIndex: z.number().int().nonnegative(),
+    runs: z.array(genOfficeDocxRunSchema),
+    align: z.enum(['left', 'center', 'right', 'both']).optional(),
+  })),
+  revision: z.string().length(64),
+}) satisfies z.ZodType<Wire<RequestPayload<'host.saveGenOfficeDocxArtifact'>>>
+
 /** host.prepareArtifactPreview response value. */
 export const hostPrepareArtifactPreviewValueSchema = z.union([
   z.object({
@@ -97,6 +131,13 @@ export const hostPrepareArtifactPreviewValueSchema = z.union([
     name: z.string().min(1),
     grantId: z.uuid(),
     content: z.string(),
+    revision: z.string().length(64),
+  }),
+  z.object({
+    kind: z.literal('genoffice-docx'),
+    name: z.string().min(1),
+    grantId: z.uuid(),
+    blocks: z.array(genOfficeDocxBlockSchema),
     revision: z.string().length(64),
   }),
   z.object({
@@ -148,3 +189,9 @@ export const hostPrepareArtifactPreviewValueSchema = z.union([
 export const hostSaveMarkdownArtifactValueSchema = z.object({
   revision: z.string().length(64),
 }) satisfies z.ZodType<Wire<ResponseValue<'host.saveMarkdownArtifact'>>>
+
+/** host.saveGenOfficeDocxArtifact response value. */
+export const hostSaveGenOfficeDocxArtifactValueSchema = z.object({
+  revision: z.string().length(64),
+  blocks: z.array(genOfficeDocxBlockSchema),
+}) satisfies z.ZodType<Wire<ResponseValue<'host.saveGenOfficeDocxArtifact'>>>

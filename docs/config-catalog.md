@@ -730,6 +730,10 @@ Requires: `agentDefaultModel` · `agents` · `attachments` · `directoryPicker` 
 ```ts config-catalog
 /** Gateway plugin configuration. */
 export interface Config {
+  /** Enable local GenOffice paragraph editing for DOCX artifacts. */
+  genOfficeDocxEditing?: boolean
+  /** Maximum source and saved DOCX size accepted by the local GenOffice editor. */
+  genOfficeDocxMaxBytes?: number
   /** Document Server origin reachable from the user's browser. */
   onlyOfficeBrowserUrl?: string
   /** Harness origin reachable from the Document Server. */
@@ -765,7 +769,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/host/apiproxy/src/index.ts:42`](../packages/host/apiproxy/src/index.ts)
+Source: [`packages/host/apiproxy/src/index.ts:43`](../packages/host/apiproxy/src/index.ts)
 
 <a id="deepseek-aidsh-host-directory-picker-browse"></a>
 

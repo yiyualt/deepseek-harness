@@ -24,6 +24,9 @@
       "path": "../../../vendor/schemastery"
     },
     {
+      "path": "../../../vendor/genoffice-docx-engine"
+    },
+    {
       "path": "../../api/remotes/tsconfig.host.json"
     },
     {

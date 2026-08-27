@@ -1,0 +1,30 @@
+{
+  "name": "@deepseek-ai/dsh-genoffice-pptx-engine",
+  "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "directory": "vendor/genoffice-pptx-engine"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": { "types": "./lib/types/index.d.ts", "default": "./lib/index.js" },
+    "./custgeom": { "types": "./lib/types/custgeom.d.ts", "default": "./lib/types/custgeom.js" },
+    "./table-grid": { "types": "./lib/types/table-grid.d.ts", "default": "./lib/types/table-grid.js" },
+    "./identity": { "types": "./lib/types/identity.d.ts", "default": "./lib/types/identity.js" },
+    "./background-promote": { "types": "./lib/types/background-promote.d.ts", "default": "./lib/types/background-promote.js" },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": ["LICENSE", "lib/index.js", "lib/types/**/*.js", "lib/types/**/*.d.ts", "lib/types/**/*.d.ts.map", "src"],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "fast-xml-parser": "^5.3.4",
+    "jszip": "^3.10.1"
+  }
+}

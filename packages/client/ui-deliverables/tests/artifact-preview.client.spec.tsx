@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-import type { TencentDocsEditorConfig } from '@deepseek-ai/dsh-client-connection/client'
+import type { GenOfficeDocxBlock, TencentDocsEditorConfig } from '@deepseek-ai/dsh-client-connection/client'
 import {
   ArtifactPreviewPanel, type ArtifactPreviewPanelProps,
 } from '../src/client/ArtifactPreviewPanel.tsx'
@@ -76,6 +76,10 @@ function successApi() {
       saveMarkdownArtifact: vi.fn(async () => ({
         rpcId: 'save',
         result: { ok: true as const, value: { revision: 'b'.repeat(64) } },
+      })),
+      saveGenOfficeDocxArtifact: vi.fn(async () => ({
+        rpcId: 'save',
+        result: { ok: true as const, value: { revision: 'c'.repeat(64), blocks: [] } },
       })),
     },
   }
@@ -171,6 +175,55 @@ describe('ArtifactPreviewController', () => {
     await controller.saveMarkdown(SID, tab?.id ?? '')
     expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
       markdownConflict: true, markdownError: 'changed on disk', markdownSaving: false,
+    })
+  })
+
+  it('edits and saves GenOffice DOCX paragraphs through the local grant', async () => {
+    const api = successApi()
+    api.host.prepareArtifactPreview.mockResolvedValueOnce({
+      rpcId: 'preview',
+      result: {
+        ok: true,
+        value: {
+          kind: 'genoffice-docx', name: 'essay.docx',
+          grantId: '00000000-0000-4000-8000-000000000004', revision: 'a'.repeat(64),
+          blocks: [{ docxIndex: 0, type: 'paragraph', text: '原文', editable: true, runs: [{ text: '原文' }] }],
+        },
+      },
+    } as never)
+    api.host.saveGenOfficeDocxArtifact.mockResolvedValueOnce({
+      rpcId: 'save',
+      result: {
+        ok: true,
+        value: {
+          revision: 'c'.repeat(64),
+          blocks: [{ docxIndex: 0, type: 'paragraph', text: '修改后', editable: true,
+            runs: [{ text: '修改后', bold: true }], align: 'center' }],
+        },
+      },
+    } as never)
+    const controller = new ArtifactPreviewController(api as never, {
+      openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn(),
+    })
+
+    await controller.open({ sessionId: SID, path: '/workspace/essay.docx' })
+    const tab = controller.sourceFor(SID).getSnapshot().tabs[0]
+    expect(tab).toMatchObject({ kind: 'genoffice-docx', genOfficeBlocks: [{ text: '原文' }] })
+    controller.editGenOfficeDocx(SID, tab?.id ?? '', [{
+      docxIndex: 0, type: 'paragraph', text: '修改后', editable: true,
+      runs: [{ text: '修改后', bold: true }], align: 'center',
+    }])
+    await controller.saveGenOfficeDocx(SID, tab?.id ?? '')
+    expect(api.host.saveGenOfficeDocxArtifact).toHaveBeenCalledWith({
+      grantId: '00000000-0000-4000-8000-000000000004',
+      revision: 'a'.repeat(64),
+      edits: [{ docxIndex: 0, runs: [{ text: '修改后', bold: true }], align: 'center' }],
+    })
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
+      genOfficeRevision: 'c'.repeat(64),
+      genOfficeBlocks: [{ text: '修改后' }],
+      genOfficeSavedBlocks: [{ text: '修改后' }],
+      genOfficeSaving: false,
     })
   })
 
@@ -334,6 +387,8 @@ function panelProps(
     closePreview?: () => void
     editMarkdown?: (id: string, content: string) => void
     saveMarkdown?: (id: string) => void
+    editGenOfficeDocx?: (id: string, blocks: GenOfficeDocxBlock[]) => void
+    saveGenOfficeDocx?: (id: string) => void
   } = {},
 ): ArtifactPreviewPanelProps {
   return {
@@ -352,6 +407,8 @@ function panelProps(
     closePreview: actions.closePreview ?? vi.fn(),
     editMarkdown: actions.editMarkdown ?? vi.fn(),
     saveMarkdown: actions.saveMarkdown ?? vi.fn(),
+    editGenOfficeDocx: actions.editGenOfficeDocx ?? vi.fn(),
+    saveGenOfficeDocx: actions.saveGenOfficeDocx ?? vi.fn(),
     t: (key: string, params?: Record<string, string>) => {
       if (key === 'preview.frameTitle') return `${params?.name ?? ''} preview`
       if (key === 'preview.closeTab') return `Close ${params?.name ?? ''}`
@@ -594,5 +651,41 @@ describe('ArtifactPreviewPanel', () => {
     state.tabs[0]!.markdownConflict = true
     view.rerender(<ArtifactPreviewPanel {...panelProps(state, { editMarkdown, saveMarkdown })} />)
     expect(view.getByRole('alert').textContent).toBe('preview.markdownConflict')
+  })
+
+  it('renders a continuous GenOffice DOCX editor with formatting controls and protected blocks', () => {
+    const editGenOfficeDocx = vi.fn()
+    const saveGenOfficeDocx = vi.fn()
+    const state: ArtifactPreviewState = {
+      activeId: 'docx',
+      tabs: [{
+        id: 'docx', status: 'ready', requestId: 1, kind: 'genoffice-docx',
+        name: 'essay.docx', path: '/essay.docx',
+        genOfficeGrantId: 'grant', genOfficeRevision: 'a'.repeat(64),
+        genOfficeBlocks: [
+          { docxIndex: 0, type: 'paragraph', text: '原文', editable: true, runs: [{ text: '原文' }] },
+          { docxIndex: 1, type: 'table', text: '表格预览', editable: false, label: 'Table 2×2' },
+        ],
+        genOfficeSavedBlocks: [
+          { docxIndex: 0, type: 'paragraph', text: '原文', editable: true, runs: [{ text: '原文' }] },
+          { docxIndex: 1, type: 'table', text: '表格预览', editable: false, label: 'Table 2×2' },
+        ],
+      }],
+    }
+    const view = render(<ArtifactPreviewPanel {...panelProps(state, {
+      editGenOfficeDocx, saveGenOfficeDocx,
+    })} />)
+    expect(view.getByText('Table 2×2')).toBeDefined()
+    expect(view.getByRole('toolbar', { name: 'preview.genOfficeToolbar' })).toBeDefined()
+    expect(view.getByLabelText('preview.genOfficeDocument').getAttribute('contenteditable')).toBe('true')
+    expect(view.getByRole('button', { name: 'preview.genOfficeBold' })).toBeDefined()
+    expect(view.getByRole('button', { name: 'preview.genOfficeSave' }).hasAttribute('disabled')).toBe(true)
+
+    state.tabs[0]!.genOfficeBlocks![0] = {
+      docxIndex: 0, type: 'paragraph', text: '修改后', editable: true, runs: [{ text: '修改后', bold: true }],
+    }
+    view.rerender(<ArtifactPreviewPanel {...panelProps(state, { editGenOfficeDocx, saveGenOfficeDocx })} />)
+    fireEvent.click(view.getByRole('button', { name: 'preview.genOfficeSave' }))
+    expect(saveGenOfficeDocx).toHaveBeenCalledWith('docx')
   })
 })

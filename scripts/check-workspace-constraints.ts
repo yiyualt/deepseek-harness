@@ -30,6 +30,8 @@ const vendoredPackages = new Set([
   '@deepseek-ai/cordis-plugin-timer',
   '@deepseek-ai/cordis-plugin-hmr',
   '@deepseek-ai/cordis-plugin-logger-console',
+  '@deepseek-ai/dsh-genoffice-docx-engine',
+  '@deepseek-ai/dsh-genoffice-pptx-engine',
 ])
 const publicLandlockPackages = new Set([
   '@deepseek-ai/node-addon-landlock-run',
@@ -135,6 +137,7 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh-base': ['cordis.patch.yml'],
   '@deepseek-ai/dsh-web-app': ['cordis.patch.yml'],
   '@deepseek-ai/dsh-headless': ['cordis.patch.yml'],
+  '@deepseek-ai/dsh-host-apiproxy': ['GENOFFICE-LICENSE'],
   '@deepseek-ai/dsh-client-ui-theme': ['lib/styles'],
   // The Kingsoft preset-scoped tool Consumer ships beside its Host gateway.
   '@deepseek-ai/dsh-host-kingsoft-docs-connector': ['lib/tool.js'],

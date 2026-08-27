@@ -74,6 +74,10 @@ export function apply(ctx: ClientContext): void {
         openPreviewUrl: (id, url) => preview.openUrl(sessionId, id, url),
         editMarkdown: (id, content) => { preview.editMarkdown(sessionId, id, content) },
         saveMarkdown: (id) => { void preview.saveMarkdown(sessionId, id) },
+        editGenOfficeDocx: (id, blocks) => {
+          preview.editGenOfficeDocx(sessionId, id, blocks)
+        },
+        saveGenOfficeDocx: (id) => { void preview.saveGenOfficeDocx(sessionId, id) },
         closePreviewTab: (id) => { preview.close(sessionId, id) },
         closePreview: () => { ctx.layout.closeDetails() },
       }),

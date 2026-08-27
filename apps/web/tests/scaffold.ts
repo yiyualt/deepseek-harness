@@ -433,24 +433,22 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // workspace, keeping the composition untouched.
     { id: 'agent-instructions', disabled: true },
     { id: 'session-title-llm', disabled: true },
-    ...options.onlyOffice === undefined
+    ...options.onlyOffice === undefined && options.tencentDocs === undefined
       ? []
       : [{
         id: 'api-gateway',
         config: {
-          onlyOfficeBrowserUrl: options.onlyOffice.browserUrl,
-          onlyOfficeHarnessUrl: options.onlyOffice.harnessUrl,
-        },
-      }],
-    ...options.tencentDocs === undefined
-      ? []
-      : [{
-        id: 'api-gateway',
-        config: {
-          tencentDocsAppId: options.tencentDocs.appId,
-          tencentDocsAppSecretEnv: options.tencentDocs.appSecretEnv,
-          tencentDocsPublicUrl: options.tencentDocs.publicUrl,
-          tencentDocsSdkUrl: options.tencentDocs.sdkUrl,
+          genOfficeDocxEditing: true,
+          ...(options.onlyOffice === undefined ? {} : {
+            onlyOfficeBrowserUrl: options.onlyOffice.browserUrl,
+            onlyOfficeHarnessUrl: options.onlyOffice.harnessUrl,
+          }),
+          ...(options.tencentDocs === undefined ? {} : {
+            tencentDocsAppId: options.tencentDocs.appId,
+            tencentDocsAppSecretEnv: options.tencentDocs.appSecretEnv,
+            tencentDocsPublicUrl: options.tencentDocs.publicUrl,
+            tencentDocsSdkUrl: options.tencentDocs.sdkUrl,
+          }),
         },
       }],
     // Fixture sessions must never leave the process: the shipped row defaults

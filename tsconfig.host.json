@@ -118,6 +118,8 @@
     { "path": "./vendor/timer" },
     { "path": "./vendor/hmr" },
     { "path": "./vendor/logger-console" },
+    { "path": "./vendor/genoffice-pptx-engine" },
+    { "path": "./vendor/genoffice-docx-engine" },
     { "path": "./packages/util/brand" },
     { "path": "./packages/util/launch-environment" },
     { "path": "./packages/util/native-command" },

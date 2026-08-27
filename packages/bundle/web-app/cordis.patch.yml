@@ -139,6 +139,7 @@
     - id: api-gateway
       name: '@deepseek-ai/dsh-host-apiproxy'
       config:
+        genOfficeDocxEditing: true
         onlyOfficeBrowserUrl: !!js process.env.DSH_ONLYOFFICE_URL
         onlyOfficeHarnessUrl: !!js process.env.DSH_ONLYOFFICE_HARNESS_URL
         tencentDocsAppId: !!js process.env.DSH_TENCENT_DOCS_APP_ID

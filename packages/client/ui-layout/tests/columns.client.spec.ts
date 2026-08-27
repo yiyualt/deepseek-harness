@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   CENTER_MIN, clampWidth, computeColumns,
-  DETAILS_DEFAULT, DETAILS_MAX, DETAILS_MIN, DETAILS_WIDE_CENTER_MIN,
+  DETAILS_DEFAULT, DETAILS_MAX, DETAILS_MIN, DETAILS_WIDE_CENTER_MIN, DETAILS_WIDE_MAX,
   SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT, SIDEBAR_MIN,
 } from '@deepseek-ai/dsh-client-ui-layout/src/client/columns.ts'
 
@@ -89,6 +89,13 @@ describe('computeColumns', () => {
   it('uses a caller-provided center floor for wide details occupants', () => {
     expect(computeColumns(1280, open(SIDEBAR_DEFAULT), open(DETAILS_MAX), DETAILS_WIDE_CENTER_MIN))
       .toEqual({ sidebar: SIDEBAR_DEFAULT, center: DETAILS_WIDE_CENTER_MIN, details: DETAILS_MAX })
+  })
+
+  it('allows document-scale details while preserving the wide center floor', () => {
+    expect(computeColumns(
+      SIDEBAR_DEFAULT + DETAILS_WIDE_MAX + DETAILS_WIDE_CENTER_MIN,
+      open(SIDEBAR_DEFAULT), open(9999), DETAILS_WIDE_CENTER_MIN, DETAILS_WIDE_MAX,
+    )).toEqual({ sidebar: SIDEBAR_DEFAULT, center: DETAILS_WIDE_CENTER_MIN, details: DETAILS_WIDE_MAX })
   })
 })
 
