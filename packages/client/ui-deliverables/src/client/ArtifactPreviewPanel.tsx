@@ -4,7 +4,7 @@ import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DetailsOwnerProps } from '@deepseek-ai/dsh-client-ui-layout/client'
 import { useState, type FormEvent } from 'react'
-import type { GenOfficeDocxBlock } from '@deepseek-ai/dsh-client-connection/client'
+import type { GenOfficeDocxBlock, GenOfficeXlsxEdit } from '@deepseek-ai/dsh-client-connection/client'
 import type { ArtifactPreviewState } from './artifact-preview-store.ts'
 import type { NS } from './locales.ts'
 import css from './ArtifactPreviewPanel.module.css'
@@ -12,6 +12,7 @@ import { OnlyOfficeEditor } from './OnlyOfficeEditor.tsx'
 import { MarkdownEditor } from './MarkdownEditor.tsx'
 import { TencentDocsPreview } from './TencentDocsPreview.tsx'
 import { GenOfficeDocxEditor } from './GenOfficeDocxEditor.tsx'
+import { GenOfficeXlsxEditor } from './GenOfficeXlsxEditor.tsx'
 
 /** Layout action injected into the preview entry. */
 export interface ArtifactPreviewPanelInjected {
@@ -33,6 +34,10 @@ export interface ArtifactPreviewPanelInjected {
   editGenOfficeDocx: (id: string, blocks: GenOfficeDocxBlock[]) => void
   /** Save one local GenOffice DOCX draft. */
   saveGenOfficeDocx: (id: string) => void
+  /** Replace one XLSX cell-edit journal. */
+  editGenOfficeXlsx: (id: string, edits: GenOfficeXlsxEdit[]) => void
+  /** Save one local GenOffice XLSX journal. */
+  saveGenOfficeXlsx: (id: string) => void
   /** Close one preview tab. */
   closePreviewTab: (id: string) => void
   /** Close the shared right column without discarding its tabs. */
@@ -89,6 +94,7 @@ function UrlEntry({ id, openPreviewUrl, t }: {
 export function ArtifactPreviewPanel({
   usePreview, activatePreview, newPreviewTab, openPreviewUrl,
   editMarkdown, saveMarkdown, editGenOfficeDocx, saveGenOfficeDocx,
+  editGenOfficeXlsx, saveGenOfficeXlsx,
   closePreviewTab, closePreview, t,
 }: ArtifactPreviewPanelProps) {
   const preview = usePreview(state => state)
@@ -170,6 +176,27 @@ export function ArtifactPreviewPanel({
               referrerPolicy="no-referrer"
             />
           </div>
+        ))}
+        {preview.tabs.map(tab => (
+          tab.status === 'ready'
+          && tab.kind === 'genoffice-xlsx'
+          && tab.genOfficeXlsxGrantId !== undefined
+          && tab.genOfficeXlsxSheets !== undefined
+          && (
+            <div
+              key={tab.id}
+              className={css.framePane}
+              role="tabpanel"
+              hidden={tab.id !== preview.activeId}
+            >
+              <GenOfficeXlsxEditor
+                tab={tab}
+                edit={(edits) => { editGenOfficeXlsx(tab.id, edits) }}
+                save={() => { saveGenOfficeXlsx(tab.id) }}
+                t={t}
+              />
+            </div>
+          )
         ))}
         {preview.tabs.map(tab => (
           tab.status === 'ready'

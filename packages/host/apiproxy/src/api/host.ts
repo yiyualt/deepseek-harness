@@ -73,11 +73,70 @@ export interface GenOfficeDocxEdit {
   align?: 'left' | 'center' | 'right' | 'both'
 }
 
+/** Cell value accepted by the local GenOffice XLSX editor. */
+export type GenOfficeXlsxCellValue = string | number | boolean | null
+
+/** One browser-safe populated XLSX cell. */
+export interface GenOfficeXlsxCell {
+  address: string
+  value: GenOfficeXlsxCellValue
+  formula?: string
+}
+
+/** One browser-safe XLSX worksheet. */
+export interface GenOfficeXlsxSheet {
+  id: string
+  name: string
+  cells: GenOfficeXlsxCell[]
+}
+
+/** One writable XLSX border edge. */
+export interface GenOfficeXlsxBorder {
+  style: 'thin' | 'medium' | 'thick' | 'dashed' | 'dotted' | 'double' | 'hair' | 'dashDot' | 'dashDotDot' | 'mediumDashed' | 'mediumDashDot' | 'mediumDashDotDot' | 'slantDashDot'
+  color?: string
+}
+
+/** Supported XLSX cell-format delta emitted by the browser grid. */
+export interface GenOfficeXlsxStyle {
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+  underlineStyle?: 'single' | 'double'
+  strikethrough?: boolean
+  fontFamily?: string
+  fontSize?: number
+  fontColor?: string | null
+  fillColor?: string | null
+  horizontalAlignment?: 'left' | 'center' | 'right' | 'justify' | 'distributed'
+  verticalAlignment?: 'top' | 'center' | 'bottom'
+  wrapText?: boolean
+  textRotation?: number
+  indent?: number
+  numberFormat?: string
+  borderTop?: GenOfficeXlsxBorder | null
+  borderBottom?: GenOfficeXlsxBorder | null
+  borderLeft?: GenOfficeXlsxBorder | null
+  borderRight?: GenOfficeXlsxBorder | null
+}
+
+/** One cell delta sent back to the local GenOffice XLSX engine. */
+export interface GenOfficeXlsxEdit {
+  sheetName: string
+  row: number
+  column: number
+  writeValue: boolean
+  value: GenOfficeXlsxCellValue
+  formula?: string
+  style?: GenOfficeXlsxStyle
+  styleReset?: boolean
+}
+
 /** Prepared renderer selected from the artifact's file type. */
 export type ArtifactPreviewValue =
   | { kind: 'html'; name: string; url: string }
   | { kind: 'markdown'; name: string; grantId: string; content: string; revision: string }
   | { kind: 'genoffice-docx'; name: string; grantId: string; blocks: GenOfficeDocxBlock[]; revision: string }
+  | { kind: 'genoffice-xlsx'; name: string; grantId: string; sheets: GenOfficeXlsxSheet[]; revision: string }
   | { kind: 'office'; name: string; apiUrl: string; config: OfficeEditorConfig }
   | { kind: 'tencent-docs'; name: string; scriptUrl: string; config: TencentDocsEditorConfig }
 
@@ -197,4 +256,13 @@ export interface HostApi {
   saveGenOfficeDocxArtifact(
     request: RpcRequest<{ grantId: string; edits: GenOfficeDocxEdit[]; revision: string }>,
   ): Promise<RpcResponse<{ revision: string; blocks: GenOfficeDocxBlock[] }>>
+
+  /**
+   * Save XLSX cell deltas through a local GenOffice grant. The save fails
+   * with `artifact-preview-conflict` when the file changed since the supplied
+   * revision.
+   */
+  saveGenOfficeXlsxArtifact(
+    request: RpcRequest<{ grantId: string; edits: GenOfficeXlsxEdit[]; revision: string }>,
+  ): Promise<RpcResponse<{ revision: string }>>
 }

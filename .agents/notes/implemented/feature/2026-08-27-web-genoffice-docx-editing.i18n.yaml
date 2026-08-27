@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-27-web-genoffice-docx-editing.md
-2026-08-27-web-genoffice-docx-editing.md: 4bf3cb8de29ab1be9bf16736f63e1b027977b0a6
-2026-08-27-web-genoffice-docx-editing.zh.md: daac98e9a0831f13cf176b04b95e7078efae5f1d
+2026-08-27-web-genoffice-docx-editing.md: 9767cf439f9d02059ea7513fd0479be056fec884
+2026-08-27-web-genoffice-docx-editing.zh.md: 43c1ce8f311dffc827733b15c1da43c8cab7ac9f

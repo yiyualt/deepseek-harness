@@ -18,6 +18,8 @@ The browser presents editable blocks as one continuous TipTap document page with
 
 Local GenOffice DOCX preparation runs before configured external Office providers when enabled. Deployments can disable it and retain their existing Tencent Docs or legacy DOCX provider behavior. The existing Tencent Docs and ONLYOFFICE notes retain independent value for those deployment choices; neither is archived by this decision.
 
+The same local provider pattern serves XLSX through `genoffice-xlsx`. The Host parses workbook cells with GenOffice, issues a revision-bound grant, and applies value, formula, and supported style deltas through `host.saveGenOfficeXlsxArtifact`. The browser uses GenOffice's free Univer sheet preset, including the ribbon, formula bar, grid, sheet bar, and zoom controls. Save verifies the current hash and atomically replaces the original workbook; untouched OOXML package entries remain intact.
+
 ## Alternatives considered
 
 - **Embed the GenOffice Electron applications** — their renderers depend on Electron preload APIs and are not an embeddable Web SDK.
@@ -29,4 +31,4 @@ Local GenOffice DOCX preparation runs before configured external Office provider
 
 Generated DOCX files can be opened, edited as continuous rich text, and saved back to the same workspace path entirely inside the shipped Web application. Host unit tests exercise formatted GenOffice parse/save round trips and external-change conflicts; client tests cover the ribbon, document surface, draft, and save state; the keyless assembled Web scenario edits a real DOCX and reparses the saved bytes from disk.
 
-This is not a full Word-compatible editor. It protects complex blocks and does not support paragraph insertion or deletion, styles, headers, comments, or page-layout controls. PPTX and XLSX remain on their existing preview paths; their native GenOffice editors require separate browser-safe rendering and save adapters.
+This is not a full Word- or Excel-compatible editor. DOCX protects complex blocks and omits paragraph insertion, headers, comments, and page layout. XLSX supports ordinary cells, formulas, common formatting, and multiple sheets, but not every chart, pivot, drawing, macro, or advanced workbook feature. PPTX remains on its existing preview path and requires a separate browser-safe rendering and save adapter.

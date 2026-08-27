@@ -439,6 +439,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         id: 'api-gateway',
         config: {
           genOfficeDocxEditing: true,
+          genOfficeXlsxEditing: true,
           ...(options.onlyOffice === undefined ? {} : {
             onlyOfficeBrowserUrl: options.onlyOffice.browserUrl,
             onlyOfficeHarnessUrl: options.onlyOffice.harnessUrl,

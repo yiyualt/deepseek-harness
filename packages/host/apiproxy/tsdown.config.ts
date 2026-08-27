@@ -10,6 +10,10 @@ export default defineConfig({
   dts: false,
   clean: false,
   deps: {
-    alwaysBundle: ['@deepseek-ai/dsh-genoffice-docx-engine', '@deepseek-ai/dsh-genoffice-pptx-engine'],
+    alwaysBundle: [
+      '@deepseek-ai/dsh-genoffice-docx-engine',
+      '@deepseek-ai/dsh-genoffice-pptx-engine',
+      '@deepseek-ai/dsh-genoffice-xlsx-engine',
+    ],
   },
 })

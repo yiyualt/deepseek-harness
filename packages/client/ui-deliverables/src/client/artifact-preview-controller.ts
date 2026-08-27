@@ -1,11 +1,13 @@
 /** Artifact interception with Host preparation for the preview panel. */
 
-import type { GenOfficeDocxBlock, IApiClient, SessionId } from '@deepseek-ai/dsh-client-connection/client'
+import type {
+  GenOfficeDocxBlock, GenOfficeXlsxEdit, IApiClient, SessionId,
+} from '@deepseek-ai/dsh-client-connection/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ChatFilePreview, ChatFilePreviewRequest } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ILayout } from '@deepseek-ai/dsh-client-ui-layout/client'
 import {
-  initialArtifactPreviewState, type ArtifactPreviewState,
+  initialArtifactPreviewState, type ArtifactPreviewState, type ArtifactPreviewTab,
 } from './artifact-preview-store.ts'
 
 const HTML_EXTENSION = /\.(?:html?|xhtml)$/i
@@ -14,6 +16,16 @@ const OFFICE_EXTENSION = /\.(?:doc|docx|txt|xls|xlsx|csv|ppt|pptx|pdf)$/i
 
 function basename(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path
+}
+
+function clearGenOfficeXlsx(tab: ArtifactPreviewTab): void {
+  delete tab.genOfficeXlsxGrantId
+  delete tab.genOfficeXlsxSheets
+  delete tab.genOfficeXlsxEdits
+  delete tab.genOfficeXlsxRevision
+  delete tab.genOfficeXlsxSaving
+  delete tab.genOfficeXlsxConflict
+  delete tab.genOfficeXlsxError
 }
 
 function webUrl(rawUrl: string): URL | undefined {
@@ -270,6 +282,77 @@ export class ArtifactPreviewController implements ChatFilePreview {
     }
   }
 
+  /**
+   * Replace one XLSX cell-edit journal.
+   * @param sessionId Session that owns the tab.
+   * @param id GenOffice XLSX tab id.
+   * @param edits Complete pending cell deltas from the embedded grid.
+   */
+  editGenOfficeXlsx(sessionId: SessionId, id: string, edits: GenOfficeXlsxEdit[]): void {
+    this.sourceFor(sessionId).update((state) => {
+      const tab = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-xlsx')
+      if (tab === undefined) return
+      tab.genOfficeXlsxEdits = structuredClone(edits)
+      delete tab.genOfficeXlsxConflict
+      delete tab.genOfficeXlsxError
+    })
+  }
+
+  /**
+   * Save one local XLSX edit journal through its GenOffice Host grant.
+   * @param sessionId Session that owns the tab.
+   * @param id GenOffice XLSX tab id.
+   */
+  async saveGenOfficeXlsx(sessionId: SessionId, id: string): Promise<void> {
+    const store = this.sourceFor(sessionId)
+    const tab = store.getSnapshot().tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-xlsx')
+    if (
+      tab?.genOfficeXlsxGrantId === undefined
+      || tab.genOfficeXlsxRevision === undefined
+      || tab.genOfficeXlsxEdits === undefined
+      || tab.genOfficeXlsxEdits.length === 0
+      || tab.genOfficeXlsxSaving === true
+    ) return
+    const edits = structuredClone(tab.genOfficeXlsxEdits)
+    const revision = tab.genOfficeXlsxRevision
+    store.update((state) => {
+      const target = state.tabs.find(candidate => candidate.id === id)
+      if (target === undefined) return
+      target.genOfficeXlsxSaving = true
+      delete target.genOfficeXlsxConflict
+      delete target.genOfficeXlsxError
+    })
+    try {
+      const response = await this.api.host.saveGenOfficeXlsxArtifact({
+        grantId: tab.genOfficeXlsxGrantId,
+        edits,
+        revision,
+      })
+      const result = response.result
+      store.update((state) => {
+        const target = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-xlsx')
+        if (target === undefined) return
+        target.genOfficeXlsxSaving = false
+        if (result.ok) {
+          target.genOfficeXlsxRevision = result.value.revision
+          target.genOfficeXlsxEdits = []
+          delete target.genOfficeXlsxConflict
+          delete target.genOfficeXlsxError
+        } else {
+          target.genOfficeXlsxConflict = result.error.code === 'artifact-preview-conflict'
+          target.genOfficeXlsxError = result.error.message
+        }
+      })
+    } catch (error: unknown) {
+      store.update((state) => {
+        const target = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-xlsx')
+        if (target === undefined) return
+        target.genOfficeXlsxSaving = false
+        target.genOfficeXlsxError = error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
   /** Claim supported paths, add or activate their tab, and prepare its renderer. */
   async open(request: ChatFilePreviewRequest): Promise<boolean> {
     if (
@@ -317,6 +400,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
           tab.status = 'ready'
           tab.name = prepared.name
           tab.kind = prepared.kind
+          clearGenOfficeXlsx(tab)
           if (prepared.kind === 'html') {
             tab.url = prepared.url
             delete tab.markdownGrantId
@@ -365,6 +449,25 @@ export class ArtifactPreviewController implements ChatFilePreview {
             delete tab.officeConfig
             delete tab.tencentDocsScriptUrl
             delete tab.tencentDocsConfig
+          } else if (prepared.kind === 'genoffice-xlsx') {
+            tab.genOfficeXlsxGrantId = prepared.grantId
+            tab.genOfficeXlsxSheets = structuredClone(prepared.sheets)
+            tab.genOfficeXlsxEdits = []
+            tab.genOfficeXlsxRevision = prepared.revision
+            tab.genOfficeXlsxSaving = false
+            delete tab.url
+            delete tab.markdownGrantId
+            delete tab.markdownContent
+            delete tab.markdownSavedContent
+            delete tab.markdownRevision
+            delete tab.officeApiUrl
+            delete tab.officeConfig
+            delete tab.tencentDocsScriptUrl
+            delete tab.tencentDocsConfig
+            delete tab.genOfficeGrantId
+            delete tab.genOfficeBlocks
+            delete tab.genOfficeSavedBlocks
+            delete tab.genOfficeRevision
           } else if (prepared.kind === 'office') {
             tab.officeApiUrl = prepared.apiUrl
             tab.officeConfig = prepared.config
@@ -436,6 +539,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
           delete tab.genOfficeBlocks
           delete tab.genOfficeSavedBlocks
           delete tab.genOfficeRevision
+          clearGenOfficeXlsx(tab)
         })
       }
     } catch (error: unknown) {
@@ -458,6 +562,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
         delete tab.genOfficeBlocks
         delete tab.genOfficeSavedBlocks
         delete tab.genOfficeRevision
+        clearGenOfficeXlsx(tab)
       })
     }
     return true

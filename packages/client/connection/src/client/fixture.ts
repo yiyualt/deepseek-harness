@@ -2569,6 +2569,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       }),
       saveMarkdownArtifact: request => ok(request, { revision: request.payload.revision }),
       saveGenOfficeDocxArtifact: request => ok(request, { revision: request.payload.revision, blocks: [] }),
+      saveGenOfficeXlsxArtifact: request => ok(request, { revision: request.payload.revision }),
     },
     workspace: {
       list: request => ok(request, {
@@ -3113,6 +3114,7 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'host.prepareArtifactPreview': return this.api.host.prepareArtifactPreview(request)
       case 'host.saveMarkdownArtifact': return this.api.host.saveMarkdownArtifact(request)
       case 'host.saveGenOfficeDocxArtifact': return this.api.host.saveGenOfficeDocxArtifact(request)
+      case 'host.saveGenOfficeXlsxArtifact': return this.api.host.saveGenOfficeXlsxArtifact(request)
       case 'workspace.list': return this.api.workspace.list(request)
       case 'workspace.create': return this.api.workspace.create(request)
       case 'workspace.rename': return this.api.workspace.rename(request)

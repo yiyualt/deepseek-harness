@@ -11,9 +11,11 @@ import { createServer, type Server } from 'node:http'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
+import { strToU8, zipSync } from 'fflate'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { CallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { buildBlankDocx, parseDocx, saveDocx } from '@deepseek-ai/dsh-genoffice-docx-engine'
+import { readBasicWorkbook } from '@deepseek-ai/dsh-genoffice-xlsx-engine'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-title'
 import {
@@ -33,8 +35,20 @@ function text(value: string): { type: 'text'; text: string }[] {
 
 /** The files the built turn writes. */
 const WRITES = [
-  'site/report.html', 'site/other.html', 'site/report.docx', 'site/notes.md', 'a/style.css', 'b/style.css',
+  'site/report.html', 'site/other.html', 'site/report.docx', 'site/report.xlsx', 'site/notes.md',
+  'a/style.css', 'b/style.css',
 ]
+
+/** Minimal ordinary XLSX used by the assembled local-editor path. */
+function xlsxFixture(): Uint8Array {
+  return zipSync({
+    '[Content_Types].xml': strToU8('<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'),
+    '_rels/.rels': strToU8('<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'),
+    'xl/workbook.xml': strToU8('<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>'),
+    'xl/_rels/workbook.xml.rels': strToU8('<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'),
+    'xl/worksheets/sheet1.xml': strToU8('<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Original sheet value</t></is></c></row></sheetData></worksheet>'),
+  })
+}
 
 /** Build a settled write turn whose closing prose mentions files in inline code. */
 function mentionFixture(): string {
@@ -95,7 +109,7 @@ function mentionFixture(): string {
       content: [{
         type: 'text',
         text: [
-          'Wrote `report.html`, `report.docx`, `notes.md`, and preview `report.pdf`, plus two `style.css` copies.',
+          'Wrote `report.html`, `report.docx`, `report.xlsx`, `notes.md`, and preview `report.pdf`, plus two `style.css` copies.',
           '',
           DONE,
         ].join('\n'),
@@ -183,6 +197,7 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await writeFile(join(scaffold.workspaceCwd, 'site', 'report.docx'), await saveDocx(parsedDocx, [{
       kind: 'generated', block: { type: 'paragraph', runs: [{ text: 'GenOffice original text' }] },
     }]))
+    await writeFile(join(scaffold.workspaceCwd, 'site', 'report.xlsx'), xlsxFixture())
     await writeFile(join(scaffold.workspaceCwd, 'report.pdf'), 'fixture-pdf')
     await writeFile(join(scaffold.workspaceCwd, 'site', 'notes.md'), '# Markdown ready\n\nInitial text.\n')
     await seedSession(scaffold, mentionFixture(), SEED_ID)
@@ -216,9 +231,9 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await sessionRow.click()
     await expect.poll(() => page.getByText(DONE, { exact: true }).count(), { timeout: 15_000 }).toBe(1)
 
-    // Exactly four prose mentions link; the shared `style.css` basename stays code.
+    // Exactly five prose mentions link; the shared `style.css` basename stays code.
     const mentions = page.locator('[class*="markdown"] code button')
-    await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(4)
+    await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(5)
     expect(await mentions.first().innerText()).toBe('report.html')
     expect(await mentions.first().getAttribute('aria-label')).toBe('Open site/report.html')
     expect(await mentions.first().getAttribute('title')).toBe('site/report.html')
@@ -268,14 +283,38 @@ describe('web e2e: inline-code mentions of produced files', () => {
       .toBe('Edited locally with GenOffice')
     expect(savedDocx.blocks.find(block => !block.hidden)?.runs?.[0]?.bold).toBe(true)
 
-    await page.getByRole('button', { name: 'Open report.pdf', exact: true }).click()
+    await page.getByRole('button', { name: 'Open site/report.xlsx', exact: true }).first().click()
     await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(4)
+    const spreadsheet = preview.getByLabel('XLSX spreadsheet editor', { exact: true })
+    await spreadsheet.waitFor({ state: 'visible', timeout: 10_000 })
+    const spreadsheetEditor = spreadsheet.locator('..')
+    const canvasBoxes = await spreadsheet.locator('canvas').evaluateAll(elements => elements.map((element) => {
+      const box = element.getBoundingClientRect()
+      return { x: box.x, y: box.y, width: box.width, height: box.height }
+    }))
+    const spreadsheetBox = canvasBoxes.sort((left, right) => right.width * right.height - left.width * left.height)[0]
+    if (spreadsheetBox === undefined) throw new Error('XLSX grid is not rendered')
+    await page.mouse.click(spreadsheetBox.x + 86, spreadsheetBox.y + 35)
+    await spreadsheet.locator('[data-u-comp="editor"]').last().focus()
+    await page.keyboard.type('Edited locally in the grid')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => spreadsheetEditor.getByText('Unsaved changes', { exact: true }).count(), {
+      timeout: 10_000,
+    }).toBe(1)
+    await preview.getByRole('button', { name: 'Save to file', exact: true }).click()
+    await expect.poll(() => spreadsheetEditor.getByText('Saved', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
+    const savedXlsxBytes = await readFile(join(scaffold.workspaceCwd, 'site', 'report.xlsx'))
+    const savedXlsx = await readBasicWorkbook(savedXlsxBytes)
+    expect(savedXlsx.snapshot.sheets[0]?.cells.A1?.value).toBe('Edited locally in the grid')
+
+    await page.getByRole('button', { name: 'Open report.pdf', exact: true }).click()
+    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(5)
     await expect.poll(() => preview.getByRole('button', { name: 'Tencent preview pdf', exact: true }).count(), {
       timeout: 10_000,
     }).toBe(1)
 
     await page.getByRole('button', { name: 'Open site/notes.md', exact: true }).first().click()
-    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(5)
+    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(6)
     const source = preview.getByLabel('Markdown source', { exact: true })
     await source.fill('# Markdown updated\n\nSaved from Web.\n')
     await expect.poll(() => preview.getByRole('heading', { name: 'Markdown updated' }).count(), {

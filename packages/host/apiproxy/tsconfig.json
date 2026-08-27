@@ -27,6 +27,9 @@
       "path": "../../../vendor/genoffice-docx-engine"
     },
     {
+      "path": "../../../vendor/genoffice-xlsx-engine"
+    },
+    {
       "path": "../../api/remotes/tsconfig.host.json"
     },
     {

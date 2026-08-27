@@ -119,6 +119,53 @@ export const hostSaveGenOfficeDocxArtifactRequestSchema = z.object({
   revision: z.string().length(64),
 }) satisfies z.ZodType<Wire<RequestPayload<'host.saveGenOfficeDocxArtifact'>>>
 
+const genOfficeXlsxCellValueSchema = z.union([
+  z.string(), z.number().finite(), z.boolean(), z.null(),
+])
+const genOfficeXlsxBorderSchema = z.object({
+  style: z.enum([
+    'thin', 'medium', 'thick', 'dashed', 'dotted', 'double', 'hair', 'dashDot',
+    'dashDotDot', 'mediumDashed', 'mediumDashDot', 'mediumDashDotDot', 'slantDashDot',
+  ]),
+  color: z.string().regex(/^#[0-9A-F]{6}$/).optional(),
+})
+const genOfficeXlsxStyleSchema = z.object({
+  bold: z.boolean().optional(),
+  italic: z.boolean().optional(),
+  underline: z.boolean().optional(),
+  underlineStyle: z.enum(['single', 'double']).optional(),
+  strikethrough: z.boolean().optional(),
+  fontFamily: z.string().min(1).max(128).optional(),
+  fontSize: z.number().positive().max(409).optional(),
+  fontColor: z.union([z.string().regex(/^#[0-9A-F]{6}$/), z.null()]).optional(),
+  fillColor: z.union([z.string().regex(/^#[0-9A-F]{6}$/), z.null()]).optional(),
+  horizontalAlignment: z.enum(['left', 'center', 'right', 'justify', 'distributed']).optional(),
+  verticalAlignment: z.enum(['top', 'center', 'bottom']).optional(),
+  wrapText: z.boolean().optional(),
+  textRotation: z.union([z.number().int().min(0).max(180), z.literal(255)]).optional(),
+  indent: z.number().int().min(0).max(250).optional(),
+  numberFormat: z.string().min(1).max(255).optional(),
+  borderTop: z.union([genOfficeXlsxBorderSchema, z.null()]).optional(),
+  borderBottom: z.union([genOfficeXlsxBorderSchema, z.null()]).optional(),
+  borderLeft: z.union([genOfficeXlsxBorderSchema, z.null()]).optional(),
+  borderRight: z.union([genOfficeXlsxBorderSchema, z.null()]).optional(),
+})
+
+export const hostSaveGenOfficeXlsxArtifactRequestSchema = z.object({
+  grantId: z.uuid(),
+  edits: z.array(z.object({
+    sheetName: z.string().min(1),
+    row: z.number().int().nonnegative().max(1_048_575),
+    column: z.number().int().nonnegative().max(16_383),
+    writeValue: z.boolean(),
+    value: genOfficeXlsxCellValueSchema,
+    formula: z.string().startsWith('=').max(8_192).optional(),
+    style: genOfficeXlsxStyleSchema.optional(),
+    styleReset: z.boolean().optional(),
+  }).refine(edit => edit.writeValue || edit.style !== undefined || edit.styleReset === true)),
+  revision: z.string().length(64),
+}) satisfies z.ZodType<Wire<RequestPayload<'host.saveGenOfficeXlsxArtifact'>>>
+
 /** host.prepareArtifactPreview response value. */
 export const hostPrepareArtifactPreviewValueSchema = z.union([
   z.object({
@@ -138,6 +185,21 @@ export const hostPrepareArtifactPreviewValueSchema = z.union([
     name: z.string().min(1),
     grantId: z.uuid(),
     blocks: z.array(genOfficeDocxBlockSchema),
+    revision: z.string().length(64),
+  }),
+  z.object({
+    kind: z.literal('genoffice-xlsx'),
+    name: z.string().min(1),
+    grantId: z.uuid(),
+    sheets: z.array(z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      cells: z.array(z.object({
+        address: z.string().regex(/^[A-Z]{1,3}[1-9][0-9]{0,6}$/),
+        value: genOfficeXlsxCellValueSchema,
+        formula: z.string().startsWith('=').max(8_192).optional(),
+      })),
+    })),
     revision: z.string().length(64),
   }),
   z.object({
@@ -195,3 +257,8 @@ export const hostSaveGenOfficeDocxArtifactValueSchema = z.object({
   revision: z.string().length(64),
   blocks: z.array(genOfficeDocxBlockSchema),
 }) satisfies z.ZodType<Wire<ResponseValue<'host.saveGenOfficeDocxArtifact'>>>
+
+/** host.saveGenOfficeXlsxArtifact response value. */
+export const hostSaveGenOfficeXlsxArtifactValueSchema = z.object({
+  revision: z.string().length(64),
+}) satisfies z.ZodType<Wire<ResponseValue<'host.saveGenOfficeXlsxArtifact'>>>

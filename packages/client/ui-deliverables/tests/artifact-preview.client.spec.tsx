@@ -81,6 +81,10 @@ function successApi() {
         rpcId: 'save',
         result: { ok: true as const, value: { revision: 'c'.repeat(64), blocks: [] } },
       })),
+      saveGenOfficeXlsxArtifact: vi.fn(async () => ({
+        rpcId: 'save',
+        result: { ok: true as const, value: { revision: 'd'.repeat(64) } },
+      })),
     },
   }
 }
@@ -224,6 +228,44 @@ describe('ArtifactPreviewController', () => {
       genOfficeBlocks: [{ text: '修改后' }],
       genOfficeSavedBlocks: [{ text: '修改后' }],
       genOfficeSaving: false,
+    })
+  })
+
+  it('edits and saves GenOffice XLSX cells through the local grant', async () => {
+    const api = successApi()
+    api.host.prepareArtifactPreview.mockResolvedValueOnce({
+      rpcId: 'preview',
+      result: {
+        ok: true,
+        value: {
+          kind: 'genoffice-xlsx', name: 'report.xlsx',
+          grantId: '00000000-0000-4000-8000-000000000005', revision: 'a'.repeat(64),
+          sheets: [{ id: 'sheet-1', name: 'Sheet1', cells: [{ address: 'A1', value: 'Original' }] }],
+        },
+      },
+    } as never)
+    const controller = new ArtifactPreviewController(api as never, {
+      openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn(),
+    })
+
+    await controller.open({ sessionId: SID, path: '/workspace/report.xlsx' })
+    const tab = controller.sourceFor(SID).getSnapshot().tabs[0]
+    expect(tab).toMatchObject({ kind: 'genoffice-xlsx', genOfficeXlsxSheets: [{ name: 'Sheet1' }] })
+    controller.editGenOfficeXlsx(SID, tab?.id ?? '', [{
+      sheetName: 'Sheet1', row: 0, column: 0, writeValue: true, value: 'Edited',
+      style: { bold: true },
+    }])
+    await controller.saveGenOfficeXlsx(SID, tab?.id ?? '')
+    expect(api.host.saveGenOfficeXlsxArtifact).toHaveBeenCalledWith({
+      grantId: '00000000-0000-4000-8000-000000000005',
+      revision: 'a'.repeat(64),
+      edits: [{
+        sheetName: 'Sheet1', row: 0, column: 0, writeValue: true, value: 'Edited',
+        style: { bold: true },
+      }],
+    })
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
+      genOfficeXlsxRevision: 'd'.repeat(64), genOfficeXlsxEdits: [], genOfficeXlsxSaving: false,
     })
   })
 
@@ -389,6 +431,8 @@ function panelProps(
     saveMarkdown?: (id: string) => void
     editGenOfficeDocx?: (id: string, blocks: GenOfficeDocxBlock[]) => void
     saveGenOfficeDocx?: (id: string) => void
+    editGenOfficeXlsx?: (id: string, edits: never[]) => void
+    saveGenOfficeXlsx?: (id: string) => void
   } = {},
 ): ArtifactPreviewPanelProps {
   return {
@@ -409,6 +453,8 @@ function panelProps(
     saveMarkdown: actions.saveMarkdown ?? vi.fn(),
     editGenOfficeDocx: actions.editGenOfficeDocx ?? vi.fn(),
     saveGenOfficeDocx: actions.saveGenOfficeDocx ?? vi.fn(),
+    editGenOfficeXlsx: actions.editGenOfficeXlsx ?? vi.fn(),
+    saveGenOfficeXlsx: actions.saveGenOfficeXlsx ?? vi.fn(),
     t: (key: string, params?: Record<string, string>) => {
       if (key === 'preview.frameTitle') return `${params?.name ?? ''} preview`
       if (key === 'preview.closeTab') return `Close ${params?.name ?? ''}`

@@ -1,7 +1,8 @@
 /** Per-session state for the right-column artifact preview. */
 
 import type {
-  GenOfficeDocxBlock, OfficeEditorConfig, TencentDocsEditorConfig,
+  GenOfficeDocxBlock, GenOfficeXlsxEdit, GenOfficeXlsxSheet,
+  OfficeEditorConfig, TencentDocsEditorConfig,
 } from '@deepseek-ai/dsh-client-connection/client'
 
 /** One HTML, Markdown, or Office document retained as a browser-style preview tab. */
@@ -11,7 +12,7 @@ export interface ArtifactPreviewTab {
   requestId: number
   name: string
   path: string
-  kind?: 'html' | 'markdown' | 'genoffice-docx' | 'office' | 'tencent-docs'
+  kind?: 'html' | 'markdown' | 'genoffice-docx' | 'genoffice-xlsx' | 'office' | 'tencent-docs'
   url?: string
   markdownGrantId?: string
   markdownContent?: string
@@ -27,6 +28,13 @@ export interface ArtifactPreviewTab {
   genOfficeSaving?: boolean
   genOfficeConflict?: boolean
   genOfficeError?: string
+  genOfficeXlsxGrantId?: string
+  genOfficeXlsxSheets?: GenOfficeXlsxSheet[]
+  genOfficeXlsxEdits?: GenOfficeXlsxEdit[]
+  genOfficeXlsxRevision?: string
+  genOfficeXlsxSaving?: boolean
+  genOfficeXlsxConflict?: boolean
+  genOfficeXlsxError?: string
   officeApiUrl?: string
   officeConfig?: OfficeEditorConfig
   tencentDocsScriptUrl?: string

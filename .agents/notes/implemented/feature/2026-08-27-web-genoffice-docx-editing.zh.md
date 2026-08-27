@@ -18,6 +18,8 @@ Host 持有路径与 OOXML。准备操作解析真实常规文件，执行可配
 
 启用后，本地 GenOffice DOCX 准备优先于已配置的外部 Office provider。部署可以关闭它，并保留现有腾讯文档或旧有 DOCX provider 行为。已有腾讯文档和 ONLYOFFICE Note 对这些部署选择仍有独立价值，本决策不归档它们。
 
+同一种本地 provider 模式通过 `genoffice-xlsx` 支持 XLSX。Host 使用 GenOffice 解析工作簿单元格，签发与修订值绑定的 grant，并通过 `host.saveGenOfficeXlsxArtifact` 应用值、公式及受支持的格式增量。浏览器使用 GenOffice 的免费 Univer 表格 preset，提供功能区、公式栏、网格、工作表栏和缩放控件。保存会校验当前 hash，原子替换原工作簿，并保留未触及的 OOXML package entry。
+
 ## 考虑过的替代方案
 
 - **嵌入 GenOffice Electron 应用**——其 renderer 依赖 Electron preload API，并不是可嵌入的 Web SDK。
@@ -29,4 +31,4 @@ Host 持有路径与 OOXML。准备操作解析真实常规文件，执行可配
 
 生成的 DOCX 可以在正式 Web 应用内部打开，以连续富文本方式编辑，并保存回工作区中的同一路径。Host 单元测试运行带格式的 GenOffice 解析／保存往返并覆盖外部修改冲突；client 测试覆盖功能区、文档编辑面、草稿与保存状态；无密钥的组装 Web 场景会编辑真实 DOCX，并从磁盘重新解析保存后的字节。
 
-这不是完整的 Word 兼容编辑器。界面禁止编辑复杂 block，也不支持新增或删除段落、样式、页眉、批注或页面布局控件。PPTX 与 XLSX 仍沿用已有预览路径；其原生 GenOffice 编辑器需要各自的浏览器安全渲染和保存 adapter。
+这不是完整的 Word 或 Excel 兼容编辑器。DOCX 会保护复杂 block，且不支持新增段落、页眉、批注与页面布局。XLSX 支持普通单元格、公式、常用格式和多个工作表，但不覆盖所有图表、数据透视表、绘图、宏或高级工作簿功能。PPTX 仍沿用已有预览路径，需要单独的浏览器安全渲染和保存 adapter。

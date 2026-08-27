@@ -539,6 +539,16 @@
   padding: 24px;
 }
 
+.genOfficeSpreadsheet {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: white;
+  color: #202124;
+}
+
 .genOfficePage {
   box-sizing: border-box;
   width: min(816px, 100%);

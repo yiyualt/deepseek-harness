@@ -51,7 +51,11 @@ describe('GenOfficeDocxGrants', () => {
     expect(saved.blocks[0]?.text).toBe('修改后的作文')
     const unchanged = await grants.save(prepared.grantId, saved.blocks
       .filter(block => block.editable)
-      .map(block => ({ docxIndex: block.docxIndex, runs: block.runs ?? [{ text: block.text }], align: block.align })),
+      .map(block => ({
+        docxIndex: block.docxIndex,
+        runs: block.runs ?? [{ text: block.text }],
+        ...(block.align === undefined ? {} : { align: block.align }),
+      })),
     saved.revision)
     expect(unchanged.revision).toBe(saved.revision)
     const reparsed = await parseDocx(await readFile(path))

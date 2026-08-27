@@ -32,6 +32,7 @@ const vendoredPackages = new Set([
   '@deepseek-ai/cordis-plugin-logger-console',
   '@deepseek-ai/dsh-genoffice-docx-engine',
   '@deepseek-ai/dsh-genoffice-pptx-engine',
+  '@deepseek-ai/dsh-genoffice-xlsx-engine',
 ])
 const publicLandlockPackages = new Set([
   '@deepseek-ai/node-addon-landlock-run',

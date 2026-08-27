@@ -87,6 +87,7 @@
   },
   "devDependencies": {
     "@deepseek-ai/dsh-genoffice-docx-engine": "workspace:^",
+    "@deepseek-ai/dsh-genoffice-xlsx-engine": "workspace:^",
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-agent-presets": "workspace:^",
     "@deepseek-ai/dsh-cordis-host-runner": "workspace:^",

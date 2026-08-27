@@ -25,6 +25,7 @@ The Cordis framework, its foundation libraries, and the GenOffice document engin
 | `@deepseek-ai/cordis-plugin-hmr` | `@cordisjs/plugin-hmr` | [github.com/deepseek-harness/cordis](https://github.com/deepseek-harness/cordis) | MIT |
 | `@deepseek-ai/cordis-plugin-logger-console` | `@cordisjs/plugin-logger-console` | [github.com/deepseek-harness/cordis](https://github.com/deepseek-harness/cordis) | MIT |
 | `@deepseek-ai/dsh-genoffice-docx-engine` | `@genoffice/docx-engine` | [github.com/genspark-ai/genoffice](https://github.com/genspark-ai/genoffice) | Apache-2.0 |
+| `@deepseek-ai/dsh-genoffice-xlsx-engine` | `@genoffice/sheets` | [github.com/genspark-ai/genoffice](https://github.com/genspark-ai/genoffice) | Apache-2.0 |
 | `@deepseek-ai/dsh-genoffice-pptx-engine` | `@genoffice/pptx-engine` | [github.com/genspark-ai/genoffice](https://github.com/genspark-ai/genoffice) | Apache-2.0 |
 
 ## Runtime npm dependencies
@@ -59,6 +60,9 @@ External packages that a workspace package resolves at runtime. The tier covers 
 | [`@tiptap/react`](https://github.com/ueberdosis/tiptap) | MIT |
 | [`@tiptap/starter-kit`](https://github.com/ueberdosis/tiptap) | MIT |
 | [`@types/mdast`](https://github.com/DefinitelyTyped/DefinitelyTyped) | MIT |
+| [`@univerjs/core`](https://github.com/dream-num/univer) | Apache-2.0 |
+| [`@univerjs/preset-sheets-core`](https://github.com/dream-num/univer-presets) | Apache-2.0 |
+| [`@univerjs/themes`](https://github.com/dream-num/univer) | Apache-2.0 |
 | [`@vscode/ripgrep`](https://github.com/microsoft/vscode-ripgrep) | MIT |
 | [`anser`](https://github.com/IonicaBizau/anser) | MIT |
 | [`chokidar`](https://github.com/paulmillr/chokidar) | MIT |

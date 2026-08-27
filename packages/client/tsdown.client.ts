@@ -23,6 +23,7 @@ import { PLATFORM_MODULES } from './web/src/platform.ts'
  */
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
+const RAW_CSS_VIRTUAL_PREFIX = '\0dsh-raw-css:'
 
 /**
  * Wire/type layers a client bundle may inline: browser-safe contracts
@@ -177,6 +178,7 @@ function clientConfig(id: string, entry: string): UserConfig {
     outDir: 'lib',
     format: 'cjs',
     platform: 'browser',
+    resolve: { conditionNames: ['browser', 'import', 'require', 'default'] },
     // Types ship from lib/types (tsc); dts here would wrap the banner/footer into .d.cts and break parsing.
     dts: false,
     // Plugin code is fetched outside Vite's module graph, so its own bundle
@@ -206,6 +208,16 @@ function clientConfig(id: string, entry: string): UserConfig {
     // opinion for table entries (external above wins), bundle everything else.
     noExternal: (id: string) => (CLIENT_EXTERNALS.includes(id) ? undefined : true),
     plugins: [{
+      // Rolldown currently resolves nanoid's default Node export when it is
+      // reached through Univer's bundled CommonJS graph. Pin the sibling
+      // browser export so plugin factories never require Node crypto or Buffer.
+      name: 'dsh-nanoid-browser-export',
+      async resolveId(source: string, importer: string | undefined) {
+        if (source !== 'nanoid') return null
+        const resolved = await this.resolve(source, importer, { skipSelf: true })
+        return resolved === null ? null : resolvePath(dirname(resolved.id), 'index.browser.js')
+      },
+    }, {
       // Bundle purity gate (build-time mirror of the module-edge rules):
       // platform seed entries stay external, inline-safe wire layers inline,
       // and every other @deepseek-ai value import is a build error — a
@@ -222,6 +234,33 @@ function clientConfig(id: string, entry: string): UserConfig {
           `client bundle purity: "${source}" is not a platform module (CLIENT_EXTERNALS), an inline-safe wire layer, or a generated /remote contribution — `
           + 'cross-plugin value imports are forbidden; collaborate through cordis services (type-only imports are erased and never reach this gate)',
         )
+      },
+    }, {
+      name: 'dsh-raw-css-inline',
+      async resolveId(source: string, importer: string | undefined) {
+        if (!source.endsWith('.css') || source.endsWith('.module.css')) return null
+        const resolved = await this.resolve(source, importer, { skipSelf: true })
+        const abs = resolved?.id ?? (importer !== undefined ? sourceAssetPath(source, importer) : source)
+        return RAW_CSS_VIRTUAL_PREFIX + abs + CSS_VIRTUAL_SUFFIX
+      },
+      async load(virtualId: string) {
+        if (!virtualId.startsWith(RAW_CSS_VIRTUAL_PREFIX)) return null
+        const fileId = virtualId.slice(RAW_CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
+        this.addWatchFile(fileId)
+        const css = await readFile(fileId, 'utf8')
+        const tagId = `${id}/raw/${basename(fileId)}`
+        return [
+          `const css = ${JSON.stringify(css)};`,
+          `const tagId = ${JSON.stringify(tagId)};`,
+          'if (typeof document !== \'undefined\' && document.querySelector(\'style[data-plugin-css=\' + JSON.stringify(tagId) + \']\') === null) {',
+          '  const tag = document.createElement(\'style\');',
+          `  tag.dataset.plugin = ${JSON.stringify(id)};`,
+          '  tag.dataset.pluginCss = tagId;',
+          '  tag.textContent = css;',
+          '  document.head.appendChild(tag);',
+          '}',
+          'export default css;',
+        ].join('\n')
       },
     }, {
       name: 'dsh-css-modules-inline',
@@ -260,6 +299,7 @@ function clientConfig(id: string, entry: string): UserConfig {
       },
     }],
     outputOptions: {
+      inlineDynamicImports: true,
       entryFileNames: 'client.js',
       // The map is served from /plugins/<scoped-package>/client.js.map. The
       // browser resolves its local sources back into URLs that mirror the

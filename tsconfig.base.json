@@ -40,6 +40,7 @@
       "@deepseek-ai/dsh-genoffice-docx-engine": ["./vendor/genoffice-docx-engine/src"],
       "@deepseek-ai/dsh-genoffice-pptx-engine": ["./vendor/genoffice-pptx-engine/src"],
       "@deepseek-ai/dsh-genoffice-pptx-engine/*": ["./vendor/genoffice-pptx-engine/src/*"],
+      "@deepseek-ai/dsh-genoffice-xlsx-engine": ["./vendor/genoffice-xlsx-engine/src"],
       "@deepseek-ai/node-addon-landlock-run": ["./native/landlock-run/packages/entry/src/index.ts"],
       "@deepseek-ai/dsh-invariants": ["./packages/runtime-diagnostics/invariants/src/index.ts"],
       "@deepseek-ai/dsh-tool-call-timeout-policy": ["./packages/guard/timeout-policy/src"],
