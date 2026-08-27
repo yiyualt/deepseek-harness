@@ -8,14 +8,23 @@ import { Color, FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-s
 import Underline from '@tiptap/extension-underline'
 import { Plugin } from '@tiptap/pm/state'
 import { EditorContent, useEditor } from '@tiptap/react'
+import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
-import { useEffect, useReducer, useRef } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import type { ArtifactPreviewTab } from './artifact-preview-store.ts'
 import type { ArtifactPreviewPanelProps } from './ArtifactPreviewPanel.tsx'
+import {
+  GenOfficeRibbon, GenOfficeRibbonButton, GenOfficeRibbonGroup, GenOfficeRibbonTabs,
+  GenOfficeRibbonUnavailable, type GenOfficeRibbonButtonState,
+} from './GenOfficeRibbon.tsx'
 import css from './ArtifactPreviewPanel.module.css'
 
 const FONTS = ['宋体', '微软雅黑', 'Arial', 'Calibri', 'Times New Roman'] as const
 const FONT_SIZES = [9, 10.5, 12, 14, 16, 18, 22, 26, 32] as const
+const RIBBON_TABS = [
+  'home', 'insert', 'draw', 'design', 'layout', 'references', 'mailings', 'review', 'view',
+] as const
+type RibbonTab = typeof RIBBON_TABS[number]
 
 function requiredClassName(value: string | undefined): string {
   if (value === undefined) throw new Error('GenOffice editor CSS class is unavailable')
@@ -72,6 +81,13 @@ const PreserveDocxBlocks = Extension.create({
   },
 })
 
+const EnterAsLineBreak = Extension.create({
+  name: 'enterAsLineBreak',
+  addKeyboardShortcuts() {
+    return { Enter: () => this.editor.commands.setHardBreak() }
+  },
+})
+
 function runMarks(run: GenOfficeDocxRun): NonNullable<JSONContent['marks']> {
   const marks: NonNullable<JSONContent['marks']> = []
   if (run.bold) marks.push({ type: 'bold' })
@@ -85,6 +101,14 @@ function runMarks(run: GenOfficeDocxRun): NonNullable<JSONContent['marks']> {
   if (Object.keys(textStyle).length > 0) marks.push({ type: 'textStyle', attrs: textStyle })
   if (run.shading !== undefined) marks.push({ type: 'highlight', attrs: { color: `#${run.shading}` } })
   return marks
+}
+
+function runContent(run: GenOfficeDocxRun): JSONContent[] {
+  const marks = runMarks(run)
+  return run.text.split('\n').flatMap((text, index, parts): JSONContent[] => [
+    ...(text === '' ? [] : [{ type: 'text', text, marks }]),
+    ...(index === parts.length - 1 ? [] : [{ type: 'hardBreak', marks }]),
+  ])
 }
 
 function editorContent(blocks: readonly GenOfficeDocxBlock[], protectedLabel: string): JSONContent {
@@ -101,7 +125,7 @@ function editorContent(blocks: readonly GenOfficeDocxBlock[], protectedLabel: st
     const runs = block.runs ?? [{ text: block.text }]
     return {
       type: block.type === 'heading' ? 'heading' : 'paragraph', attrs,
-      content: runs.flatMap(run => run.text === '' ? [] : [{ type: 'text', text: run.text, marks: runMarks(run) }]),
+      content: runs.flatMap(runContent),
     }
   }) }
 }
@@ -112,8 +136,9 @@ function hexAttribute(value: unknown): string | undefined {
 }
 
 function runFromNode(node: JSONContent): GenOfficeDocxRun | undefined {
-  if (node.type !== 'text' || node.text === undefined) return undefined
-  const run: GenOfficeDocxRun = { text: node.text }
+  if (node.type !== 'text' && node.type !== 'hardBreak') return undefined
+  if (node.type === 'text' && node.text === undefined) return undefined
+  const run: GenOfficeDocxRun = { text: node.type === 'hardBreak' ? '\n' : node.text ?? '' }
   for (const mark of node.marks ?? []) {
     if (mark.type === 'bold') run.bold = true
     if (mark.type === 'italic') run.italic = true
@@ -170,16 +195,36 @@ function editorStringAttribute(editor: Editor, extension: string, attribute: str
   return typeof value === 'string' ? value : ''
 }
 
-function ToolbarButton({ active, label, children, action }: {
-  active: boolean
-  label: string
-  children: string
-  action: () => void
-}) {
-  return <button type="button" className={css.genOfficeToolButton} data-active={active || undefined}
-    aria-label={label} title={label} onMouseDown={(event) => { event.preventDefault() }} onClick={action}>
-    {children}
-  </button>
+function selectedMarkAttribute(editor: Editor, markName: string, attribute: string): { value: string; mixed: boolean } {
+  const { from, to, empty } = editor.state.selection
+  if (empty) return { value: editorStringAttribute(editor, markName, attribute), mixed: false }
+  const values = new Set<string>()
+  editor.state.doc.nodesBetween(from, to, (node) => {
+    if (!node.isText) return
+    const mark = node.marks.find(candidate => candidate.type.name === markName)
+    const attributes: unknown = mark?.attrs
+    const value = typeof attributes === 'object' && attributes !== null
+      ? (attributes as Record<string, unknown>)[attribute]
+      : undefined
+    values.add(typeof value === 'string' ? value : '')
+  })
+  return values.size === 1 ? { value: [...values][0] ?? '', mixed: false } : { value: '', mixed: true }
+}
+
+function selectedMarkState(editor: Editor, markName: string): GenOfficeRibbonButtonState {
+  const { from, to, empty } = editor.state.selection
+  if (empty) return editor.isActive(markName) ? 'on' : 'off'
+  const states = new Set<boolean>()
+  editor.state.doc.nodesBetween(from, to, (node) => {
+    if (!node.isText) return
+    states.add(node.marks.some(mark => mark.type.name === markName))
+  })
+  return states.size > 1 ? 'mixed' : states.has(true) ? 'on' : 'off'
+}
+
+function selectedCharacterCount(editor: Editor): number {
+  const { from, to, empty } = editor.state.selection
+  return empty ? 0 : editor.state.doc.textBetween(from, to, '').length
 }
 
 /** Render one continuous document surface and write its supported rich text back to DOCX. */
@@ -192,8 +237,11 @@ export function GenOfficeDocxEditor({ tab, edit, save, t }: {
   const blocks = tab.genOfficeBlocks ?? []
   const dirty = JSON.stringify(blocks) !== JSON.stringify(tab.genOfficeSavedBlocks ?? [])
   const error = tab.genOfficeConflict ? t('preview.genOfficeConflict') : tab.genOfficeError
+  const locked = tab.genOfficeSaving === true || tab.genOfficeConflict === true
   const revision = tab.genOfficeRevision
   const syncedRevision = useRef(revision)
+  const selection = useRef({ from: 1, to: 1 })
+  const [activeTab, setActiveTab] = useState<RibbonTab>('home')
   const [, renderToolbar] = useReducer((value: number): number => value + 1, 0)
   const editor = useEditor({
     extensions: [
@@ -202,14 +250,20 @@ export function GenOfficeDocxEditor({ tab, edit, save, t }: {
       Underline, TextStyle, Color, FontFamily, FontSize,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      DocxBlockAttributes, ProtectedBlock, PreserveDocxBlocks,
+      DocxBlockAttributes, ProtectedBlock, PreserveDocxBlocks, EnterAsLineBreak,
     ],
     content: editorContent(blocks, t('preview.genOfficeProtected')),
     editorProps: { attributes: {
       class: requiredClassName(css.genOfficeDocument), 'aria-label': t('preview.genOfficeDocument'),
     } },
-    onUpdate: ({ editor: updated }) => { edit(blocksFromEditor(updated, blocks)) },
-    onSelectionUpdate: renderToolbar,
+    onUpdate: ({ editor: updated }) => {
+      edit(blocksFromEditor(updated, blocks))
+      renderToolbar()
+    },
+    onSelectionUpdate: ({ editor: updated }) => {
+      selection.current = { from: updated.state.selection.from, to: updated.state.selection.to }
+      renderToolbar()
+    },
   }, [tab.id])
 
   useEffect(() => {
@@ -218,7 +272,14 @@ export function GenOfficeDocxEditor({ tab, edit, save, t }: {
     editor.commands.setContent(editorContent(blocks, t('preview.genOfficeProtected')), { emitUpdate: false })
   }, [blocks, editor, revision, t])
 
-  const chain = () => editor.chain().focus()
+  useEffect(() => {
+    editor.setEditable(!locked)
+  }, [editor, locked])
+
+  const chain = () => editor.chain().setTextSelection(selection.current).focus()
+  const font = selectedMarkAttribute(editor, 'textStyle', 'fontFamily')
+  const fontSize = selectedMarkAttribute(editor, 'textStyle', 'fontSize')
+  const selectedCharacters = selectedCharacterCount(editor)
   return <div className={css.genOfficeEditor}>
     <div className={css.genOfficeTitlebar}>
       <span className={css.genOfficeEngine}>{t('preview.genOfficeEngine')}</span>
@@ -229,52 +290,97 @@ export function GenOfficeDocxEditor({ tab, edit, save, t }: {
         {t('preview.genOfficeSave')}
       </button>
     </div>
-    <div className={css.genOfficeRibbonTabs}><span>{t('preview.genOfficeHome')}</span></div>
-    <div className={css.genOfficeRibbon} role="toolbar" aria-label={t('preview.genOfficeToolbar')}>
-      <div className={css.genOfficeToolGroup}>
-        <select className={css.genOfficeFontSelect} aria-label={t('preview.genOfficeFont')}
-          value={editorStringAttribute(editor, 'textStyle', 'fontFamily')}
-          onChange={event => chain().setFontFamily(event.target.value).run()}>
-          <option value="">{t('preview.genOfficeFont')}</option>
-          {FONTS.map(font => <option key={font} value={font}>{font}</option>)}
-        </select>
-        <select className={css.genOfficeSizeSelect} aria-label={t('preview.genOfficeFontSize')}
-          value={editorStringAttribute(editor, 'textStyle', 'fontSize')}
-          onChange={event => chain().setFontSize(event.target.value).run()}>
-          <option value="">12</option>
-          {FONT_SIZES.map(size => <option key={size} value={`${String(size)}pt`}>{size}</option>)}
-        </select>
-        <ToolbarButton label={t('preview.genOfficeBold')} active={editor.isActive('bold')}
-          action={() => { chain().toggleBold().run() }}>B</ToolbarButton>
-        <ToolbarButton label={t('preview.genOfficeItalic')} active={editor.isActive('italic')}
-          action={() => { chain().toggleItalic().run() }}>I</ToolbarButton>
-        <ToolbarButton label={t('preview.genOfficeUnderline')} active={editor.isActive('underline')}
-          action={() => { chain().toggleUnderline().run() }}>U</ToolbarButton>
-        <ToolbarButton label={t('preview.genOfficeStrike')} active={editor.isActive('strike')}
-          action={() => { chain().toggleStrike().run() }}>S</ToolbarButton>
-        <label className={css.genOfficeColorTool} title={t('preview.genOfficeTextColor')}>
-          A<input type="color" aria-label={t('preview.genOfficeTextColor')} defaultValue="#202124"
-            onChange={event => chain().setColor(event.target.value).run()} />
-        </label>
-        <label className={css.genOfficeColorTool} title={t('preview.genOfficeHighlight')}>
-          ▰<input type="color" aria-label={t('preview.genOfficeHighlight')} defaultValue="#fff59d"
-            onChange={event => chain().setHighlight({ color: event.target.value }).run()} />
-        </label>
-      </div>
-      <div className={css.genOfficeToolGroup}>
-        <ToolbarButton label={t('preview.genOfficeAlignLeft')} active={editor.isActive({ textAlign: 'left' })}
-          action={() => { chain().setTextAlign('left').run() }}>☰</ToolbarButton>
-        <ToolbarButton label={t('preview.genOfficeAlignCenter')} active={editor.isActive({ textAlign: 'center' })}
-          action={() => { chain().setTextAlign('center').run() }}>≡</ToolbarButton>
-        <ToolbarButton label={t('preview.genOfficeAlignRight')} active={editor.isActive({ textAlign: 'right' })}
-          action={() => { chain().setTextAlign('right').run() }}>☷</ToolbarButton>
-        <ToolbarButton label={t('preview.genOfficeJustify')} active={editor.isActive({ textAlign: 'justify' })}
-          action={() => { chain().setTextAlign('justify').run() }}>▤</ToolbarButton>
-      </div>
-    </div>
+    <GenOfficeRibbonTabs tabs={RIBBON_TABS.map(id => ({ id, label: t(`preview.genOfficeTab.${id}`) }))}
+      active={activeTab} label={t('preview.genOfficeRibbonTabs')} onChange={setActiveTab} />
+    {activeTab === 'home' ? <GenOfficeRibbon label={t('preview.genOfficeToolbar')}>
+      <GenOfficeRibbonGroup label={t('preview.genOfficeHistory')}>
+        <GenOfficeRibbonButton large label={t('preview.genOfficeUndo')} disabled={locked || !editor.can().undo()}
+          action={() => { chain().undo().run() }}><span>↶</span><small>{t('preview.genOfficeUndo')}</small></GenOfficeRibbonButton>
+        <GenOfficeRibbonButton large label={t('preview.genOfficeRedo')} disabled={locked || !editor.can().redo()}
+          action={() => { chain().redo().run() }}><span>↷</span><small>{t('preview.genOfficeRedo')}</small></GenOfficeRibbonButton>
+      </GenOfficeRibbonGroup>
+      <GenOfficeRibbonGroup label={t('preview.genOfficeFontGroup')}>
+        <div className={css.genOfficeFontRow}>
+          <select className={css.genOfficeFontSelect} aria-label={t('preview.genOfficeFont')}
+            disabled={locked} value={font.value}
+            onChange={event => chain().setFontFamily(event.target.value).run()}>
+            <option value="">{font.mixed ? t('preview.genOfficeMixed') : t('preview.genOfficeFont')}</option>
+            {font.value !== '' && !FONTS.includes(font.value as typeof FONTS[number])
+              && <option value={font.value}>{font.value}</option>}
+            {FONTS.map(fontName => <option key={fontName} value={fontName}>{fontName}</option>)}
+          </select>
+          <select className={css.genOfficeSizeSelect} aria-label={t('preview.genOfficeFontSize')}
+            disabled={locked} value={fontSize.value}
+            onChange={event => chain().setFontSize(event.target.value).run()}>
+            <option value="">{fontSize.mixed ? t('preview.genOfficeMixed') : '12'}</option>
+            {fontSize.value !== '' && !FONT_SIZES.some(size => `${String(size)}pt` === fontSize.value)
+              && <option value={fontSize.value}>{fontSize.value.replace(/pt$/, '')}</option>}
+            {FONT_SIZES.map(size => <option key={size} value={`${String(size)}pt`}>{size}</option>)}
+          </select>
+        </div>
+        <div className={css.genOfficeFontRow}>
+          <GenOfficeRibbonButton label={t('preview.genOfficeBold')} state={selectedMarkState(editor, 'bold')} disabled={locked}
+            action={() => { chain().toggleBold().run() }}><strong>B</strong></GenOfficeRibbonButton>
+          <GenOfficeRibbonButton label={t('preview.genOfficeItalic')} state={selectedMarkState(editor, 'italic')} disabled={locked}
+            action={() => { chain().toggleItalic().run() }}><em>I</em></GenOfficeRibbonButton>
+          <GenOfficeRibbonButton label={t('preview.genOfficeUnderline')} state={selectedMarkState(editor, 'underline')} disabled={locked}
+            action={() => { chain().toggleUnderline().run() }}><u>U</u></GenOfficeRibbonButton>
+          <GenOfficeRibbonButton label={t('preview.genOfficeStrike')} state={selectedMarkState(editor, 'strike')} disabled={locked}
+            action={() => { chain().toggleStrike().run() }}><s>S</s></GenOfficeRibbonButton>
+          <label className={css.genOfficeColorTool} title={t('preview.genOfficeTextColor')}>
+            A<input type="color" aria-label={t('preview.genOfficeTextColor')} disabled={locked} defaultValue="#202124"
+              onChange={event => chain().setColor(event.target.value).run()} />
+          </label>
+          <label className={css.genOfficeColorTool} title={t('preview.genOfficeHighlight')}>
+            ▰<input type="color" aria-label={t('preview.genOfficeHighlight')} disabled={locked} defaultValue="#fff59d"
+              onChange={event => chain().setHighlight({ color: event.target.value }).run()} />
+          </label>
+        </div>
+      </GenOfficeRibbonGroup>
+      <GenOfficeRibbonGroup label={t('preview.genOfficeParagraph')}>
+        <GenOfficeRibbonButton label={t('preview.genOfficeAlignLeft')}
+          state={editor.isActive({ textAlign: 'left' }) ? 'on' : 'off'} disabled={locked}
+          action={() => { chain().setTextAlign('left').run() }}>☰</GenOfficeRibbonButton>
+        <GenOfficeRibbonButton label={t('preview.genOfficeAlignCenter')}
+          state={editor.isActive({ textAlign: 'center' }) ? 'on' : 'off'} disabled={locked}
+          action={() => { chain().setTextAlign('center').run() }}>≡</GenOfficeRibbonButton>
+        <GenOfficeRibbonButton label={t('preview.genOfficeAlignRight')}
+          state={editor.isActive({ textAlign: 'right' }) ? 'on' : 'off'} disabled={locked}
+          action={() => { chain().setTextAlign('right').run() }}>☷</GenOfficeRibbonButton>
+        <GenOfficeRibbonButton label={t('preview.genOfficeJustify')}
+          state={editor.isActive({ textAlign: 'justify' }) ? 'on' : 'off'} disabled={locked}
+          action={() => { chain().setTextAlign('justify').run() }}>▤</GenOfficeRibbonButton>
+      </GenOfficeRibbonGroup>
+      <GenOfficeRibbonGroup label={t('preview.genOfficeEditing')}>
+        <GenOfficeRibbonButton large label={t('preview.genOfficeSelectAll')} disabled={locked}
+          action={() => { editor.commands.selectAll() }}><span>⌖</span><small>{t('preview.genOfficeSelectAll')}</small></GenOfficeRibbonButton>
+      </GenOfficeRibbonGroup>
+    </GenOfficeRibbon> : <GenOfficeRibbonUnavailable
+      message={t('preview.genOfficeTabUnavailable', { tab: t(`preview.genOfficeTab.${activeTab}`) })} />}
     {error !== undefined && <div className={css.genOfficeError} role="alert">{error}</div>}
     <div className={css.genOfficeCanvas}>
-      <div className={css.genOfficePage}><EditorContent editor={editor} /></div>
+      <div className={css.genOfficePage}>
+        <BubbleMenu editor={editor} shouldShow={({ editor: current }) => (
+          !locked && !current.state.selection.empty && current.isEditable
+        )} options={{ placement: 'top' }}>
+          <div className={css.genOfficeSelectionToolbar} role="toolbar"
+            aria-label={t('preview.genOfficeSelectionToolbar')}>
+            <GenOfficeRibbonButton label={t('preview.genOfficeBold')} state={selectedMarkState(editor, 'bold')}
+              action={() => { chain().toggleBold().run() }}><strong>B</strong></GenOfficeRibbonButton>
+            <GenOfficeRibbonButton label={t('preview.genOfficeItalic')} state={selectedMarkState(editor, 'italic')}
+              action={() => { chain().toggleItalic().run() }}><em>I</em></GenOfficeRibbonButton>
+            <GenOfficeRibbonButton label={t('preview.genOfficeUnderline')} state={selectedMarkState(editor, 'underline')}
+              action={() => { chain().toggleUnderline().run() }}><u>U</u></GenOfficeRibbonButton>
+          </div>
+        </BubbleMenu>
+        <EditorContent editor={editor} />
+      </div>
+    </div>
+    <div className={css.genOfficeStatusbar} aria-live="polite">
+      <span>{selectedCharacters === 0
+        ? t('preview.genOfficeNoSelection')
+        : t('preview.genOfficeSelectionCount', { count: selectedCharacters })}</span>
+      <span>{t('preview.genOfficeLocalDocument')}</span>
     </div>
   </div>
 }

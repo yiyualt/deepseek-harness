@@ -11,13 +11,16 @@ import {
 import UniverPresetSheetsCoreEnUS from '@univerjs/preset-sheets-core/locales/en-US'
 import '@univerjs/preset-sheets-core/lib/index.css'
 import { greenTheme } from '@univerjs/themes'
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { ArtifactPreviewTab } from './artifact-preview-store.ts'
 import type { ArtifactPreviewPanelProps } from './ArtifactPreviewPanel.tsx'
 import { createGenOfficeUniver } from './create-genoffice-univer.ts'
+import { GenOfficeRibbonTabs, GenOfficeRibbonUnavailable } from './GenOfficeRibbon.tsx'
 import css from './ArtifactPreviewPanel.module.css'
 
 const SET_RANGE_VALUES_MUTATION = 'sheet.mutation.set-range-values'
+const RIBBON_TABS = ['home', 'insert', 'pageLayout', 'formulas', 'data', 'review', 'view'] as const
+type RibbonTab = typeof RIBBON_TABS[number]
 
 function cellCoordinates(address: string): { row: number; column: number } {
   const match = /^([A-Z]{1,3})([1-9][0-9]{0,6})$/.exec(address)
@@ -145,6 +148,7 @@ export function GenOfficeXlsxEditor({ tab, edit, save, t }: {
   t: ArtifactPreviewPanelProps['t']
 }) {
   const generatedId = useId()
+  const [activeTab, setActiveTab] = useState<RibbonTab>('home')
   const containerId = `genoffice-xlsx-${generatedId.replace(/[^a-zA-Z0-9_-]/g, '')}`
   const editsRef = useRef(new Map<string, GenOfficeXlsxEdit>())
   const editRef = useRef(edit)
@@ -164,12 +168,11 @@ export function GenOfficeXlsxEditor({ tab, edit, save, t }: {
       locales: { [LocaleType.EN_US]: mergeLocales(UniverPresetSheetsCoreEnUS) },
       presets: [UniverSheetsCorePreset({
         container: containerId,
-        header: true,
+        header: false,
         toolbar: true,
         contextMenu: true,
         formulaBar: true,
         footer: { sheetBar: true, statisticBar: true, menus: false, zoomSlider: true },
-        statusBarStatistic: true,
       })],
     })
     const names = new Map(sheets.map(sheet => [sheet.id, sheet.name]))
@@ -210,10 +213,11 @@ export function GenOfficeXlsxEditor({ tab, edit, save, t }: {
         if (typeof params?.subUnitId !== 'string' || typeof params.cellValue !== 'object' || params.cellValue === null) return
         const sheetName = names.get(params.subUnitId)
         if (sheetName === undefined) return
-        for (const [rowKey, rowValue] of Object.entries(params.cellValue)) {
+        const cellValues = params.cellValue as Record<string, unknown>
+        for (const [rowKey, rowValue] of Object.entries(cellValues)) {
           const row = Number(rowKey)
           if (!Number.isInteger(row) || row < 0 || typeof rowValue !== 'object' || rowValue === null) continue
-          for (const [columnKey, cell] of Object.entries(rowValue)) {
+          for (const [columnKey, cell] of Object.entries(rowValue as Record<string, unknown>)) {
             const column = Number(columnKey)
             if (!Number.isInteger(column) || column < 0) continue
             const key = `${params.subUnitId}:${rowKey}:${columnKey}`
@@ -248,6 +252,14 @@ export function GenOfficeXlsxEditor({ tab, edit, save, t }: {
           {t('preview.genOfficeSave')}
         </button>
       </div>
+      <GenOfficeRibbonTabs tabs={RIBBON_TABS.map(id => ({ id, label: t(`preview.genOfficeTab.${id}`) }))}
+        active={activeTab} label={t('preview.genOfficeSpreadsheetRibbonTabs')} onChange={setActiveTab} />
+      {activeTab === 'home'
+        ? <div className={css.genOfficeNativeRibbonNotice} role="status">
+          {t('preview.genOfficeSpreadsheetNativeTools')}
+        </div>
+        : <GenOfficeRibbonUnavailable
+          message={t('preview.genOfficeTabUnavailable', { tab: t(`preview.genOfficeTab.${activeTab}`) })} />}
       {tab.genOfficeXlsxError !== undefined && (
         <div className={css.genOfficeError} role="alert">
           {tab.genOfficeXlsxConflict === true ? t('preview.genOfficeConflict') : tab.genOfficeXlsxError}

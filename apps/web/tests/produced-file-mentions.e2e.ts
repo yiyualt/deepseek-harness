@@ -15,7 +15,7 @@ import { strToU8, zipSync } from 'fflate'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { CallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { buildBlankDocx, parseDocx, saveDocx } from '@deepseek-ai/dsh-genoffice-docx-engine'
-import { addElement, createBlankPptx, openPptx, savePptx } from '@deepseek-ai/dsh-genoffice-pptx-engine'
+import { addElement, createBlankPptx, duplicateSlide, openPptx, savePptx } from '@deepseek-ai/dsh-genoffice-pptx-engine'
 import { readBasicWorkbook } from '@deepseek-ai/dsh-genoffice-xlsx-engine'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-title'
@@ -51,7 +51,7 @@ function xlsxFixture(): Uint8Array {
   })
 }
 
-/** One-slide PPTX used by the assembled local-editor path. */
+/** Two-slide PPTX used by the assembled local-editor path. */
 async function pptxFixture(): Promise<Uint8Array> {
   const opened = await openPptx(await createBlankPptx())
   const slide = opened.deck.slides[0]
@@ -64,6 +64,7 @@ async function pptxFixture(): Promise<Uint8Array> {
       runs: [{ text: 'Agentic RL', fontFamily: 'Arial', fontSize: 28, bold: false }],
     }],
   })
+  if (duplicateSlide(opened, 0) === null) throw new Error('blank PPTX slide could not be duplicated')
   return savePptx(opened)
 }
 
@@ -291,20 +292,31 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await expect.poll(() => preview.evaluate(element => element.getBoundingClientRect().width))
       .toBeGreaterThan(initialPreviewWidth + 200)
     const docxDocument = preview.getByLabel('DOCX document editor', { exact: true })
-    await docxDocument.fill('Edited locally with GenOffice')
+    await expect.poll(() => preview.getByRole('tab', { name: 'Insert', exact: true }).count()).toBe(1)
+    await docxDocument.fill('Edited locally')
+    await docxDocument.press('End')
+    await docxDocument.press('Enter')
+    await docxDocument.pressSequentially('with GenOffice')
     await docxDocument.selectText()
-    await preview.getByRole('button', { name: 'Bold', exact: true }).click()
+    const selectionToolbar = preview.getByRole('toolbar', { name: 'Selection formatting toolbar', exact: true })
+    await expect.poll(() => selectionToolbar.count()).toBe(1)
+    await expect.poll(() => preview.getByText('28 characters selected', { exact: true }).count()).toBe(1)
+    await selectionToolbar.getByRole('button', { name: 'Bold', exact: true }).click()
     await preview.getByRole('button', { name: 'Save to file', exact: true }).click()
     await expect.poll(() => preview.getByText('Saved', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
     const savedDocx = await parseDocx(await readFile(join(scaffold.workspaceCwd, 'site', 'report.docx')))
     expect(savedDocx.blocks.find(block => !block.hidden)?.runs?.map(run => run.text).join(''))
-      .toBe('Edited locally with GenOffice')
+      .toBe('Edited locally\nwith GenOffice')
     expect(savedDocx.blocks.find(block => !block.hidden)?.runs?.[0]?.bold).toBe(true)
 
     await page.getByRole('button', { name: 'Open site/report.xlsx', exact: true }).first().click()
     await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(4)
     const spreadsheet = preview.getByLabel('XLSX spreadsheet editor', { exact: true })
     await spreadsheet.waitFor({ state: 'visible', timeout: 10_000 })
+    await expect.poll(() => preview.getByRole('tab', { name: 'Formulas', exact: true }).count()).toBe(1)
+    await expect.poll(() => preview.getByText(
+      'Use the native spreadsheet toolbar below to format the current cell selection.', { exact: true },
+    ).count()).toBe(1)
     const spreadsheetEditor = spreadsheet.locator('..')
     const canvasBoxes = await spreadsheet.locator('canvas').evaluateAll(elements => elements.map((element) => {
       const box = element.getBoundingClientRect()
@@ -328,14 +340,24 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await page.getByRole('button', { name: 'Open site/report.pptx', exact: true }).first().click()
     await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(5)
     const pptxEditor = preview.locator('[class*="genOfficePptxEditor"]')
-    const pptxTextBox = pptxEditor.getByLabel('Slide 1 text box 1', { exact: true })
-    await pptxTextBox.fill('Agentic Reinforcement Learning')
+    await expect.poll(() => pptxEditor.getByRole('tab', { name: 'Transitions', exact: true }).count()).toBe(1)
+    await expect.poll(() => pptxEditor.getByRole('tab', { name: 'Slide Show', exact: true }).count()).toBe(1)
+    await expect.poll(() => pptxEditor.getByText('Slide 1 of 2', { exact: true }).count()).toBe(1)
+    await expect.poll(() => pptxEditor.locator('[data-slide-thumbnail]').filter({ hasText: 'Agentic RL' }).count()).toBe(2)
+    const firstSlideTextBox = pptxEditor.getByLabel('Slide 1 text box 1', { exact: true })
+    await firstSlideTextBox.focus()
+    await page.keyboard.press('PageDown')
+    await expect.poll(() => pptxEditor.getByText('Slide 2 of 2', { exact: true }).count()).toBe(1)
+    const pptxTextBox = pptxEditor.getByLabel('Slide 2 text box 1', { exact: true })
+    await pptxTextBox.fill('Agentic ')
+    await pptxTextBox.pressSequentially('Reinforcement Learning')
     await pptxTextBox.focus()
+    await expect.poll(() => pptxEditor.getByText('Text box 1 selected', { exact: true }).count()).toBe(1)
     await pptxEditor.getByRole('button', { name: 'Bold', exact: true }).click()
     await pptxEditor.getByRole('button', { name: 'Save to file', exact: true }).click()
     await expect.poll(() => pptxEditor.getByText('Saved', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
     const savedPptx = await openPptx(await readFile(join(scaffold.workspaceCwd, 'site', 'report.pptx')))
-    const savedPptxTextRun = savedPptx.deck.slides[0]?.elements.flatMap(element => (
+    const savedPptxTextRun = savedPptx.deck.slides[1]?.elements.flatMap(element => (
       (element.type === 'text' || element.type === 'shape') && element.text !== undefined
         ? [element.text.paragraphs[0]?.runs[0]]
         : []

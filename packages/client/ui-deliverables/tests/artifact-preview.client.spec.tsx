@@ -798,10 +798,24 @@ describe('ArtifactPreviewPanel', () => {
       editGenOfficeDocx, saveGenOfficeDocx,
     })} />)
     expect(view.getByText('Table 2×2')).toBeDefined()
+    expect(view.getByRole('tablist', { name: 'preview.genOfficeRibbonTabs' })).toBeDefined()
+    expect(view.getAllByRole('tab')).toHaveLength(10)
     expect(view.getByRole('toolbar', { name: 'preview.genOfficeToolbar' })).toBeDefined()
     expect(view.getByLabelText('preview.genOfficeDocument').getAttribute('contenteditable')).toBe('true')
     expect(view.getByRole('button', { name: 'preview.genOfficeBold' })).toBeDefined()
+    expect(view.getByRole('button', { name: 'preview.genOfficeUndo' })).toBeDefined()
+    expect(view.getByText('preview.genOfficeNoSelection')).toBeDefined()
     expect(view.getByRole('button', { name: 'preview.genOfficeSave' }).hasAttribute('disabled')).toBe(true)
+
+    fireEvent.keyDown(view.getByLabelText('preview.genOfficeDocument'), { key: 'Enter', code: 'Enter' })
+    const lineBreakEdit = editGenOfficeDocx.mock.calls.at(-1)?.[1] as GenOfficeDocxBlock[] | undefined
+    expect(lineBreakEdit?.[0]?.runs?.map(run => run.text).join('')).toContain('\n')
+
+    fireEvent.click(view.getByRole('tab', { name: 'preview.genOfficeTab.insert' }))
+    expect(view.getByRole('status').textContent).toBe('preview.genOfficeTabUnavailable')
+    expect(view.queryByRole('toolbar', { name: 'preview.genOfficeToolbar' })).toBeNull()
+    fireEvent.click(view.getByRole('tab', { name: 'preview.genOfficeTab.home' }))
+    expect(view.getByRole('toolbar', { name: 'preview.genOfficeToolbar' })).toBeDefined()
 
     state.tabs[0]!.genOfficeBlocks![0] = {
       docxIndex: 0, type: 'paragraph', text: '修改后', editable: true, runs: [{ text: '修改后', bold: true }],
@@ -824,25 +838,49 @@ describe('ArtifactPreviewPanel', () => {
         kind: 'text' as const, elementIndex: 0, x: 1_000_000, y: 1_000_000,
         width: 5_000_000, height: 1_000_000, rotation: 0,
         text: 'Agentic RL', editable: true, style,
+      }, {
+        kind: 'shape' as const, elementIndex: 1, x: 7_000_000, y: 1_000_000,
+        width: 2_000_000, height: 2_000_000, rotation: 0, fill: '#cc0000',
       }],
     }
+    const secondSlide = structuredClone(slide)
+    secondSlide.slideIndex = 1
+    secondSlide.elements[0]!.text = 'Second slide'
     const state: ArtifactPreviewState = {
       activeId: 'pptx',
       tabs: [{
         id: 'pptx', status: 'ready', requestId: 1, kind: 'genoffice-pptx',
         name: 'agentic-rl.pptx', path: '/agentic-rl.pptx',
         genOfficePptxGrantId: 'grant', genOfficePptxRevision: 'a'.repeat(64),
-        genOfficePptxSlides: structuredClone([slide]),
-        genOfficePptxSavedSlides: structuredClone([slide]),
+        genOfficePptxSlides: structuredClone([slide, secondSlide]),
+        genOfficePptxSavedSlides: structuredClone([slide, secondSlide]),
       }],
     }
     const actions = { editGenOfficePptx, saveGenOfficePptx }
     const view = render(<ArtifactPreviewPanel {...panelProps(state, actions)} />)
-    const textBox = view.getByLabelText('preview.genOfficePptxTextBox')
+    let textBox = view.getByLabelText('preview.genOfficePptxTextBox')
     expect((textBox as HTMLTextAreaElement).value).toBe('Agentic RL')
-    expect(view.getByText('preview.genOfficeHome')).toBeDefined()
+    expect(view.getByRole('tablist', { name: 'preview.genOfficePresentationRibbonTabs' })).toBeDefined()
+    expect(view.getByRole('tab', { name: 'preview.genOfficeTab.transitions' })).toBeDefined()
+    expect(view.getByRole('toolbar', { name: 'preview.genOfficePresentationToolbar' })).toBeDefined()
+    expect(view.getByText('preview.genOfficePptxNoSelection')).toBeDefined()
+    expect(view.getByRole('button', { name: 'preview.genOfficePptxPreviousSlide' }).hasAttribute('disabled')).toBe(true)
+    expect(view.getByRole('button', { name: 'preview.genOfficePptxNextSlide' }).hasAttribute('disabled')).toBe(false)
     expect(view.getByRole('button', { name: 'preview.genOfficeSave' }).hasAttribute('disabled')).toBe(true)
 
+    expect(document.querySelector('[data-slide-thumbnail]')?.textContent).toContain('Agentic RL')
+    fireEvent.focus(textBox)
+    fireEvent.keyDown(textBox, { key: 'PageDown', code: 'PageDown' })
+    expect((view.getByLabelText('preview.genOfficePptxTextBox') as HTMLTextAreaElement).value).toBe('Second slide')
+    expect(view.getByRole('button', { name: 'preview.genOfficePptxNextSlide' }).hasAttribute('disabled')).toBe(true)
+    fireEvent.keyDown(view.getByLabelText('preview.genOfficePptxTextBox'), { key: 'PageUp', code: 'PageUp' })
+    textBox = view.getByLabelText('preview.genOfficePptxTextBox')
+
+    fireEvent.focus(textBox)
+    expect(view.getByText('preview.genOfficePptxSelection')).toBeDefined()
+    fireEvent.click(view.getByRole('button', { name: 'preview.genOfficePptxShape' }))
+    expect(view.getByText('preview.genOfficePptxShapeSelection')).toBeDefined()
+    expect(view.getByRole('button', { name: 'preview.genOfficeBold' }).hasAttribute('disabled')).toBe(true)
     fireEvent.focus(textBox)
     fireEvent.change(textBox, { target: { value: 'Agentic Reinforcement Learning' } })
     expect(editGenOfficePptx).toHaveBeenCalledWith(
@@ -857,6 +895,9 @@ describe('ArtifactPreviewPanel', () => {
     expect(editGenOfficePptx).toHaveBeenLastCalledWith(
       'pptx', 0, 0, 'Agentic Reinforcement Learning', { ...style, bold: true },
     )
+    fireEvent.click(view.getByRole('tab', { name: 'preview.genOfficeTab.animations' }))
+    expect(view.getByRole('status').textContent).toBe('preview.genOfficeTabUnavailable')
+    fireEvent.click(view.getByRole('tab', { name: 'preview.genOfficeTab.home' }))
     fireEvent.click(view.getByRole('button', { name: 'preview.genOfficeSave' }))
     expect(saveGenOfficePptx).toHaveBeenCalledWith('pptx')
   })

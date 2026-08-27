@@ -43,12 +43,12 @@ describe('GenOfficeDocxGrants', () => {
     const saved = await grants.save(prepared.grantId, [{
       docxIndex: block?.docxIndex ?? -1,
       runs: [{
-        text: '修改后的作文', bold: true, italic: true, color: 'C00000', sizeHalfPoints: 32, font: 'Arial',
+        text: '修改后的\n作文', bold: true, italic: true, color: 'C00000', sizeHalfPoints: 32, font: 'Arial',
       }],
       align: 'center',
     }], prepared.revision)
     expect(saved.revision).not.toBe(prepared.revision)
-    expect(saved.blocks[0]?.text).toBe('修改后的作文')
+    expect(saved.blocks[0]?.text).toBe('修改后的\n作文')
     const unchanged = await grants.save(prepared.grantId, saved.blocks
       .filter(block => block.editable)
       .map(block => ({
@@ -60,7 +60,7 @@ describe('GenOfficeDocxGrants', () => {
     expect(unchanged.revision).toBe(saved.revision)
     const reparsed = await parseDocx(await readFile(path))
     expect(reparsed.blocks.find(candidate => !candidate.hidden)?.runs?.map(run => run.text).join(''))
-      .toBe('修改后的作文')
+      .toBe('修改后的\n作文')
     expect(reparsed.blocks.find(candidate => !candidate.hidden)).toMatchObject({
       format: { align: 'center' },
       runs: [{ bold: true, italic: true, color: 'C00000', sizeHalfPoints: 32, font: 'Arial' }],
