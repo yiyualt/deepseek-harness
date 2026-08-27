@@ -2999,6 +2999,8 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     downloads: {
       officePreviewFile: () => Promise.resolve(new Response('fixture mode does not serve Office previews', { status: 404 })),
       officePreviewCallback: () => Promise.resolve(new Response('fixture mode does not save Office previews', { status: 404 })),
+      tencentDocsPreviewCallback: () => Promise.resolve(new Response('fixture mode does not serve Tencent Docs callbacks', { status: 404 })),
+      tencentDocsPreviewFile: () => Promise.resolve(new Response('fixture mode does not serve Tencent Docs previews', { status: 404 })),
       artifactPreview: () => Promise.resolve(new Response('fixture mode does not serve artifact previews', { status: 404 })),
       sessionLog: () => Promise.resolve(new Response('fixture mode does not serve session export', { status: 404 })),
     },

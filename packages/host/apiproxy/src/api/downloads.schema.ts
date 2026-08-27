@@ -21,6 +21,18 @@ export const officePreviewTokenSchema = z.object({
   token: z.uuid(),
 }) satisfies z.ZodType<Parameters<DownloadsApi['officePreviewFile']>[0]>
 
+/** Opaque Tencent Docs grant and download capabilities parsed from the file route. */
+export const tencentDocsPreviewFileSchema = z.object({
+  fileId: z.uuid(),
+  downloadToken: z.uuid(),
+  range: z.string().optional(),
+}) satisfies z.ZodType<Parameters<DownloadsApi['tencentDocsPreviewFile']>[0]>
+
+/** Opaque Tencent Docs grant parsed from one signed callback route. */
+export const tencentDocsPreviewCallbackFileSchema = z.object({
+  fileId: z.uuid(),
+})
+
 /**
  * session.export query params → the sessionLog request. `includeDescendants`
  * accepts exactly `true`/`false`/absent; any other value is rejected (400) so

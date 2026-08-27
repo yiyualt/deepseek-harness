@@ -15,7 +15,7 @@ interface ProducedPath {
   readonly path: string
 }
 
-const INDIRECT_PREVIEW_PATH = /\.(?:docx|md|markdown)$/i
+const INDIRECT_PREVIEW_PATH = /\.(?:doc|docx|txt|xls|xlsx|csv|ppt|pptx|pdf|md|markdown)$/i
 
 /** Immutable produced-file facts published against one Turn. */
 export interface DeliverablesTurnData {
@@ -155,9 +155,9 @@ export function basename(path: string): string {
  * message's prose: an inline-code token opens the file it names. A token
  * resolves by exact path, or by being exactly the basename of exactly one
  * produced path — a basename two paths share stays inert rather than
- * guessing. An exact DOCX or Markdown token is also accepted when the turn
- * has no mutation location for it, because a terminal process may create
- * either format; the Host validates that path when it is opened.
+ * guessing. An exact previewable document token is also accepted when the
+ * turn has no mutation location for it because a terminal process may create
+ * the artifact; the Host validates that path when it is opened.
  * @param paths - The turn's produced paths (tool order, already deduped).
  * @param openFile - The chat view's file opener.
  * @param label - Localizes the accessible open-label for a resolved path.

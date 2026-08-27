@@ -10,6 +10,8 @@ The roster also includes a Connectors action backed by the declarative [`mcp-con
 
 Connected document tools appear only in presets that mount [`dsh-tool-mcp`](../../mcp/tool-mcp/README.md). Every MCP tool requests user approval before the external call because remote annotations are untrusted and never grant a confirmation exemption.
 
+Tencent Docs WebSDK preview is independent from the MCP connector. Set `DSH_TENCENT_DOCS_APP_ID`, store the corresponding secret under the `TENCENT_DOCS_APP_SECRET` credential reference, and set `DSH_TENCENT_DOCS_PUBLIC_URL` to the HTTPS Harness origin Tencent can reach. `DSH_TENCENT_DOCS_SDK_URL` optionally replaces the official browser bundle. Register `<public-url>/api/tencent-docs` as the application's callback address, and admit the public authority with `dsh web --trusted-host <authority>`. A configured deployment previews DOC, DOCX, TXT, XLS, XLSX, CSV, PPT, PPTX, and PDF in the right artifact column without converting the local file into a Tencent Docs asset. This WebSDK surface is read-only.
+
 ## Model Experience
 
 ### Harness-source and Web-surface context

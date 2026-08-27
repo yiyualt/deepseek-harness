@@ -11,9 +11,11 @@ import type { z } from 'zod'
 import type { ApiProxy, MuxFrame, HostFrame } from '../api/index.ts'
 import {
   artifactPreviewPathSchema, officePreviewTokenSchema, sessionLogQuerySchema,
+  tencentDocsPreviewCallbackFileSchema, tencentDocsPreviewFileSchema,
 } from '../api/downloads.schema.ts'
 import { ARTIFACT_PREVIEW_PATH } from '../artifact-preview.ts'
 import { OFFICE_PREVIEW_PATH } from '../office-preview.ts'
+import { TENCENT_DOCS_PREVIEW_PATH } from '../tencent-docs-preview.ts'
 import type { RequestPayload, ResponseValue, RpcMethodMap } from '../api/rpc-map.ts'
 import type { ClientRequest, RpcError, RpcRequest, RpcResponse, ServerRequest, ServerResponse } from '../api/rpc.ts'
 import { RpcId } from '../api/rpc.ts'
@@ -312,6 +314,47 @@ export function toFetchHandler(api: ApiProxy): { fetch: typeof fetch } {
           return api.downloads.officePreviewCallback({ ...parsed.data, body }, req.signal)
         }
         return new Response('not found', { status: 404 })
+      }
+      if (path.startsWith(`${TENCENT_DOCS_PREVIEW_PATH}/content/`) && (req.method === 'GET' || req.method === 'HEAD')) {
+        const tail = path.slice(`${TENCENT_DOCS_PREVIEW_PATH}/content/`.length)
+        const [fileId, downloadToken, extra] = tail.split('/')
+        const parsed = tencentDocsPreviewFileSchema.safeParse({
+          fileId,
+          downloadToken,
+          range: req.headers.get('range') ?? undefined,
+        })
+        if (!parsed.success || extra !== undefined) return new Response('invalid Tencent Docs preview file path', { status: 400 })
+        const response = await api.downloads.tencentDocsPreviewFile(parsed.data, req.signal)
+        if (req.method === 'GET') return response
+        await response.body?.cancel()
+        return new Response(null, { status: response.status, headers: response.headers })
+      }
+      if (path.startsWith(`${TENCENT_DOCS_PREVIEW_PATH}/open3rd/files/`) && req.method === 'GET') {
+        const tail = path.slice(`${TENCENT_DOCS_PREVIEW_PATH}/open3rd/files/`.length)
+        const [fileId, operation, extra] = tail.split('/')
+        const parsed = tencentDocsPreviewCallbackFileSchema.safeParse({ fileId })
+        if (!parsed.success || extra !== undefined) return new Response('invalid Tencent Docs callback path', { status: 400 })
+        const action = operation === undefined
+          ? 'file-info'
+          : operation === 'permission'
+            ? 'permission'
+            : operation === 'download'
+              ? 'download-info'
+              : operation === 'watermark'
+                ? 'watermark'
+                : undefined
+        if (action === undefined) return new Response('not found', { status: 404 })
+        return api.downloads.tencentDocsPreviewCallback({
+          fileId: parsed.data.fileId,
+          action,
+          headers: {
+            appId: req.headers.get('x-tdocs-app-id') ?? undefined,
+            nonce: req.headers.get('x-tdocs-nonce') ?? undefined,
+            timestamp: req.headers.get('x-tdocs-timestamp') ?? undefined,
+            signature: req.headers.get('x-tdocs-signature') ?? undefined,
+            fileToken: req.headers.get('x-tdocs-open3rd-token') ?? undefined,
+          },
+        })
       }
 
       if (req.method !== 'POST' || !path.startsWith('/api/')) {

@@ -3184,7 +3184,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DownloadsApi',
-    declaration: 'export interface DownloadsApi {\n    officePreviewFile(request: {\n        token: string;\n    }, signal: AbortSignal): Promise<Response>;\n    officePreviewCallback(request: {\n        token: string;\n        body: unknown;\n    }, signal: AbortSignal): Promise<Response>;\n    artifactPreview(request: {\n        token: string;\n        path: string;\n    }, signal: AbortSignal): Promise<Response>;\n    sessionLog(request: {\n        sessionId: SessionId;\n        includeDescendants?: boolean;\n    }, signal: AbortSignal): Promise<Response>;\n}',
+    declaration: 'export interface DownloadsApi {\n    officePreviewFile(request: {\n        token: string;\n    }, signal: AbortSignal): Promise<Response>;\n    officePreviewCallback(request: {\n        token: string;\n        body: unknown;\n    }, signal: AbortSignal): Promise<Response>;\n    tencentDocsPreviewCallback(request: {\n        fileId: string;\n        action: TencentDocsCallbackAction;\n        headers: TencentDocsCallbackHeaders;\n    }): Promise<Response>;\n    tencentDocsPreviewFile(request: {\n        fileId: string;\n        downloadToken: string;\n        range?: string | undefined;\n    }, signal: AbortSignal): Promise<Response>;\n    artifactPreview(request: {\n        token: string;\n        path: string;\n    }, signal: AbortSignal): Promise<Response>;\n    sessionLog(request: {\n        sessionId: SessionId;\n        includeDescendants?: boolean;\n    }, signal: AbortSignal): Promise<Response>;\n}',
   },
   {
     name: 'DshEnvironment',
@@ -4573,6 +4573,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TableValueOf',
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
+  },
+  {
+    name: 'TencentDocsCallbackAction',
+    declaration: 'export type TencentDocsCallbackAction = \'permission\' | \'file-info\' | \'download-info\' | \'watermark\';',
+  },
+  {
+    name: 'TencentDocsCallbackHeaders',
+    declaration: 'export interface TencentDocsCallbackHeaders {\n    appId?: string | undefined;\n    nonce?: string | undefined;\n    timestamp?: string | undefined;\n    signature?: string | undefined;\n    fileToken?: string | undefined;\n}',
   },
   {
     name: 'TencentDocsConnectorEventSnapshot',

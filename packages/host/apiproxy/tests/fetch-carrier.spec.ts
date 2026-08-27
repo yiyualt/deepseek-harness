@@ -312,6 +312,12 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
       async officePreviewCallback() {
         return new Response('stub', { status: 404 })
       },
+      async tencentDocsPreviewCallback() {
+        return new Response('stub', { status: 404 })
+      },
+      async tencentDocsPreviewFile() {
+        return new Response('stub', { status: 404 })
+      },
       async artifactPreview() {
         return new Response('stub', { status: 404 })
       },
@@ -668,6 +674,48 @@ describe('handler carrier-layer statuses', () => {
     const body = JSON.stringify({ type: 'client-request', rpcId: 'r-12', method: 'session.list', payload: {} })
     const response = await handler.fetch('http://x/api/session.list', { method: 'POST', headers: { 'content-type': 'application/json' }, body })
     expect(response.status).toBe(200)
+  })
+
+  it('routes Tencent Docs callbacks and ranged file reads through the download domain', async () => {
+    const api = fakeApi()
+    const callback = vi.fn(async () => Response.json({ code: 0 }))
+    const file = vi.fn(async () => new Response('bytes', { status: 206 }))
+    api.downloads.tencentDocsPreviewCallback = callback
+    api.downloads.tencentDocsPreviewFile = file
+    const routed = toFetchHandler(api)
+    const fileId = '00000000-0000-4000-8000-000000000001'
+    const downloadToken = '00000000-0000-4000-8000-000000000002'
+
+    const callbackResponse = await routed.fetch(new Request(
+      `http://x/api/tencent-docs/open3rd/files/${fileId}/download`,
+      {
+        headers: {
+          'x-tdocs-app-id': 'app',
+          'x-tdocs-nonce': 'nonce',
+          'x-tdocs-timestamp': '100',
+          'x-tdocs-signature': 'signature',
+          'x-tdocs-open3rd-token': 'file-token',
+        },
+      },
+    ))
+    expect(callbackResponse.status).toBe(200)
+    expect(callback).toHaveBeenCalledWith({
+      fileId,
+      action: 'download-info',
+      headers: {
+        appId: 'app', nonce: 'nonce', timestamp: '100', signature: 'signature', fileToken: 'file-token',
+      },
+    })
+
+    const fileResponse = await routed.fetch(new Request(
+      `http://x/api/tencent-docs/content/${fileId}/${downloadToken}`,
+      { headers: { range: 'bytes=0-4' } },
+    ))
+    expect(fileResponse.status).toBe(206)
+    expect(file).toHaveBeenCalledWith(
+      { fileId, downloadToken, range: 'bytes=0-4' },
+      expect.any(AbortSignal),
+    )
   })
 })
 

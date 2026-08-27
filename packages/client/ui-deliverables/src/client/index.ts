@@ -29,7 +29,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 declare module '@deepseek-ai/dsh-client-ui-layout/client' {
   interface DetailsPanelMap {
-    /** HTML, Markdown, and DOCX artifact preview. */
+    /** Artifact preview for web, Markdown, and supported document files. */
     'artifact-preview': unknown
   }
 }
@@ -85,8 +85,8 @@ export function apply(ctx: ClientContext): void {
   const mentions: ChatFileMentions = {
     forClosing(owner) {
       // The row remains mutation-location based. The prose resolver also
-      // accepts exact DOCX and Markdown paths because terminal-created output
-      // has no mutation location to contribute.
+      // accepts exact previewable document paths because terminal-created
+      // output has no mutation location to contribute.
       const paths = selectProducedFiles(owner) ?? []
       return producedFileMentions(paths, owner.openFile, path => t('produced.open', { name: path }))
     },

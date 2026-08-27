@@ -141,6 +141,10 @@
       config:
         onlyOfficeBrowserUrl: !!js process.env.DSH_ONLYOFFICE_URL
         onlyOfficeHarnessUrl: !!js process.env.DSH_ONLYOFFICE_HARNESS_URL
+        tencentDocsAppId: !!js process.env.DSH_TENCENT_DOCS_APP_ID
+        tencentDocsAppSecretEnv: TENCENT_DOCS_APP_SECRET
+        tencentDocsPublicUrl: !!js process.env.DSH_TENCENT_DOCS_PUBLIC_URL
+        tencentDocsSdkUrl: !!js process.env.DSH_TENCENT_DOCS_SDK_URL
 
     - id: cordis-host-runner
       name: '@deepseek-ai/dsh-cordis-host-runner'

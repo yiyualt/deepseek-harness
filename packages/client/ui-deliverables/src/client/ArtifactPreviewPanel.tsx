@@ -1,4 +1,4 @@
-/** Right-column renderer for HTML, Markdown, and DOCX artifacts. */
+/** Right-column renderer for web, Markdown, and document artifacts. */
 
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -9,6 +9,7 @@ import type { NS } from './locales.ts'
 import css from './ArtifactPreviewPanel.module.css'
 import { OnlyOfficeEditor } from './OnlyOfficeEditor.tsx'
 import { MarkdownEditor } from './MarkdownEditor.tsx'
+import { TencentDocsPreview } from './TencentDocsPreview.tsx'
 
 /** Layout action injected into the preview entry. */
 export interface ArtifactPreviewPanelInjected {
@@ -197,6 +198,25 @@ export function ArtifactPreviewPanel({
               hidden={tab.id !== preview.activeId}
             >
               <OnlyOfficeEditor apiUrl={tab.officeApiUrl} config={tab.officeConfig} />
+            </div>
+          )
+        ))}
+        {preview.tabs.map(tab => (
+          tab.status === 'ready'
+          && tab.kind === 'tencent-docs'
+          && tab.tencentDocsScriptUrl !== undefined
+          && tab.tencentDocsConfig !== undefined
+          && (
+            <div
+              key={tab.id}
+              className={css.framePane}
+              role="tabpanel"
+              hidden={tab.id !== preview.activeId}
+            >
+              <TencentDocsPreview
+                scriptUrl={tab.tencentDocsScriptUrl}
+                config={tab.tencentDocsConfig}
+              />
             </div>
           )
         ))}

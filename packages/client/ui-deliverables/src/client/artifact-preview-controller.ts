@@ -1,4 +1,4 @@
-/** HTML, Markdown, and DOCX interception with Host preparation for the preview panel. */
+/** Artifact interception with Host preparation for the preview panel. */
 
 import type { IApiClient, SessionId } from '@deepseek-ai/dsh-client-connection/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
@@ -10,7 +10,7 @@ import {
 
 const HTML_EXTENSION = /\.(?:html?|xhtml)$/i
 const MARKDOWN_EXTENSION = /\.(?:md|markdown)$/i
-const OFFICE_EXTENSION = /\.docx$/i
+const OFFICE_EXTENSION = /\.(?:doc|docx|txt|xls|xlsx|csv|ppt|pptx|pdf)$/i
 
 function basename(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path
@@ -202,7 +202,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
     ) return false
     const store = this.sourceFor(request.sessionId)
     const existing = store.getSnapshot().tabs.find(tab => tab.path === request.path)
-    if (existing !== undefined && existing.kind !== 'office') {
+    if (existing !== undefined && existing.kind !== 'office' && existing.kind !== 'tencent-docs') {
       this.activate(request.sessionId, existing.id)
       this.layout.openDetails('artifact-preview', 'wide')
       return true
@@ -248,6 +248,8 @@ export class ArtifactPreviewController implements ChatFilePreview {
             delete tab.markdownRevision
             delete tab.officeApiUrl
             delete tab.officeConfig
+            delete tab.tencentDocsScriptUrl
+            delete tab.tencentDocsConfig
           } else if (prepared.kind === 'markdown') {
             tab.markdownGrantId = prepared.grantId
             tab.markdownContent = prepared.content
@@ -259,7 +261,9 @@ export class ArtifactPreviewController implements ChatFilePreview {
             delete tab.url
             delete tab.officeApiUrl
             delete tab.officeConfig
-          } else {
+            delete tab.tencentDocsScriptUrl
+            delete tab.tencentDocsConfig
+          } else if (prepared.kind === 'office') {
             tab.officeApiUrl = prepared.apiUrl
             tab.officeConfig = prepared.config
             delete tab.url
@@ -267,10 +271,42 @@ export class ArtifactPreviewController implements ChatFilePreview {
             delete tab.markdownContent
             delete tab.markdownSavedContent
             delete tab.markdownRevision
+            delete tab.tencentDocsScriptUrl
+            delete tab.tencentDocsConfig
+          } else {
+            tab.tencentDocsScriptUrl = prepared.scriptUrl
+            tab.tencentDocsConfig = prepared.config
+            delete tab.url
+            delete tab.markdownGrantId
+            delete tab.markdownContent
+            delete tab.markdownSavedContent
+            delete tab.markdownRevision
+            delete tab.officeApiUrl
+            delete tab.officeConfig
           }
           delete tab.error
         })
       } else {
+        if (result.error.code === 'artifact-preview-unsupported') {
+          store.update((state) => {
+            const tab = state.tabs.find(candidate => candidate.requestId === requestId)
+            if (tab === undefined) return
+            if (blank !== undefined) {
+              tab.status = 'idle'
+              tab.requestId = 0
+              tab.path = ''
+              tab.name = ''
+              delete tab.kind
+              state.activeId = tab.id
+              return
+            }
+            const at = state.tabs.indexOf(tab)
+            state.tabs.splice(at, 1)
+            if (state.activeId === id) delete state.activeId
+          })
+          if (store.getSnapshot().tabs.length === 0) this.layout.closeDetails()
+          return false
+        }
         const message = result.error.message
         store.update((state) => {
           const tab = state.tabs.find(candidate => candidate.requestId === requestId)
@@ -280,6 +316,8 @@ export class ArtifactPreviewController implements ChatFilePreview {
           delete tab.url
           delete tab.officeApiUrl
           delete tab.officeConfig
+          delete tab.tencentDocsScriptUrl
+          delete tab.tencentDocsConfig
           delete tab.markdownGrantId
           delete tab.markdownContent
           delete tab.markdownSavedContent
@@ -296,6 +334,8 @@ export class ArtifactPreviewController implements ChatFilePreview {
         delete tab.url
         delete tab.officeApiUrl
         delete tab.officeConfig
+        delete tab.tencentDocsScriptUrl
+        delete tab.tencentDocsConfig
         delete tab.markdownGrantId
         delete tab.markdownContent
         delete tab.markdownSavedContent

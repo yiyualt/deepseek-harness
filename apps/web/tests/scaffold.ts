@@ -187,6 +187,13 @@ export interface WebScaffold {
 export interface LaunchOptions {
   /** Test-owned ONLYOFFICE addresses for assembled DOCX preview scenarios. */
   onlyOffice?: { browserUrl: string; harnessUrl: string }
+  /** Test-owned Tencent Docs WebSDK deployment for assembled document preview scenarios. */
+  tencentDocs?: {
+    appId: string
+    appSecretEnv: string
+    publicUrl: string
+    sdkUrl: string
+  }
   /**
    * Optional product overlay applied after the shipped Web surface and before
    * the scaffold's hermetic test patches, matching the launcher's `--patch`
@@ -433,6 +440,17 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         config: {
           onlyOfficeBrowserUrl: options.onlyOffice.browserUrl,
           onlyOfficeHarnessUrl: options.onlyOffice.harnessUrl,
+        },
+      }],
+    ...options.tencentDocs === undefined
+      ? []
+      : [{
+        id: 'api-gateway',
+        config: {
+          tencentDocsAppId: options.tencentDocs.appId,
+          tencentDocsAppSecretEnv: options.tencentDocs.appSecretEnv,
+          tencentDocsPublicUrl: options.tencentDocs.publicUrl,
+          tencentDocsSdkUrl: options.tencentDocs.sdkUrl,
         },
       }],
     // Fixture sessions must never leave the process: the shipped row defaults

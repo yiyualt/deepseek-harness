@@ -10,6 +10,8 @@ dsh 浏览器表层组合包。[`cordis.patch.yml`](cordis.patch.yml) 叠加在 
 
 只有挂载 [`dsh-tool-mcp`](../../mcp/tool-mcp/README.md) 的 preset 才能看到已连接的文档工具。每个 MCP 工具都会在外部调用前请求用户批准，因为远端 annotation 不受信任，绝不会授予免确认权限。
 
+腾讯文档 WebSDK 预览与 MCP 连接器彼此独立。设置 `DSH_TENCENT_DOCS_APP_ID`，把对应密钥保存在 `TENCENT_DOCS_APP_SECRET` credential reference 下，并将 `DSH_TENCENT_DOCS_PUBLIC_URL` 设置为腾讯能够访问的 HTTPS Harness origin。`DSH_TENCENT_DOCS_SDK_URL` 可以选择性替换官方浏览器 bundle。把 `<public-url>/api/tencent-docs` 注册为应用 callback 地址，并通过 `dsh web --trusted-host <authority>` 允许该公开 authority。配置完成后，DOC、DOCX、TXT、XLS、XLSX、CSV、PPT、PPTX 和 PDF 会在右侧工件栏中预览，不会把本地文件转换成腾讯文档资产。该 WebSDK 表层只读。
+
 ## 模型体验
 
 ### Harness 源码与 Web 表层上下文

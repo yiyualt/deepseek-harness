@@ -7,6 +7,18 @@
 
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
+/** Callback operation selected from Tencent's documented preview URI set. */
+export type TencentDocsCallbackAction = 'permission' | 'file-info' | 'download-info' | 'watermark'
+
+/** Headers that authenticate one Tencent Docs callback. */
+export interface TencentDocsCallbackHeaders {
+  appId?: string | undefined
+  nonce?: string | undefined
+  timestamp?: string | undefined
+  signature?: string | undefined
+  fileToken?: string | undefined
+}
+
 /** Host-only download surfaces (no wire envelope; absent from IApiClient). */
 export interface DownloadsApi {
   /** Serve one granted DOCX to ONLYOFFICE Document Server. */
@@ -15,6 +27,19 @@ export interface DownloadsApi {
   /** Apply one ONLYOFFICE save callback to its granted workspace file. */
   officePreviewCallback(
     request: { token: string; body: unknown },
+    signal: AbortSignal,
+  ): Promise<Response>
+
+  /** Answer one signed Tencent Docs permission, metadata, download, or watermark callback. */
+  tencentDocsPreviewCallback(request: {
+    fileId: string
+    action: TencentDocsCallbackAction
+    headers: TencentDocsCallbackHeaders
+  }): Promise<Response>
+
+  /** Stream one Tencent Docs preview grant, honoring an optional single byte range. */
+  tencentDocsPreviewFile(
+    request: { fileId: string; downloadToken: string; range?: string | undefined },
     signal: AbortSignal,
   ): Promise<Response>
 

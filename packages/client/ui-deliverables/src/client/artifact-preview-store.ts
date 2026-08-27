@@ -1,6 +1,6 @@
 /** Per-session state for the right-column artifact preview. */
 
-import type { OfficeEditorConfig } from '@deepseek-ai/dsh-client-connection/client'
+import type { OfficeEditorConfig, TencentDocsEditorConfig } from '@deepseek-ai/dsh-client-connection/client'
 
 /** One HTML, Markdown, or Office document retained as a browser-style preview tab. */
 export interface ArtifactPreviewTab {
@@ -9,7 +9,7 @@ export interface ArtifactPreviewTab {
   requestId: number
   name: string
   path: string
-  kind?: 'html' | 'markdown' | 'office'
+  kind?: 'html' | 'markdown' | 'office' | 'tencent-docs'
   url?: string
   markdownGrantId?: string
   markdownContent?: string
@@ -20,6 +20,8 @@ export interface ArtifactPreviewTab {
   markdownError?: string
   officeApiUrl?: string
   officeConfig?: OfficeEditorConfig
+  tencentDocsScriptUrl?: string
+  tencentDocsConfig?: TencentDocsEditorConfig
   error?: string
 }
 

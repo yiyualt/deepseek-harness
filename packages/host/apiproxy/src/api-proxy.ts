@@ -63,6 +63,9 @@ import type {} from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-jobs'
 import type { JobSnapshot } from '@deepseek-ai/dsh-jobs'
 import { OfficePreviewError, OfficePreviewGrants, type OfficePreviewConfig } from './office-preview.ts'
+import {
+  TencentDocsPreviewError, TencentDocsPreviewGrants, type TencentDocsPreviewConfig,
+} from './tencent-docs-preview.ts'
 // Type-only: resolves `ctx.get('sessionProjectionCache')` (the cold listing column).
 import type {} from '@deepseek-ai/dsh-session-projection-cache'
 // GoalError narrows domain rejections to their stable codes at the wire boundary.
@@ -676,6 +679,8 @@ export interface ApiProxyDefaults {
   canOpenPath?: () => boolean
   /** Optional ONLYOFFICE deployment used for editable DOCX previews. */
   onlyOffice?: OfficePreviewConfig
+  /** Optional Tencent Docs deployment used for read-only Office and PDF previews. */
+  tencentDocs?: TencentDocsPreviewConfig
 }
 
 /** The tool/call payload fields the presenter path reads. */
@@ -1120,6 +1125,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   const artifactPreviews = new ArtifactPreviewGrants()
   const markdownPreviews = new MarkdownPreviewGrants()
   const officePreviews = new OfficePreviewGrants(defaults.onlyOffice)
+  const tencentDocsPreviews = new TencentDocsPreviewGrants(defaults.tencentDocs)
   /** The seed model each create/resume declares; re-read so it never goes stale. */
   const agentOptions = (): AgentOptions => {
     const { provider, model } = defaults.defaultModelSelection()
@@ -3023,6 +3029,12 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
 
       async prepareArtifactPreview(request) {
         try {
+          if (
+            defaults.tencentDocs !== undefined
+            && /\.(?:doc|docx|txt|xls|xlsx|csv|ppt|pptx|pdf)$/i.test(request.payload.path)
+          ) {
+            return ok(request, await tencentDocsPreviews.prepare(request.payload.path))
+          }
           if (/\.docx$/i.test(request.payload.path)) {
             return ok(request, await officePreviews.prepare(request.payload.path))
           }
@@ -3035,6 +3047,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             !(error instanceof ArtifactPreviewError)
             && !(error instanceof MarkdownPreviewError)
             && !(error instanceof OfficePreviewError)
+            && !(error instanceof TencentDocsPreviewError)
           ) throw error
           return err(request, {
             code: error.reason === 'unsupported'
@@ -3699,6 +3712,19 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
 
       officePreviewCallback(request, signal) {
         return officePreviews.callback(request.token, request.body, signal)
+      },
+
+      tencentDocsPreviewCallback(request) {
+        return tencentDocsPreviews.callback(request.fileId, request.action, request.headers)
+      },
+
+      tencentDocsPreviewFile(request, signal) {
+        return tencentDocsPreviews.file(
+          request.fileId,
+          request.downloadToken,
+          request.range,
+          signal,
+        )
       },
 
       artifactPreview(request, signal) {

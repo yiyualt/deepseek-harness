@@ -25,11 +25,28 @@ export interface OfficeEditorConfig {
   }
 }
 
+/** File types accepted by the Tencent Docs browser preview service. */
+export type TencentDocsOfficeType =
+  | 'doc' | 'docx' | 'txt'
+  | 'xls' | 'xlsx' | 'csv'
+  | 'ppt' | 'pptx' | 'pdf'
+
+/** Browser-safe configuration passed to `TencentDocsSDK.init()`. */
+export interface TencentDocsEditorConfig {
+  appId: string
+  signature: { sign: string; nonce: string; timeStamp: number }
+  officeType: TencentDocsOfficeType
+  fileId: string
+  fileToken: string
+  mode: 'simple'
+}
+
 /** Prepared renderer selected from the artifact's file type. */
 export type ArtifactPreviewValue =
   | { kind: 'html'; name: string; url: string }
   | { kind: 'markdown'; name: string; grantId: string; content: string; revision: string }
   | { kind: 'office'; name: string; apiUrl: string; config: OfficeEditorConfig }
+  | { kind: 'tencent-docs'; name: string; scriptUrl: string; config: TencentDocsEditorConfig }
 
 /** One directory row of a listing: a child entry or a breadcrumb ancestor. */
 export interface DirectoryEntry {

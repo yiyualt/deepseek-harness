@@ -125,6 +125,23 @@ export const hostPrepareArtifactPreviewValueSchema = z.union([
       }),
     }),
   }),
+  z.object({
+    kind: z.literal('tencent-docs'),
+    name: z.string().min(1),
+    scriptUrl: z.url(),
+    config: z.object({
+      appId: z.string().min(1),
+      signature: z.object({
+        sign: z.string().length(40),
+        nonce: z.string().min(1).max(64),
+        timeStamp: z.number().int().nonnegative(),
+      }),
+      officeType: z.enum(['doc', 'docx', 'txt', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'pdf']),
+      fileId: z.uuid(),
+      fileToken: z.uuid(),
+      mode: z.literal('simple'),
+    }),
+  }),
 ]) satisfies z.ZodType<Wire<ResponseValue<'host.prepareArtifactPreview'>>>
 
 /** host.saveMarkdownArtifact response value. */

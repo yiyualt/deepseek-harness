@@ -49,6 +49,7 @@ export type {
 } from './sessions.ts'
 export type {
   ArtifactPreviewValue, DirectoryEntry, DirectoryListing, HostApi, OfficeEditorConfig,
+  TencentDocsEditorConfig, TencentDocsOfficeType,
 } from './host.ts'
 export type {
   SubagentAddress, SubagentCatalog, SubagentInterruptReceipt, SubagentListEntry,
@@ -63,7 +64,9 @@ export type { GoalsApi, GoalId, GoalRef } from './goals.ts'
 export type { SettingsApi, SettingsNamespaceView, SettingsPathOpView, SettingsSecretView } from './settings.ts'
 export type { CredentialsApi, CredentialView } from './credentials.ts'
 export type { ConfigurableProviderView, DiscoveredModelView, LlmApi } from './llm.ts'
-export type { DownloadsApi } from './downloads.ts'
+export type {
+  DownloadsApi, TencentDocsCallbackAction, TencentDocsCallbackHeaders,
+} from './downloads.ts'
 export type { ApprovalResponsePayload } from './approvals.ts'
 
 export type { QuestionResponsePayload } from './questions.ts'

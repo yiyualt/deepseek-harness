@@ -8,7 +8,7 @@
 export type {
   ApiProxy, SessionsApi, SessionSearchItem, SessionSummary, PromptContentPart, HostApi, EventsApi, MuxFrame, HostFrame,
   ApprovalResponsePayload, QuestionResponsePayload, HistoryEntry, ToolEventView,
-  ArtifactPreviewValue, DirectoryEntry, DirectoryListing, OfficeEditorConfig,
+  ArtifactPreviewValue, DirectoryEntry, DirectoryListing, OfficeEditorConfig, TencentDocsEditorConfig,
   ResponseValue, WorkspaceApi, WorkspaceId, WorkspaceView,
   SkillsApi, SkillEntry,
   ModelCatalogFailure, ModelCatalogModel, ModelProviderGroup, ModelReasoning,

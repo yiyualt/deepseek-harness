@@ -2,15 +2,19 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { TencentDocsEditorConfig } from '@deepseek-ai/dsh-client-connection/client'
 import {
   ArtifactPreviewPanel, type ArtifactPreviewPanelProps,
 } from '../src/client/ArtifactPreviewPanel.tsx'
 import { ArtifactPreviewController } from '../src/client/artifact-preview-controller.ts'
 import type { ArtifactPreviewState } from '../src/client/artifact-preview-store.ts'
+import { TencentDocsPreview, tencentDocsErrorMessage } from '../src/client/TencentDocsPreview.tsx'
 
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  delete (window as Window & { TencentDocsSDK?: unknown }).TencentDocsSDK
+  for (const script of document.querySelectorAll('script[src*="tencent-test"]')) script.remove()
 })
 
 const SID = 'preview-session' as SessionId
@@ -50,6 +54,20 @@ function successApi() {
             },
           }
         }
+        if (/\.(?:doc|txt|xls|xlsx|csv|ppt|pptx|pdf)$/i.test(path)) {
+          return {
+            rpcId: 'preview',
+            result: {
+              ok: true as const,
+              value: {
+                kind: 'tencent-docs' as const,
+                name,
+                scriptUrl: 'https://cdn.addon.tencentsuite.com/lib/web-sdk/global.js',
+                config: tencentDocsConfig(path.split('.').at(-1) ?? 'pdf'),
+              },
+            },
+          }
+        }
         return {
           rpcId: 'preview',
           result: { ok: true as const, value: { kind: 'html' as const, name, url: `${PREVIEW_URL}/${name}` } },
@@ -84,13 +102,24 @@ function officeConfig(name = 'report.docx') {
   }
 }
 
+function tencentDocsConfig(officeType = 'pdf') {
+  return {
+    appId: 'app-123',
+    signature: { sign: 'a'.repeat(40), nonce: 'nonce', timeStamp: 1_700_000_000 },
+    officeType: officeType as 'pdf',
+    fileId: '00000000-0000-4000-8000-000000000002',
+    fileToken: '00000000-0000-4000-8000-000000000003',
+    mode: 'simple' as const,
+  }
+}
+
 describe('ArtifactPreviewController', () => {
   it('declines unsupported files and opens HTML in the artifact panel', async () => {
     const api = successApi()
     const layout = { openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn() }
     const controller = new ArtifactPreviewController(api as never, layout)
 
-    await expect(controller.open({ sessionId: SID, path: '/workspace/readme.txt' })).resolves.toBe(false)
+    await expect(controller.open({ sessionId: SID, path: '/workspace/archive.zip' })).resolves.toBe(false)
     expect(api.host.prepareArtifactPreview).not.toHaveBeenCalled()
 
     await expect(controller.open({ sessionId: SID, path: '/workspace/report.html' })).resolves.toBe(true)
@@ -190,6 +219,26 @@ describe('ArtifactPreviewController', () => {
     expect(controller.sourceFor(SID).getSnapshot().tabs[0]?.id).toBe(originalId)
   })
 
+  it('opens supported Office and PDF artifacts as Tencent Docs preview tabs', async () => {
+    const api = successApi()
+    const controller = new ArtifactPreviewController(api as never, {
+      openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn(),
+    })
+    await expect(controller.open({ sessionId: SID, path: '/workspace/report.pdf' })).resolves.toBe(true)
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
+      status: 'ready',
+      kind: 'tencent-docs',
+      name: 'report.pdf',
+      tencentDocsScriptUrl: 'https://cdn.addon.tencentsuite.com/lib/web-sdk/global.js',
+      tencentDocsConfig: { appId: 'app-123', officeType: 'pdf', mode: 'simple' },
+    })
+    const originalId = controller.sourceFor(SID).getSnapshot().tabs[0]?.id
+    await controller.open({ sessionId: SID, path: '/workspace/report.pdf' })
+    expect(api.host.prepareArtifactPreview).toHaveBeenCalledTimes(2)
+    expect(controller.sourceFor(SID).getSnapshot().tabs).toHaveLength(1)
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]?.id).toBe(originalId)
+  })
+
   it('adds an active blank tab and reuses it for the next HTML path', async () => {
     const layout = { openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn() }
     const controller = new ArtifactPreviewController(successApi() as never, layout)
@@ -207,6 +256,28 @@ describe('ArtifactPreviewController', () => {
       activeId: snapshot.activeId,
       tabs: [{ status: 'ready', name: 'from-blank.html', path: '/workspace/from-blank.html' }],
     })
+  })
+
+  it('restores a reused blank tab when the Host declines an optional document provider', async () => {
+    const api = successApi()
+    api.host.prepareArtifactPreview.mockResolvedValueOnce({
+      rpcId: 'preview',
+      result: {
+        ok: false,
+        error: { code: 'artifact-preview-unsupported', message: 'provider disabled', details: {} },
+      },
+    } as never)
+    const layout = { openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn() }
+    const controller = new ArtifactPreviewController(api as never, layout)
+    controller.newTab(SID)
+    const blankId = controller.sourceFor(SID).getSnapshot().activeId
+
+    await expect(controller.open({ sessionId: SID, path: '/workspace/report.pdf' })).resolves.toBe(false)
+    expect(controller.sourceFor(SID).getSnapshot()).toMatchObject({
+      activeId: blankId,
+      tabs: [{ id: blankId, status: 'idle', requestId: 0, path: '', name: '' }],
+    })
+    expect(layout.closeDetails).not.toHaveBeenCalled()
   })
 
   it('navigates an empty tab to an HTTP page and rejects other schemes', () => {
@@ -376,6 +447,124 @@ describe('ArtifactPreviewPanel', () => {
     view.unmount()
     expect(destroyEditor).toHaveBeenCalledTimes(1)
     delete (window as Window & { DocsAPI?: unknown }).DocsAPI
+  })
+
+  it('mounts and destroys the Tencent Docs WebSDK preview with its tab', async () => {
+    const destroy = vi.fn()
+    const ready = vi.fn(async () => {})
+    const init = vi.fn((_config: TencentDocsEditorConfig & { mount: HTMLElement }) => ({ ready, destroy }))
+    Object.defineProperty(window, 'TencentDocsSDK', {
+      configurable: true,
+      value: { init },
+    })
+    const view = render(<ArtifactPreviewPanel {...panelProps({
+      activeId: 'pdf',
+      tabs: [{
+        id: 'pdf', status: 'ready', requestId: 1, kind: 'tencent-docs',
+        name: 'report.pdf', path: '/report.pdf',
+        tencentDocsScriptUrl: 'https://cdn.addon.tencentsuite.com/lib/web-sdk/global.js',
+        tencentDocsConfig: tencentDocsConfig(),
+      }],
+    })} />)
+    await waitFor(() => { expect(ready).toHaveBeenCalledTimes(1) })
+    const initialized = init.mock.calls[0]?.[0]
+    expect(initialized).toMatchObject({ appId: 'app-123', officeType: 'pdf', mode: 'simple' })
+    expect(initialized?.mount).toBeInstanceOf(HTMLElement)
+    expect(view.container.querySelector('[data-tencent-docs-preview]')).not.toBeNull()
+    view.unmount()
+    expect(destroy).toHaveBeenCalledTimes(1)
+  })
+
+  it('loads one Tencent script for concurrent previews and initializes both mounts', async () => {
+    const ready = vi.fn(async () => {})
+    const destroy = vi.fn()
+    const init = vi.fn((_config: TencentDocsEditorConfig & { mount: HTMLElement }) => ({ ready, destroy }))
+    const scriptUrl = 'https://sdk.example/tencent-test-shared.js'
+    const view = render(<>
+      <TencentDocsPreview scriptUrl={scriptUrl} config={tencentDocsConfig()} />
+      <TencentDocsPreview scriptUrl={scriptUrl} config={tencentDocsConfig('xlsx')} />
+    </>)
+    const scripts = document.querySelectorAll(`script[src="${scriptUrl}"]`)
+    expect(scripts).toHaveLength(1)
+    Object.defineProperty(window, 'TencentDocsSDK', { configurable: true, value: { init } })
+    fireEvent.load(scripts[0] as HTMLScriptElement)
+    await waitFor(() => { expect(init).toHaveBeenCalledTimes(2) })
+    expect(ready).toHaveBeenCalledTimes(2)
+    view.unmount()
+    expect(destroy).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows script errors and retries a failed Tencent SDK URL', async () => {
+    const scriptUrl = 'https://sdk.example/tencent-test-retry.js'
+    const first = render(<TencentDocsPreview scriptUrl={scriptUrl} config={tencentDocsConfig()} />)
+    const failedScript = document.querySelector(`script[src="${scriptUrl}"]`) as HTMLScriptElement
+    fireEvent.error(failedScript)
+    await waitFor(() => {
+      expect(first.getByRole('alert').textContent).toContain('Unable to load Tencent Docs WebSDK')
+    })
+    first.unmount()
+
+    const ready = vi.fn(async () => {})
+    const init = vi.fn(() => ({ ready, destroy: vi.fn() }))
+    const retry = render(<TencentDocsPreview scriptUrl={scriptUrl} config={tencentDocsConfig()} />)
+    const scripts = document.querySelectorAll(`script[src="${scriptUrl}"]`)
+    expect(scripts).toHaveLength(2)
+    Object.defineProperty(window, 'TencentDocsSDK', { configurable: true, value: { init } })
+    fireEvent.load(scripts[1] as HTMLScriptElement)
+    await waitFor(() => { expect(ready).toHaveBeenCalledTimes(1) })
+    retry.unmount()
+  })
+
+  it('reports malformed SDK globals and readiness failures', async () => {
+    const missingUrl = 'https://sdk.example/tencent-test-missing.js'
+    const missing = render(<TencentDocsPreview scriptUrl={missingUrl} config={tencentDocsConfig()} />)
+    fireEvent.load(document.querySelector(`script[src="${missingUrl}"]`) as HTMLScriptElement)
+    await waitFor(() => {
+      expect(missing.getByRole('alert').textContent).toBe('Tencent Docs WebSDK loaded without TencentDocsSDK')
+    })
+    missing.unmount()
+
+    Object.defineProperty(window, 'TencentDocsSDK', {
+      configurable: true,
+      value: { init: () => ({ ready: () => Promise.reject(new Error('readiness failed')), destroy: vi.fn() }) },
+    })
+    const rejected = render(<TencentDocsPreview
+      scriptUrl="https://sdk.example/tencent-test-rejected.js"
+      config={tencentDocsConfig()}
+    />)
+    await waitFor(() => { expect(rejected.getByRole('alert').textContent).toBe('readiness failed') })
+    expect(tencentDocsErrorMessage('plain failure')).toBe('plain failure')
+  })
+
+  it('does not initialize a Tencent SDK after its preview unmounts during script loading', async () => {
+    const scriptUrl = 'https://sdk.example/tencent-test-disposed.js'
+    const init = vi.fn()
+    const view = render(<TencentDocsPreview scriptUrl={scriptUrl} config={tencentDocsConfig()} />)
+    const script = document.querySelector(`script[src="${scriptUrl}"]`) as HTMLScriptElement
+    view.unmount()
+    Object.defineProperty(window, 'TencentDocsSDK', { configurable: true, value: { init } })
+    fireEvent.load(script)
+    await Promise.resolve()
+    expect(init).not.toHaveBeenCalled()
+  })
+
+  it('ignores a Tencent readiness failure after its preview has unmounted', async () => {
+    let rejectReady: ((reason: unknown) => void) | undefined
+    const ready = () => new Promise<void>((_resolve, reject) => { rejectReady = reject })
+    const destroy = vi.fn()
+    Object.defineProperty(window, 'TencentDocsSDK', {
+      configurable: true,
+      value: { init: () => ({ ready, destroy }) },
+    })
+    const view = render(<TencentDocsPreview
+      scriptUrl="https://sdk.example/tencent-test-late-rejection.js"
+      config={tencentDocsConfig()}
+    />)
+    await waitFor(() => { expect(rejectReady).toBeTypeOf('function') })
+    view.unmount()
+    rejectReady?.(new Error('late failure'))
+    await Promise.resolve()
+    expect(destroy).toHaveBeenCalledTimes(1)
   })
 
   it('renders, edits, and saves a ready Markdown tab', () => {

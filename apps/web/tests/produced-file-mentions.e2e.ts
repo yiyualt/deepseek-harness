@@ -5,7 +5,7 @@
 // resolver in isolation; only the assembled application shows a real write's
 // locations reaching the prose as an opener. The HTML click exercises the
 // assembled artifact-preview RPC, right-column entry, local iframe resource,
-// Markdown editing, and the empty-tab HTTP URL flow.
+// Markdown editing, Tencent Docs preview, and the empty-tab HTTP URL flow.
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import { join } from 'node:path'
@@ -23,6 +23,7 @@ import { newEnglishPage, saveFailureShot } from './support.ts'
 const MODE = webSnapshotMode()
 const SEED_ID = 'produced-file-mentions-web-e2e'
 const DONE = 'FILE_MENTION_DONE'
+const TENCENT_SECRET_ENV = 'DSH_WEB_E2E_TENCENT_DOCS_SECRET'
 
 /** One-part text content for a built message. */
 function text(value: string): { type: 'text'; text: string }[] {
@@ -93,7 +94,7 @@ function mentionFixture(): string {
       content: [{
         type: 'text',
         text: [
-          'Wrote `report.html`, `report.docx`, `notes.md`, plus two `style.css` copies.',
+          'Wrote `report.html`, `report.docx`, `notes.md`, and preview `report.pdf`, plus two `style.css` copies.',
           '',
           DONE,
         ].join('\n'),
@@ -127,12 +128,22 @@ describe('web e2e: inline-code mentions of produced files', () => {
   let tripwire: ReturnType<typeof watchConsole>
   let onlyOffice: Server | undefined
   let embedUrl: string
+  let originalTencentSecret: string | undefined
 
   beforeAll(async () => {
+    originalTencentSecret = process.env[TENCENT_SECRET_ENV]
+    process.env[TENCENT_SECRET_ENV] = 'web-e2e-secret'
     const server = createServer((request, response) => {
       if (request.url === '/embed') {
         response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
         response.end('<!doctype html><html><body><h1>Remote embed ready</h1></body></html>')
+        return
+      }
+      if (request.url === '/tencent.js') {
+        response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' })
+        response.end('window.TencentDocsSDK={init:function(config){var button=document.createElement("button");'
+          + 'button.textContent="Tencent preview "+config.officeType;config.mount.append(button);'
+          + 'return{ready:function(){return Promise.resolve()},destroy:function(){config.mount.replaceChildren()}}}}')
         return
       }
       response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' })
@@ -150,6 +161,12 @@ describe('web e2e: inline-code mentions of produced files', () => {
         browserUrl: `http://127.0.0.1:${String(address.port)}`,
         harnessUrl: 'http://127.0.0.1:9',
       },
+      tencentDocs: {
+        appId: 'web-e2e-app',
+        appSecretEnv: TENCENT_SECRET_ENV,
+        publicUrl: 'http://127.0.0.1:9',
+        sdkUrl: `http://127.0.0.1:${String(address.port)}/tencent.js`,
+      },
     })
     await mkdir(join(scaffold.workspaceCwd, 'site'), { recursive: true })
     await writeFile(
@@ -161,6 +178,7 @@ describe('web e2e: inline-code mentions of produced files', () => {
       '<!doctype html><html><body><h1>Second HTML preview</h1></body></html>',
     )
     await writeFile(join(scaffold.workspaceCwd, 'site', 'report.docx'), 'fixture-docx')
+    await writeFile(join(scaffold.workspaceCwd, 'report.pdf'), 'fixture-pdf')
     await writeFile(join(scaffold.workspaceCwd, 'site', 'notes.md'), '# Markdown ready\n\nInitial text.\n')
     await seedSession(scaffold, mentionFixture(), SEED_ID)
     browser = await chromium.launch()
@@ -179,6 +197,8 @@ describe('web e2e: inline-code mentions of produced files', () => {
         server.close((error) => { if (error === undefined) resolve(); else reject(error) })
       })
     }
+    if (originalTencentSecret === undefined) Reflect.deleteProperty(process.env, TENCENT_SECRET_ENV)
+    else process.env[TENCENT_SECRET_ENV] = originalTencentSecret
   })
 
   it.skipIf(MODE === 'record')('links the unique mention and leaves ambiguous and unknown code inert', async () => {
@@ -191,9 +211,9 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await sessionRow.click()
     await expect.poll(() => page.getByText(DONE, { exact: true }).count(), { timeout: 15_000 }).toBe(1)
 
-    // Exactly three prose mentions link; the shared `style.css` basename stays code.
+    // Exactly four prose mentions link; the shared `style.css` basename stays code.
     const mentions = page.locator('[class*="markdown"] code button')
-    await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(3)
+    await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(4)
     expect(await mentions.first().innerText()).toBe('report.html')
     expect(await mentions.first().getAttribute('aria-label')).toBe('Open site/report.html')
     expect(await mentions.first().getAttribute('title')).toBe('site/report.html')
@@ -222,12 +242,18 @@ describe('web e2e: inline-code mentions of produced files', () => {
 
     await page.getByRole('button', { name: 'Open site/report.docx', exact: true }).first().click()
     await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(3)
-    await expect.poll(() => preview.getByRole('button', { name: 'Edit report.docx', exact: true }).count(), {
+    await expect.poll(() => preview.getByRole('button', { name: 'Tencent preview docx', exact: true }).count(), {
+      timeout: 10_000,
+    }).toBe(1)
+
+    await page.getByRole('button', { name: 'Open report.pdf', exact: true }).click()
+    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(4)
+    await expect.poll(() => preview.getByRole('button', { name: 'Tencent preview pdf', exact: true }).count(), {
       timeout: 10_000,
     }).toBe(1)
 
     await page.getByRole('button', { name: 'Open site/notes.md', exact: true }).first().click()
-    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(4)
+    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(5)
     const source = preview.getByLabel('Markdown source', { exact: true })
     await source.fill('# Markdown updated\n\nSaved from Web.\n')
     await expect.poll(() => preview.getByRole('heading', { name: 'Markdown updated' }).count(), {

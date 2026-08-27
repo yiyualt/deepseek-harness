@@ -135,6 +135,8 @@ function scriptedApi(overrides: {
     downloads: {
       officePreviewFile: async () => new Response('stub', { status: 404 }),
       officePreviewCallback: async () => new Response('stub', { status: 404 }),
+      tencentDocsPreviewCallback: async () => new Response('stub', { status: 404 }),
+      tencentDocsPreviewFile: async () => new Response('stub', { status: 404 }),
       artifactPreview: async () => new Response('stub', { status: 404 }),
       sessionLog: async () => new Response('stub', { status: 404 }),
     },

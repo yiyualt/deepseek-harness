@@ -438,12 +438,17 @@ describe('producedFileMentions resolver', () => {
     expect(basename('a\\b\\c.txt')).toBe('c.txt')
   })
 
-  it('opens exact DOCX and Markdown mentions without produced mutation locations', () => {
+  it('opens exact previewable document mentions without produced mutation locations', () => {
     const openFile = vi.fn()
     const resolver = producedFileMentions([], openFile, label)
     resolver.resolve('专注的力量.docx')?.open()
     resolver.resolve('notes.markdown')?.open()
-    expect(openFile.mock.calls).toEqual([['专注的力量.docx'], ['notes.markdown']])
+    resolver.resolve('季度报告.pdf')?.open()
+    resolver.resolve('预算.xlsx')?.open()
+    resolver.resolve('路演.pptx')?.open()
+    expect(openFile.mock.calls).toEqual([
+      ['专注的力量.docx'], ['notes.markdown'], ['季度报告.pdf'], ['预算.xlsx'], ['路演.pptx'],
+    ])
     expect(resolver.resolve('力量.docx.bak')).toBeUndefined()
   })
 })
