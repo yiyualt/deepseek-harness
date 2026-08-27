@@ -161,6 +161,9 @@ export class FakeApiClient implements IApiClient {
     saveGenOfficeDocxArtifact: payload => this.record(
       'host.saveGenOfficeDocxArtifact', payload, Promise.resolve(ok({ revision: payload.revision, blocks: [] })),
     ),
+    saveGenOfficePptxArtifact: payload => this.record(
+      'host.saveGenOfficePptxArtifact', payload, Promise.resolve(ok({ revision: payload.revision, slides: [] })),
+    ),
     saveGenOfficeXlsxArtifact: payload => this.record(
       'host.saveGenOfficeXlsxArtifact', payload, Promise.resolve(ok({ revision: payload.revision })),
     ),

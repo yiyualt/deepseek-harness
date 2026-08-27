@@ -19,6 +19,7 @@ import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import type { ApiProxy } from './api/index.ts'
 import { createApiProxy, DEFAULT_COLD_BLANK_PROBE_MAX_BYTES } from './api-proxy.ts'
 import { DEFAULT_GENOFFICE_DOCX_MAX_BYTES } from './genoffice-docx.ts'
+import { DEFAULT_GENOFFICE_PPTX_MAX_BYTES } from './genoffice-pptx.ts'
 import { DEFAULT_GENOFFICE_XLSX_MAX_BYTES } from './genoffice-xlsx.ts'
 import {
   DEFAULT_SESSION_LOG_COMPRESSION_LEVEL,
@@ -46,6 +47,10 @@ export interface Config {
   genOfficeDocxEditing?: boolean
   /** Maximum source and saved DOCX size accepted by the local GenOffice editor. */
   genOfficeDocxMaxBytes?: number
+  /** Enable local GenOffice text-box editing for PPTX artifacts. */
+  genOfficePptxEditing?: boolean
+  /** Maximum source, browser projection, and saved PPTX size accepted by the local GenOffice editor. */
+  genOfficePptxMaxBytes?: number
   /** Enable local GenOffice cell editing for XLSX artifacts. */
   genOfficeXlsxEditing?: boolean
   /** Maximum source and saved XLSX size accepted by the local GenOffice editor. */
@@ -98,6 +103,8 @@ export class ApiProxyService extends Service implements ApiProxy {
   static Config: z<Config> = z.object({
     genOfficeDocxEditing: z.boolean().default(false),
     genOfficeDocxMaxBytes: z.natural().min(1).default(DEFAULT_GENOFFICE_DOCX_MAX_BYTES),
+    genOfficePptxEditing: z.boolean().default(false),
+    genOfficePptxMaxBytes: z.natural().min(1).default(DEFAULT_GENOFFICE_PPTX_MAX_BYTES),
     genOfficeXlsxEditing: z.boolean().default(false),
     genOfficeXlsxMaxBytes: z.natural().min(1).default(DEFAULT_GENOFFICE_XLSX_MAX_BYTES),
     onlyOfficeBrowserUrl: z.string(),
@@ -157,6 +164,8 @@ export class ApiProxyService extends Service implements ApiProxy {
       cwd: process.cwd(),
       genOfficeDocxEditing: config.genOfficeDocxEditing ?? false,
       genOfficeDocxMaxBytes: config.genOfficeDocxMaxBytes ?? DEFAULT_GENOFFICE_DOCX_MAX_BYTES,
+      genOfficePptxEditing: config.genOfficePptxEditing ?? false,
+      genOfficePptxMaxBytes: config.genOfficePptxMaxBytes ?? DEFAULT_GENOFFICE_PPTX_MAX_BYTES,
       genOfficeXlsxEditing: config.genOfficeXlsxEditing ?? false,
       genOfficeXlsxMaxBytes: config.genOfficeXlsxMaxBytes ?? DEFAULT_GENOFFICE_XLSX_MAX_BYTES,
       ...(onlyOffice === undefined ? {} : { onlyOffice }),

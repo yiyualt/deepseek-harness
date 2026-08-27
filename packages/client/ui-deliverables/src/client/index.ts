@@ -78,6 +78,10 @@ export function apply(ctx: ClientContext): void {
           preview.editGenOfficeDocx(sessionId, id, blocks)
         },
         saveGenOfficeDocx: (id) => { void preview.saveGenOfficeDocx(sessionId, id) },
+        editGenOfficePptx: (id, slideIndex, elementIndex, text, style) => {
+          preview.editGenOfficePptx(sessionId, id, slideIndex, elementIndex, text, style)
+        },
+        saveGenOfficePptx: (id) => { void preview.saveGenOfficePptx(sessionId, id) },
         editGenOfficeXlsx: (id, edits) => {
           preview.editGenOfficeXlsx(sessionId, id, edits)
         },

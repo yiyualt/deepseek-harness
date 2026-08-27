@@ -39,7 +39,8 @@ import {
   hostCreateDirectoryRequestSchema, hostDescribeRequestSchema,
   hostListDirectoryRequestSchema, hostOpenPathRequestSchema,
   hostPickDirectoryRequestSchema, hostPrepareArtifactPreviewRequestSchema,
-  hostSaveGenOfficeDocxArtifactRequestSchema, hostSaveGenOfficeXlsxArtifactRequestSchema,
+  hostSaveGenOfficeDocxArtifactRequestSchema, hostSaveGenOfficePptxArtifactRequestSchema,
+  hostSaveGenOfficeXlsxArtifactRequestSchema,
   hostSaveMarkdownArtifactRequestSchema,
 } from '../api/host.schema.ts'
 import {
@@ -120,6 +121,7 @@ const UNARY_ROUTES: UnaryRoutes = {
   'host.prepareArtifactPreview': { schema: hostPrepareArtifactPreviewRequestSchema, invoke: (api, r) => api.host.prepareArtifactPreview(r) },
   'host.saveMarkdownArtifact': { schema: hostSaveMarkdownArtifactRequestSchema, invoke: (api, r) => api.host.saveMarkdownArtifact(r) },
   'host.saveGenOfficeDocxArtifact': { schema: hostSaveGenOfficeDocxArtifactRequestSchema, invoke: (api, r) => api.host.saveGenOfficeDocxArtifact(r) },
+  'host.saveGenOfficePptxArtifact': { schema: hostSaveGenOfficePptxArtifactRequestSchema, invoke: (api, r) => api.host.saveGenOfficePptxArtifact(r) },
   'host.saveGenOfficeXlsxArtifact': { schema: hostSaveGenOfficeXlsxArtifactRequestSchema, invoke: (api, r) => api.host.saveGenOfficeXlsxArtifact(r) },
   'workspace.list': { schema: workspaceListRequestSchema, invoke: (api, r) => api.workspace.list(r) },
   'workspace.create': { schema: workspaceCreateRequestSchema, invoke: (api, r) => api.workspace.create(r) },

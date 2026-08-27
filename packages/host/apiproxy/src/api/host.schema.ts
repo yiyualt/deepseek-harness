@@ -85,7 +85,6 @@ export const hostSaveMarkdownArtifactRequestSchema = z.object({
   revision: z.string().length(64),
 }) satisfies z.ZodType<Wire<RequestPayload<'host.saveMarkdownArtifact'>>>
 
-/** host.saveGenOfficeDocxArtifact request payload. */
 const genOfficeDocxRunSchema = z.object({
   text: z.string(),
   bold: z.boolean().optional(),
@@ -109,6 +108,7 @@ const genOfficeDocxBlockSchema = z.object({
   label: z.string().optional(),
 })
 
+/** host.saveGenOfficeDocxArtifact request payload. */
 export const hostSaveGenOfficeDocxArtifactRequestSchema = z.object({
   grantId: z.uuid(),
   edits: z.array(z.object({
@@ -118,6 +118,59 @@ export const hostSaveGenOfficeDocxArtifactRequestSchema = z.object({
   })),
   revision: z.string().length(64),
 }) satisfies z.ZodType<Wire<RequestPayload<'host.saveGenOfficeDocxArtifact'>>>
+
+const genOfficePptxTextStyleSchema = z.object({
+  fontFamily: z.string().min(1).max(128).optional(),
+  fontSize: z.number().positive().max(400).optional(),
+  bold: z.boolean(),
+  italic: z.boolean(),
+  underline: z.boolean(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?$/).optional(),
+  align: z.enum(['left', 'center', 'right', 'justify']),
+})
+
+const genOfficePptxFrameSchema = z.object({
+  elementIndex: z.number().int().nonnegative(),
+  x: z.number().finite(),
+  y: z.number().finite(),
+  width: z.number().finite().nonnegative(),
+  height: z.number().finite().nonnegative(),
+  rotation: z.number().finite(),
+})
+
+const genOfficePptxElementSchema = z.intersection(genOfficePptxFrameSchema, z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('text'),
+    text: z.string(),
+    editable: z.boolean(),
+    style: genOfficePptxTextStyleSchema,
+    fill: z.string().optional(),
+    stroke: z.string().optional(),
+  }),
+  z.object({ kind: z.literal('picture'), dataUrl: z.string().optional(), opacity: z.number().min(0).max(1) }),
+  z.object({ kind: z.literal('shape'), fill: z.string().optional(), stroke: z.string().optional() }),
+  z.object({ kind: z.literal('protected'), label: z.string() }),
+]))
+
+const genOfficePptxSlideSchema = z.object({
+  slideIndex: z.number().int().nonnegative(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  background: z.string().optional(),
+  elements: z.array(genOfficePptxElementSchema),
+})
+
+/** host.saveGenOfficePptxArtifact request payload. */
+export const hostSaveGenOfficePptxArtifactRequestSchema = z.object({
+  grantId: z.uuid(),
+  edits: z.array(z.object({
+    slideIndex: z.number().int().nonnegative(),
+    elementIndex: z.number().int().nonnegative(),
+    text: z.string(),
+    style: genOfficePptxTextStyleSchema,
+  })),
+  revision: z.string().length(64),
+}) satisfies z.ZodType<Wire<RequestPayload<'host.saveGenOfficePptxArtifact'>>>
 
 const genOfficeXlsxCellValueSchema = z.union([
   z.string(), z.number().finite(), z.boolean(), z.null(),
@@ -151,6 +204,7 @@ const genOfficeXlsxStyleSchema = z.object({
   borderRight: z.union([genOfficeXlsxBorderSchema, z.null()]).optional(),
 })
 
+/** host.saveGenOfficeXlsxArtifact request payload. */
 export const hostSaveGenOfficeXlsxArtifactRequestSchema = z.object({
   grantId: z.uuid(),
   edits: z.array(z.object({
@@ -185,6 +239,13 @@ export const hostPrepareArtifactPreviewValueSchema = z.union([
     name: z.string().min(1),
     grantId: z.uuid(),
     blocks: z.array(genOfficeDocxBlockSchema),
+    revision: z.string().length(64),
+  }),
+  z.object({
+    kind: z.literal('genoffice-pptx'),
+    name: z.string().min(1),
+    grantId: z.uuid(),
+    slides: z.array(genOfficePptxSlideSchema),
     revision: z.string().length(64),
   }),
   z.object({
@@ -257,6 +318,12 @@ export const hostSaveGenOfficeDocxArtifactValueSchema = z.object({
   revision: z.string().length(64),
   blocks: z.array(genOfficeDocxBlockSchema),
 }) satisfies z.ZodType<Wire<ResponseValue<'host.saveGenOfficeDocxArtifact'>>>
+
+/** host.saveGenOfficePptxArtifact response value. */
+export const hostSaveGenOfficePptxArtifactValueSchema = z.object({
+  revision: z.string().length(64),
+  slides: z.array(genOfficePptxSlideSchema),
+}) satisfies z.ZodType<Wire<ResponseValue<'host.saveGenOfficePptxArtifact'>>>
 
 /** host.saveGenOfficeXlsxArtifact response value. */
 export const hostSaveGenOfficeXlsxArtifactValueSchema = z.object({

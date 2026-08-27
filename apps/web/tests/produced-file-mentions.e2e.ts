@@ -15,6 +15,7 @@ import { strToU8, zipSync } from 'fflate'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { CallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { buildBlankDocx, parseDocx, saveDocx } from '@deepseek-ai/dsh-genoffice-docx-engine'
+import { addElement, createBlankPptx, openPptx, savePptx } from '@deepseek-ai/dsh-genoffice-pptx-engine'
 import { readBasicWorkbook } from '@deepseek-ai/dsh-genoffice-xlsx-engine'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-title'
@@ -35,7 +36,7 @@ function text(value: string): { type: 'text'; text: string }[] {
 
 /** The files the built turn writes. */
 const WRITES = [
-  'site/report.html', 'site/other.html', 'site/report.docx', 'site/report.xlsx', 'site/notes.md',
+  'site/report.html', 'site/other.html', 'site/report.docx', 'site/report.xlsx', 'site/report.pptx', 'site/notes.md',
   'a/style.css', 'b/style.css',
 ]
 
@@ -48,6 +49,22 @@ function xlsxFixture(): Uint8Array {
     'xl/_rels/workbook.xml.rels': strToU8('<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'),
     'xl/worksheets/sheet1.xml': strToU8('<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Original sheet value</t></is></c></row></sheetData></worksheet>'),
   })
+}
+
+/** One-slide PPTX used by the assembled local-editor path. */
+async function pptxFixture(): Promise<Uint8Array> {
+  const opened = await openPptx(await createBlankPptx())
+  const slide = opened.deck.slides[0]
+  if (slide === undefined) throw new Error('blank PPTX has no slide')
+  addElement(slide, {
+    kind: 'textbox',
+    offset: { x: 914_400, y: 914_400, cx: 7_315_200, cy: 1_371_600 },
+    paragraphs: [{
+      align: 'left',
+      runs: [{ text: 'Agentic RL', fontFamily: 'Arial', fontSize: 28, bold: false }],
+    }],
+  })
+  return savePptx(opened)
 }
 
 /** Build a settled write turn whose closing prose mentions files in inline code. */
@@ -109,7 +126,7 @@ function mentionFixture(): string {
       content: [{
         type: 'text',
         text: [
-          'Wrote `report.html`, `report.docx`, `report.xlsx`, `notes.md`, and preview `report.pdf`, plus two `style.css` copies.',
+          'Wrote `report.html`, `report.docx`, `report.xlsx`, `report.pptx`, `notes.md`, and preview `report.pdf`, plus two `style.css` copies.',
           '',
           DONE,
         ].join('\n'),
@@ -198,6 +215,7 @@ describe('web e2e: inline-code mentions of produced files', () => {
       kind: 'generated', block: { type: 'paragraph', runs: [{ text: 'GenOffice original text' }] },
     }]))
     await writeFile(join(scaffold.workspaceCwd, 'site', 'report.xlsx'), xlsxFixture())
+    await writeFile(join(scaffold.workspaceCwd, 'site', 'report.pptx'), await pptxFixture())
     await writeFile(join(scaffold.workspaceCwd, 'report.pdf'), 'fixture-pdf')
     await writeFile(join(scaffold.workspaceCwd, 'site', 'notes.md'), '# Markdown ready\n\nInitial text.\n')
     await seedSession(scaffold, mentionFixture(), SEED_ID)
@@ -231,9 +249,9 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await sessionRow.click()
     await expect.poll(() => page.getByText(DONE, { exact: true }).count(), { timeout: 15_000 }).toBe(1)
 
-    // Exactly five prose mentions link; the shared `style.css` basename stays code.
+    // Exactly six prose mentions link; the shared `style.css` basename stays code.
     const mentions = page.locator('[class*="markdown"] code button')
-    await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(5)
+    await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(6)
     expect(await mentions.first().innerText()).toBe('report.html')
     expect(await mentions.first().getAttribute('aria-label')).toBe('Open site/report.html')
     expect(await mentions.first().getAttribute('title')).toBe('site/report.html')
@@ -307,14 +325,33 @@ describe('web e2e: inline-code mentions of produced files', () => {
     const savedXlsx = await readBasicWorkbook(savedXlsxBytes)
     expect(savedXlsx.snapshot.sheets[0]?.cells.A1?.value).toBe('Edited locally in the grid')
 
-    await page.getByRole('button', { name: 'Open report.pdf', exact: true }).click()
+    await page.getByRole('button', { name: 'Open site/report.pptx', exact: true }).first().click()
     await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(5)
+    const pptxEditor = preview.locator('[class*="genOfficePptxEditor"]')
+    const pptxTextBox = pptxEditor.getByLabel('Slide 1 text box 1', { exact: true })
+    await pptxTextBox.fill('Agentic Reinforcement Learning')
+    await pptxTextBox.focus()
+    await pptxEditor.getByRole('button', { name: 'Bold', exact: true }).click()
+    await pptxEditor.getByRole('button', { name: 'Save to file', exact: true }).click()
+    await expect.poll(() => pptxEditor.getByText('Saved', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
+    const savedPptx = await openPptx(await readFile(join(scaffold.workspaceCwd, 'site', 'report.pptx')))
+    const savedPptxTextRun = savedPptx.deck.slides[0]?.elements.flatMap(element => (
+      (element.type === 'text' || element.type === 'shape') && element.text !== undefined
+        ? [element.text.paragraphs[0]?.runs[0]]
+        : []
+    )).find(run => run !== undefined)
+    expect(savedPptxTextRun).toMatchObject({
+      text: 'Agentic Reinforcement Learning', bold: true,
+    })
+
+    await page.getByRole('button', { name: 'Open report.pdf', exact: true }).click()
+    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(6)
     await expect.poll(() => preview.getByRole('button', { name: 'Tencent preview pdf', exact: true }).count(), {
       timeout: 10_000,
     }).toBe(1)
 
     await page.getByRole('button', { name: 'Open site/notes.md', exact: true }).first().click()
-    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(6)
+    await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(7)
     const source = preview.getByLabel('Markdown source', { exact: true })
     await source.fill('# Markdown updated\n\nSaved from Web.\n')
     await expect.poll(() => preview.getByRole('heading', { name: 'Markdown updated' }).count(), {

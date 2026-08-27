@@ -2,7 +2,9 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-import type { GenOfficeDocxBlock, TencentDocsEditorConfig } from '@deepseek-ai/dsh-client-connection/client'
+import type {
+  GenOfficeDocxBlock, GenOfficePptxTextStyle, TencentDocsEditorConfig,
+} from '@deepseek-ai/dsh-client-connection/client'
 import {
   ArtifactPreviewPanel, type ArtifactPreviewPanelProps,
 } from '../src/client/ArtifactPreviewPanel.tsx'
@@ -80,6 +82,10 @@ function successApi() {
       saveGenOfficeDocxArtifact: vi.fn(async () => ({
         rpcId: 'save',
         result: { ok: true as const, value: { revision: 'c'.repeat(64), blocks: [] } },
+      })),
+      saveGenOfficePptxArtifact: vi.fn(async () => ({
+        rpcId: 'save',
+        result: { ok: true as const, value: { revision: 'd'.repeat(64), slides: [] } },
       })),
       saveGenOfficeXlsxArtifact: vi.fn(async () => ({
         rpcId: 'save',
@@ -269,6 +275,70 @@ describe('ArtifactPreviewController', () => {
     })
   })
 
+  it('edits and saves positioned GenOffice PPTX text boxes through the local grant', async () => {
+    const api = successApi()
+    const style: GenOfficePptxTextStyle = {
+      fontFamily: 'Arial', fontSize: 24, bold: false, italic: false, underline: false,
+      color: '#000000', align: 'left',
+    }
+    const savedStyle = { ...style, bold: true, align: 'center' as const }
+    api.host.prepareArtifactPreview.mockResolvedValueOnce({
+      rpcId: 'preview',
+      result: {
+        ok: true,
+        value: {
+          kind: 'genoffice-pptx', name: 'agentic-rl.pptx',
+          grantId: '00000000-0000-4000-8000-000000000006', revision: 'a'.repeat(64),
+          slides: [{
+            slideIndex: 0, width: 12_192_000, height: 6_858_000,
+            elements: [{
+              kind: 'text', elementIndex: 0, x: 100, y: 200, width: 300, height: 100, rotation: 0,
+              text: 'Agentic RL', editable: true, style,
+            }],
+          }],
+        },
+      },
+    } as never)
+    api.host.saveGenOfficePptxArtifact.mockResolvedValueOnce({
+      rpcId: 'save',
+      result: {
+        ok: true,
+        value: {
+          revision: 'e'.repeat(64),
+          slides: [{
+            slideIndex: 0, width: 12_192_000, height: 6_858_000,
+            elements: [{
+              kind: 'text', elementIndex: 0, x: 100, y: 200, width: 300, height: 100, rotation: 0,
+              text: 'Agentic Reinforcement Learning', editable: true, style: savedStyle,
+            }],
+          }],
+        },
+      },
+    } as never)
+    const controller = new ArtifactPreviewController(api as never, {
+      openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn(),
+    })
+
+    await controller.open({ sessionId: SID, path: '/workspace/agentic-rl.pptx' })
+    const tab = controller.sourceFor(SID).getSnapshot().tabs[0]
+    controller.editGenOfficePptx(
+      SID, tab?.id ?? '', 0, 0, 'Agentic Reinforcement Learning', savedStyle,
+    )
+    await controller.saveGenOfficePptx(SID, tab?.id ?? '')
+    expect(api.host.saveGenOfficePptxArtifact).toHaveBeenCalledWith({
+      grantId: '00000000-0000-4000-8000-000000000006',
+      revision: 'a'.repeat(64),
+      edits: [{
+        slideIndex: 0, elementIndex: 0, text: 'Agentic Reinforcement Learning', style: savedStyle,
+      }],
+    })
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
+      genOfficePptxRevision: 'e'.repeat(64),
+      genOfficePptxSlides: [{ elements: [{ text: 'Agentic Reinforcement Learning' }] }],
+      genOfficePptxSaving: false,
+    })
+  })
+
   it('retains multiple tabs, reactivates an existing path, and closes the last panel', async () => {
     const api = successApi()
     const layout = { openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn() }
@@ -431,6 +501,10 @@ function panelProps(
     saveMarkdown?: (id: string) => void
     editGenOfficeDocx?: (id: string, blocks: GenOfficeDocxBlock[]) => void
     saveGenOfficeDocx?: (id: string) => void
+    editGenOfficePptx?: (
+      id: string, slideIndex: number, elementIndex: number, text: string, style: GenOfficePptxTextStyle,
+    ) => void
+    saveGenOfficePptx?: (id: string) => void
     editGenOfficeXlsx?: (id: string, edits: never[]) => void
     saveGenOfficeXlsx?: (id: string) => void
   } = {},
@@ -453,6 +527,8 @@ function panelProps(
     saveMarkdown: actions.saveMarkdown ?? vi.fn(),
     editGenOfficeDocx: actions.editGenOfficeDocx ?? vi.fn(),
     saveGenOfficeDocx: actions.saveGenOfficeDocx ?? vi.fn(),
+    editGenOfficePptx: actions.editGenOfficePptx ?? vi.fn(),
+    saveGenOfficePptx: actions.saveGenOfficePptx ?? vi.fn(),
     editGenOfficeXlsx: actions.editGenOfficeXlsx ?? vi.fn(),
     saveGenOfficeXlsx: actions.saveGenOfficeXlsx ?? vi.fn(),
     t: (key: string, params?: Record<string, string>) => {
@@ -733,5 +809,55 @@ describe('ArtifactPreviewPanel', () => {
     view.rerender(<ArtifactPreviewPanel {...panelProps(state, { editGenOfficeDocx, saveGenOfficeDocx })} />)
     fireEvent.click(view.getByRole('button', { name: 'preview.genOfficeSave' }))
     expect(saveGenOfficeDocx).toHaveBeenCalledWith('docx')
+  })
+
+  it('renders positioned PPTX text boxes and exposes the formatting ribbon', () => {
+    const editGenOfficePptx = vi.fn()
+    const saveGenOfficePptx = vi.fn()
+    const style: GenOfficePptxTextStyle = {
+      fontFamily: 'Arial', fontSize: 24, bold: false, italic: false, underline: false,
+      color: '#000000', align: 'left',
+    }
+    const slide = {
+      slideIndex: 0, width: 12_192_000, height: 6_858_000,
+      elements: [{
+        kind: 'text' as const, elementIndex: 0, x: 1_000_000, y: 1_000_000,
+        width: 5_000_000, height: 1_000_000, rotation: 0,
+        text: 'Agentic RL', editable: true, style,
+      }],
+    }
+    const state: ArtifactPreviewState = {
+      activeId: 'pptx',
+      tabs: [{
+        id: 'pptx', status: 'ready', requestId: 1, kind: 'genoffice-pptx',
+        name: 'agentic-rl.pptx', path: '/agentic-rl.pptx',
+        genOfficePptxGrantId: 'grant', genOfficePptxRevision: 'a'.repeat(64),
+        genOfficePptxSlides: structuredClone([slide]),
+        genOfficePptxSavedSlides: structuredClone([slide]),
+      }],
+    }
+    const actions = { editGenOfficePptx, saveGenOfficePptx }
+    const view = render(<ArtifactPreviewPanel {...panelProps(state, actions)} />)
+    const textBox = view.getByLabelText('preview.genOfficePptxTextBox')
+    expect((textBox as HTMLTextAreaElement).value).toBe('Agentic RL')
+    expect(view.getByText('preview.genOfficeHome')).toBeDefined()
+    expect(view.getByRole('button', { name: 'preview.genOfficeSave' }).hasAttribute('disabled')).toBe(true)
+
+    fireEvent.focus(textBox)
+    fireEvent.change(textBox, { target: { value: 'Agentic Reinforcement Learning' } })
+    expect(editGenOfficePptx).toHaveBeenCalledWith(
+      'pptx', 0, 0, 'Agentic Reinforcement Learning', style,
+    )
+    state.tabs[0]!.genOfficePptxSlides![0]!.elements[0] = {
+      ...state.tabs[0]!.genOfficePptxSlides![0]!.elements[0]!,
+      kind: 'text', text: 'Agentic Reinforcement Learning', editable: true, style,
+    }
+    view.rerender(<ArtifactPreviewPanel {...panelProps(state, actions)} />)
+    fireEvent.click(view.getByRole('button', { name: 'preview.genOfficeBold' }))
+    expect(editGenOfficePptx).toHaveBeenLastCalledWith(
+      'pptx', 0, 0, 'Agentic Reinforcement Learning', { ...style, bold: true },
+    )
+    fireEvent.click(view.getByRole('button', { name: 'preview.genOfficeSave' }))
+    expect(saveGenOfficePptx).toHaveBeenCalledWith('pptx')
   })
 })

@@ -181,6 +181,12 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
           result: { ok: true, value: { revision: request.payload.revision, blocks: [] } },
         }
       },
+      async saveGenOfficePptxArtifact(request) {
+        return {
+          rpcId: request.rpcId,
+          result: { ok: true, value: { revision: request.payload.revision, slides: [] } },
+        }
+      },
       async saveGenOfficeXlsxArtifact(request) {
         return { rpcId: request.rpcId, result: { ok: true, value: { revision: request.payload.revision } } }
       },

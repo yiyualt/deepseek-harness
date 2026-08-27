@@ -140,6 +140,7 @@
       name: '@deepseek-ai/dsh-host-apiproxy'
       config:
         genOfficeDocxEditing: true
+        genOfficePptxEditing: true
         genOfficeXlsxEditing: true
         onlyOfficeBrowserUrl: !!js process.env.DSH_ONLYOFFICE_URL
         onlyOfficeHarnessUrl: !!js process.env.DSH_ONLYOFFICE_HARNESS_URL

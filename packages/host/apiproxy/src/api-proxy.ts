@@ -125,6 +125,11 @@ import {
   GenOfficeDocxGrants,
 } from './genoffice-docx.ts'
 import {
+  DEFAULT_GENOFFICE_PPTX_MAX_BYTES,
+  GenOfficePptxError,
+  GenOfficePptxGrants,
+} from './genoffice-pptx.ts'
+import {
   DEFAULT_GENOFFICE_XLSX_MAX_BYTES,
   GenOfficeXlsxError,
   GenOfficeXlsxGrants,
@@ -695,6 +700,10 @@ export interface ApiProxyDefaults {
   genOfficeDocxEditing?: boolean
   /** Maximum source and saved DOCX size accepted by the local GenOffice editor. */
   genOfficeDocxMaxBytes?: number
+  /** Enable local GenOffice text-box editing for PPTX artifacts. */
+  genOfficePptxEditing?: boolean
+  /** Maximum source, browser projection, and saved PPTX size accepted by the local GenOffice editor. */
+  genOfficePptxMaxBytes?: number
   /** Enable local GenOffice cell editing for XLSX artifacts. */
   genOfficeXlsxEditing?: boolean
   /** Maximum source and saved XLSX size accepted by the local GenOffice editor. */
@@ -1144,6 +1153,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   const markdownPreviews = new MarkdownPreviewGrants()
   const genOfficeDocxPreviews = new GenOfficeDocxGrants({
     maxBytes: defaults.genOfficeDocxMaxBytes ?? DEFAULT_GENOFFICE_DOCX_MAX_BYTES,
+  })
+  const genOfficePptxPreviews = new GenOfficePptxGrants({
+    maxBytes: defaults.genOfficePptxMaxBytes ?? DEFAULT_GENOFFICE_PPTX_MAX_BYTES,
   })
   const genOfficeXlsxPreviews = new GenOfficeXlsxGrants({
     maxBytes: defaults.genOfficeXlsxMaxBytes ?? DEFAULT_GENOFFICE_XLSX_MAX_BYTES,
@@ -3056,6 +3068,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           if (defaults.genOfficeDocxEditing === true && /\.docx$/i.test(request.payload.path)) {
             return ok(request, await genOfficeDocxPreviews.prepare(request.payload.path))
           }
+          if (defaults.genOfficePptxEditing === true && /\.pptx$/i.test(request.payload.path)) {
+            return ok(request, await genOfficePptxPreviews.prepare(request.payload.path))
+          }
           if (defaults.genOfficeXlsxEditing === true && /\.xlsx$/i.test(request.payload.path)) {
             return ok(request, await genOfficeXlsxPreviews.prepare(request.payload.path))
           }
@@ -3079,6 +3094,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             && !(error instanceof OfficePreviewError)
             && !(error instanceof TencentDocsPreviewError)
             && !(error instanceof GenOfficeDocxError)
+            && !(error instanceof GenOfficePptxError)
             && !(error instanceof GenOfficeXlsxError)
           ) throw error
           return err(request, {
@@ -3119,6 +3135,23 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           ))
         } catch (error: unknown) {
           if (!(error instanceof GenOfficeDocxError)) throw error
+          return err(request, {
+            code: error.reason === 'conflict' ? 'artifact-preview-conflict' : 'artifact-preview-unavailable',
+            message: error.message,
+            details: { path: error.path },
+          })
+        }
+      },
+
+      async saveGenOfficePptxArtifact(request) {
+        try {
+          return ok(request, await genOfficePptxPreviews.save(
+            request.payload.grantId,
+            request.payload.edits,
+            request.payload.revision,
+          ))
+        } catch (error: unknown) {
+          if (!(error instanceof GenOfficePptxError)) throw error
           return err(request, {
             code: error.reason === 'conflict' ? 'artifact-preview-conflict' : 'artifact-preview-unavailable',
             message: error.message,

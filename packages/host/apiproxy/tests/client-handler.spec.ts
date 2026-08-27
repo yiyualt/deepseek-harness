@@ -81,6 +81,7 @@ function scriptedApi(overrides: {
       prepareArtifactPreview: r => ok(r, { kind: 'html', name: 'report.html', url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html' }),
       saveMarkdownArtifact: r => ok(r, { revision: r.payload.revision }),
       saveGenOfficeDocxArtifact: r => ok(r, { revision: r.payload.revision, blocks: [] }),
+      saveGenOfficePptxArtifact: r => ok(r, { revision: r.payload.revision, slides: [] }),
       saveGenOfficeXlsxArtifact: r => ok(r, { revision: r.payload.revision }),
       ...overrides.host,
     },

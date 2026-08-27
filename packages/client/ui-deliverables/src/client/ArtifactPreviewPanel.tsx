@@ -4,7 +4,9 @@ import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DetailsOwnerProps } from '@deepseek-ai/dsh-client-ui-layout/client'
 import { useState, type FormEvent } from 'react'
-import type { GenOfficeDocxBlock, GenOfficeXlsxEdit } from '@deepseek-ai/dsh-client-connection/client'
+import type {
+  GenOfficeDocxBlock, GenOfficePptxTextStyle, GenOfficeXlsxEdit,
+} from '@deepseek-ai/dsh-client-connection/client'
 import type { ArtifactPreviewState } from './artifact-preview-store.ts'
 import type { NS } from './locales.ts'
 import css from './ArtifactPreviewPanel.module.css'
@@ -13,6 +15,7 @@ import { MarkdownEditor } from './MarkdownEditor.tsx'
 import { TencentDocsPreview } from './TencentDocsPreview.tsx'
 import { GenOfficeDocxEditor } from './GenOfficeDocxEditor.tsx'
 import { GenOfficeXlsxEditor } from './GenOfficeXlsxEditor.tsx'
+import { GenOfficePptxEditor } from './GenOfficePptxEditor.tsx'
 
 /** Layout action injected into the preview entry. */
 export interface ArtifactPreviewPanelInjected {
@@ -34,6 +37,12 @@ export interface ArtifactPreviewPanelInjected {
   editGenOfficeDocx: (id: string, blocks: GenOfficeDocxBlock[]) => void
   /** Save one local GenOffice DOCX draft. */
   saveGenOfficeDocx: (id: string) => void
+  /** Replace one PPTX text-box draft. */
+  editGenOfficePptx: (
+    id: string, slideIndex: number, elementIndex: number, text: string, style: GenOfficePptxTextStyle,
+  ) => void
+  /** Save one local GenOffice PPTX draft. */
+  saveGenOfficePptx: (id: string) => void
   /** Replace one XLSX cell-edit journal. */
   editGenOfficeXlsx: (id: string, edits: GenOfficeXlsxEdit[]) => void
   /** Save one local GenOffice XLSX journal. */
@@ -94,6 +103,7 @@ function UrlEntry({ id, openPreviewUrl, t }: {
 export function ArtifactPreviewPanel({
   usePreview, activatePreview, newPreviewTab, openPreviewUrl,
   editMarkdown, saveMarkdown, editGenOfficeDocx, saveGenOfficeDocx,
+  editGenOfficePptx, saveGenOfficePptx,
   editGenOfficeXlsx, saveGenOfficeXlsx,
   closePreviewTab, closePreview, t,
 }: ArtifactPreviewPanelProps) {
@@ -176,6 +186,29 @@ export function ArtifactPreviewPanel({
               referrerPolicy="no-referrer"
             />
           </div>
+        ))}
+        {preview.tabs.map(tab => (
+          tab.status === 'ready'
+          && tab.kind === 'genoffice-pptx'
+          && tab.genOfficePptxGrantId !== undefined
+          && tab.genOfficePptxSlides !== undefined
+          && (
+            <div
+              key={tab.id}
+              className={css.framePane}
+              role="tabpanel"
+              hidden={tab.id !== preview.activeId}
+            >
+              <GenOfficePptxEditor
+                tab={tab}
+                edit={(slideIndex, elementIndex, text, style) => {
+                  editGenOfficePptx(tab.id, slideIndex, elementIndex, text, style)
+                }}
+                save={() => { saveGenOfficePptx(tab.id) }}
+                t={t}
+              />
+            </div>
+          )
         ))}
         {preview.tabs.map(tab => (
           tab.status === 'ready'

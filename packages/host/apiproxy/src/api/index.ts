@@ -49,6 +49,7 @@ export type {
 } from './sessions.ts'
 export type {
   ArtifactPreviewValue, DirectoryEntry, DirectoryListing, GenOfficeDocxBlock, GenOfficeDocxEdit, GenOfficeDocxRun,
+  GenOfficePptxEdit, GenOfficePptxElement, GenOfficePptxElementFrame, GenOfficePptxSlide, GenOfficePptxTextStyle,
   GenOfficeXlsxBorder, GenOfficeXlsxCell, GenOfficeXlsxCellValue, GenOfficeXlsxEdit, GenOfficeXlsxSheet, GenOfficeXlsxStyle,
   HostApi, OfficeEditorConfig,
   TencentDocsEditorConfig, TencentDocsOfficeType,

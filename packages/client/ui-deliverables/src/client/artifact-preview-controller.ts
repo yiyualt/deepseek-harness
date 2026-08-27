@@ -1,7 +1,7 @@
 /** Artifact interception with Host preparation for the preview panel. */
 
 import type {
-  GenOfficeDocxBlock, GenOfficeXlsxEdit, IApiClient, SessionId,
+  GenOfficeDocxBlock, GenOfficePptxTextStyle, GenOfficeXlsxEdit, IApiClient, SessionId,
 } from '@deepseek-ai/dsh-client-connection/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ChatFilePreview, ChatFilePreviewRequest } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -26,6 +26,16 @@ function clearGenOfficeXlsx(tab: ArtifactPreviewTab): void {
   delete tab.genOfficeXlsxSaving
   delete tab.genOfficeXlsxConflict
   delete tab.genOfficeXlsxError
+}
+
+function clearGenOfficePptx(tab: ArtifactPreviewTab): void {
+  delete tab.genOfficePptxGrantId
+  delete tab.genOfficePptxSlides
+  delete tab.genOfficePptxSavedSlides
+  delete tab.genOfficePptxRevision
+  delete tab.genOfficePptxSaving
+  delete tab.genOfficePptxConflict
+  delete tab.genOfficePptxError
 }
 
 function webUrl(rawUrl: string): URL | undefined {
@@ -283,6 +293,108 @@ export class ArtifactPreviewController implements ChatFilePreview {
   }
 
   /**
+   * Replace one editable PPTX text box draft.
+   * @param sessionId Session that owns the tab.
+   * @param id GenOffice PPTX tab id.
+   * @param slideIndex Original slide index.
+   * @param elementIndex Original element index on the slide.
+   * @param text Complete text-box text.
+   * @param style Uniform text-box formatting.
+   */
+  editGenOfficePptx(
+    sessionId: SessionId,
+    id: string,
+    slideIndex: number,
+    elementIndex: number,
+    text: string,
+    style: GenOfficePptxTextStyle,
+  ): void {
+    this.sourceFor(sessionId).update((state) => {
+      const tab = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-pptx')
+      const slide = tab?.genOfficePptxSlides?.find(candidate => candidate.slideIndex === slideIndex)
+      const element = slide?.elements.find(candidate => (
+        candidate.elementIndex === elementIndex && candidate.kind === 'text' && candidate.editable
+      ))
+      if (tab === undefined || element?.kind !== 'text' || tab.genOfficePptxSaving === true) return
+      element.text = text
+      element.style = structuredClone(style)
+      delete tab.genOfficePptxConflict
+      delete tab.genOfficePptxError
+    })
+  }
+
+  /**
+   * Save one local PPTX draft through its GenOffice Host grant.
+   * @param sessionId Session that owns the tab.
+   * @param id GenOffice PPTX tab id.
+   */
+  async saveGenOfficePptx(sessionId: SessionId, id: string): Promise<void> {
+    const store = this.sourceFor(sessionId)
+    const tab = store.getSnapshot().tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-pptx')
+    if (
+      tab?.genOfficePptxGrantId === undefined
+      || tab.genOfficePptxSlides === undefined
+      || tab.genOfficePptxSavedSlides === undefined
+      || tab.genOfficePptxRevision === undefined
+      || tab.genOfficePptxSaving === true
+    ) return
+    const revision = tab.genOfficePptxRevision
+    const saved = new Map(tab.genOfficePptxSavedSlides.flatMap(slide => slide.elements
+      .filter(element => element.kind === 'text')
+      .map(element => [`${String(slide.slideIndex)}:${String(element.elementIndex)}`, element] as const)))
+    const edits = tab.genOfficePptxSlides.flatMap(slide => slide.elements.flatMap((element) => {
+      if (element.kind !== 'text' || !element.editable) return []
+      const before = saved.get(`${String(slide.slideIndex)}:${String(element.elementIndex)}`)
+      if (before?.kind === 'text' && before.text === element.text
+        && JSON.stringify(before.style) === JSON.stringify(element.style)) return []
+      return [{
+        slideIndex: slide.slideIndex,
+        elementIndex: element.elementIndex,
+        text: element.text,
+        style: structuredClone(element.style),
+      }]
+    }))
+    if (edits.length === 0) return
+    store.update((state) => {
+      const target = state.tabs.find(candidate => candidate.id === id)
+      if (target === undefined) return
+      target.genOfficePptxSaving = true
+      delete target.genOfficePptxConflict
+      delete target.genOfficePptxError
+    })
+    try {
+      const response = await this.api.host.saveGenOfficePptxArtifact({
+        grantId: tab.genOfficePptxGrantId,
+        edits,
+        revision,
+      })
+      const result = response.result
+      store.update((state) => {
+        const target = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-pptx')
+        if (target === undefined) return
+        target.genOfficePptxSaving = false
+        if (result.ok) {
+          target.genOfficePptxSlides = structuredClone(result.value.slides)
+          target.genOfficePptxSavedSlides = structuredClone(result.value.slides)
+          target.genOfficePptxRevision = result.value.revision
+          delete target.genOfficePptxConflict
+          delete target.genOfficePptxError
+        } else {
+          target.genOfficePptxConflict = result.error.code === 'artifact-preview-conflict'
+          target.genOfficePptxError = result.error.message
+        }
+      })
+    } catch (error: unknown) {
+      store.update((state) => {
+        const target = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'genoffice-pptx')
+        if (target === undefined) return
+        target.genOfficePptxSaving = false
+        target.genOfficePptxError = error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
+  /**
    * Replace one XLSX cell-edit journal.
    * @param sessionId Session that owns the tab.
    * @param id GenOffice XLSX tab id.
@@ -400,6 +512,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
           tab.status = 'ready'
           tab.name = prepared.name
           tab.kind = prepared.kind
+          clearGenOfficePptx(tab)
           clearGenOfficeXlsx(tab)
           if (prepared.kind === 'html') {
             tab.url = prepared.url
@@ -449,6 +562,25 @@ export class ArtifactPreviewController implements ChatFilePreview {
             delete tab.officeConfig
             delete tab.tencentDocsScriptUrl
             delete tab.tencentDocsConfig
+          } else if (prepared.kind === 'genoffice-pptx') {
+            tab.genOfficePptxGrantId = prepared.grantId
+            tab.genOfficePptxSlides = structuredClone(prepared.slides)
+            tab.genOfficePptxSavedSlides = structuredClone(prepared.slides)
+            tab.genOfficePptxRevision = prepared.revision
+            tab.genOfficePptxSaving = false
+            delete tab.url
+            delete tab.markdownGrantId
+            delete tab.markdownContent
+            delete tab.markdownSavedContent
+            delete tab.markdownRevision
+            delete tab.officeApiUrl
+            delete tab.officeConfig
+            delete tab.tencentDocsScriptUrl
+            delete tab.tencentDocsConfig
+            delete tab.genOfficeGrantId
+            delete tab.genOfficeBlocks
+            delete tab.genOfficeSavedBlocks
+            delete tab.genOfficeRevision
           } else if (prepared.kind === 'genoffice-xlsx') {
             tab.genOfficeXlsxGrantId = prepared.grantId
             tab.genOfficeXlsxSheets = structuredClone(prepared.sheets)
@@ -540,6 +672,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
           delete tab.genOfficeSavedBlocks
           delete tab.genOfficeRevision
           clearGenOfficeXlsx(tab)
+          clearGenOfficePptx(tab)
         })
       }
     } catch (error: unknown) {
@@ -563,6 +696,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
         delete tab.genOfficeSavedBlocks
         delete tab.genOfficeRevision
         clearGenOfficeXlsx(tab)
+        clearGenOfficePptx(tab)
       })
     }
     return true

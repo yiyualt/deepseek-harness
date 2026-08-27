@@ -73,6 +73,59 @@ export interface GenOfficeDocxEdit {
   align?: 'left' | 'center' | 'right' | 'both'
 }
 
+/** Uniform text formatting editable for one projected PowerPoint text box. */
+export interface GenOfficePptxTextStyle {
+  fontFamily?: string
+  fontSize?: number
+  bold: boolean
+  italic: boolean
+  underline: boolean
+  color?: string
+  align: 'left' | 'center' | 'right' | 'justify'
+}
+
+/** Geometry shared by projected PowerPoint slide elements, in EMU. */
+export interface GenOfficePptxElementFrame {
+  elementIndex: number
+  x: number
+  y: number
+  width: number
+  height: number
+  rotation: number
+}
+
+/** One browser-safe PowerPoint element projected by the local GenOffice engine. */
+export type GenOfficePptxElement = GenOfficePptxElementFrame & (
+  | {
+    kind: 'text'
+    text: string
+    editable: boolean
+    style: GenOfficePptxTextStyle
+    fill?: string
+    stroke?: string
+  }
+  | { kind: 'picture'; dataUrl?: string; opacity: number }
+  | { kind: 'shape'; fill?: string; stroke?: string }
+  | { kind: 'protected'; label: string }
+)
+
+/** One browser-safe PowerPoint slide. */
+export interface GenOfficePptxSlide {
+  slideIndex: number
+  width: number
+  height: number
+  background?: string
+  elements: GenOfficePptxElement[]
+}
+
+/** Complete replacement value for one editable PowerPoint text box. */
+export interface GenOfficePptxEdit {
+  slideIndex: number
+  elementIndex: number
+  text: string
+  style: GenOfficePptxTextStyle
+}
+
 /** Cell value accepted by the local GenOffice XLSX editor. */
 export type GenOfficeXlsxCellValue = string | number | boolean | null
 
@@ -136,6 +189,7 @@ export type ArtifactPreviewValue =
   | { kind: 'html'; name: string; url: string }
   | { kind: 'markdown'; name: string; grantId: string; content: string; revision: string }
   | { kind: 'genoffice-docx'; name: string; grantId: string; blocks: GenOfficeDocxBlock[]; revision: string }
+  | { kind: 'genoffice-pptx'; name: string; grantId: string; slides: GenOfficePptxSlide[]; revision: string }
   | { kind: 'genoffice-xlsx'; name: string; grantId: string; sheets: GenOfficeXlsxSheet[]; revision: string }
   | { kind: 'office'; name: string; apiUrl: string; config: OfficeEditorConfig }
   | { kind: 'tencent-docs'; name: string; scriptUrl: string; config: TencentDocsEditorConfig }
@@ -232,8 +286,8 @@ export interface HostApi {
   /**
    * Prepare one existing HTML, Markdown, or supported document file for the
    * Web preview column. HTML returns a same-origin iframe URL, Markdown returns
-   * UTF-8 source and an edit grant, local GenOffice returns DOCX paragraph
-   * projections, and configured external providers return browser editor data.
+   * UTF-8 source and an edit grant, local GenOffice returns DOCX, XLSX, or
+   * PPTX projections, and configured external providers return browser editor data.
    */
   prepareArtifactPreview(
     request: RpcRequest<{ path: string }>,
@@ -256,6 +310,15 @@ export interface HostApi {
   saveGenOfficeDocxArtifact(
     request: RpcRequest<{ grantId: string; edits: GenOfficeDocxEdit[]; revision: string }>,
   ): Promise<RpcResponse<{ revision: string; blocks: GenOfficeDocxBlock[] }>>
+
+  /**
+   * Save PPTX text-box replacements through a local GenOffice grant. The save
+   * fails with `artifact-preview-conflict` when the file changed since the
+   * supplied revision.
+   */
+  saveGenOfficePptxArtifact(
+    request: RpcRequest<{ grantId: string; edits: GenOfficePptxEdit[]; revision: string }>,
+  ): Promise<RpcResponse<{ revision: string; slides: GenOfficePptxSlide[] }>>
 
   /**
    * Save XLSX cell deltas through a local GenOffice grant. The save fails

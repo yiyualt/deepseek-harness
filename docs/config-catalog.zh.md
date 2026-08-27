@@ -736,6 +736,14 @@ export interface Config {
   genOfficeDocxEditing?: boolean
   /** Maximum source and saved DOCX size accepted by the local GenOffice editor. */
   genOfficeDocxMaxBytes?: number
+  /** Enable local GenOffice text-box editing for PPTX artifacts. */
+  genOfficePptxEditing?: boolean
+  /** Maximum source, browser projection, and saved PPTX size accepted by the local GenOffice editor. */
+  genOfficePptxMaxBytes?: number
+  /** Enable local GenOffice cell editing for XLSX artifacts. */
+  genOfficeXlsxEditing?: boolean
+  /** Maximum source and saved XLSX size accepted by the local GenOffice editor. */
+  genOfficeXlsxMaxBytes?: number
   /** Document Server origin reachable from the user's browser. */
   onlyOfficeBrowserUrl?: string
   /** Harness origin reachable from the Document Server. */
@@ -771,7 +779,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/host/apiproxy/src/index.ts:43`](../packages/host/apiproxy/src/index.ts)
+来源：[`packages/host/apiproxy/src/index.ts:45`](../packages/host/apiproxy/src/index.ts)
 
 <a id="deepseek-aidsh-host-directory-picker-browse"></a>
 

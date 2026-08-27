@@ -398,6 +398,9 @@ importers:
       '@deepseek-ai/dsh-genoffice-docx-engine':
         specifier: workspace:^
         version: link:../../vendor/genoffice-docx-engine
+      '@deepseek-ai/dsh-genoffice-pptx-engine':
+        specifier: workspace:^
+        version: link:../../vendor/genoffice-pptx-engine
       '@deepseek-ai/dsh-genoffice-xlsx-engine':
         specifier: workspace:^
         version: link:../../vendor/genoffice-xlsx-engine
@@ -5001,6 +5004,9 @@ importers:
       '@deepseek-ai/dsh-genoffice-docx-engine':
         specifier: workspace:^
         version: link:../../../vendor/genoffice-docx-engine
+      '@deepseek-ai/dsh-genoffice-pptx-engine':
+        specifier: workspace:^
+        version: link:../../../vendor/genoffice-pptx-engine
       '@deepseek-ai/dsh-genoffice-xlsx-engine':
         specifier: workspace:^
         version: link:../../../vendor/genoffice-xlsx-engine

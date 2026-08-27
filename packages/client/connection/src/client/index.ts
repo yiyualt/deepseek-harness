@@ -17,6 +17,7 @@ export type {
   ApiProxy, SessionsApi, SessionSearchItem, SessionSummary, PromptContentPart, HostApi, EventsApi, MuxFrame, HostFrame,
   ApprovalResponsePayload, QuestionResponsePayload, HistoryEntry, ToolEventView,
   ArtifactPreviewValue, DirectoryEntry, DirectoryListing, GenOfficeDocxBlock, GenOfficeDocxEdit, GenOfficeDocxRun,
+  GenOfficePptxEdit, GenOfficePptxElement, GenOfficePptxElementFrame, GenOfficePptxSlide, GenOfficePptxTextStyle,
   GenOfficeXlsxBorder, GenOfficeXlsxCell, GenOfficeXlsxCellValue, GenOfficeXlsxEdit, GenOfficeXlsxSheet, GenOfficeXlsxStyle,
   OfficeEditorConfig, TencentDocsEditorConfig,
   ToolCallView, ToolResultView, WorkspaceApi, WorkspaceId, WorkspaceView,
