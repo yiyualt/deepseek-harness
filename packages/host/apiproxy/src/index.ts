@@ -25,6 +25,10 @@ import {
   DEFAULT_SESSION_LOG_COMPRESSION_LEVEL,
   type SessionLogCompressionLevel,
 } from './session-export.ts'
+import {
+  DEFAULT_ARTIFACT_EDIT_NOTICE_MAX_ITEMS,
+  installArtifactEditAwareness,
+} from './artifact-edit-awareness.ts'
 
 export type * from './api/index.ts'
 export { RpcId } from './api/rpc.ts'
@@ -55,6 +59,8 @@ export interface Config {
   genOfficeXlsxEditing?: boolean
   /** Maximum source and saved XLSX size accepted by the local GenOffice editor. */
   genOfficeXlsxMaxBytes?: number
+  /** Maximum saved human edit facts delivered in one model step. */
+  artifactEditNoticeMaxItems?: number
   /** Document Server origin reachable from the user's browser. */
   onlyOfficeBrowserUrl?: string
   /** Harness origin reachable from the Document Server. */
@@ -107,6 +113,7 @@ export class ApiProxyService extends Service implements ApiProxy {
     genOfficePptxMaxBytes: z.natural().min(1).default(DEFAULT_GENOFFICE_PPTX_MAX_BYTES),
     genOfficeXlsxEditing: z.boolean().default(false),
     genOfficeXlsxMaxBytes: z.natural().min(1).default(DEFAULT_GENOFFICE_XLSX_MAX_BYTES),
+    artifactEditNoticeMaxItems: z.natural().min(1).default(DEFAULT_ARTIFACT_EDIT_NOTICE_MAX_ITEMS),
     onlyOfficeBrowserUrl: z.string(),
     onlyOfficeHarnessUrl: z.string(),
     tencentDocsAppId: z.string(),
@@ -135,6 +142,10 @@ export class ApiProxyService extends Service implements ApiProxy {
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'apiProxy')
+    installArtifactEditAwareness(
+      ctx,
+      config.artifactEditNoticeMaxItems ?? DEFAULT_ARTIFACT_EDIT_NOTICE_MAX_ITEMS,
+    )
     if ((config.onlyOfficeBrowserUrl === undefined) !== (config.onlyOfficeHarnessUrl === undefined)) {
       throw new Error('onlyOfficeBrowserUrl and onlyOfficeHarnessUrl must be configured together')
     }

@@ -206,13 +206,13 @@ export class GenOfficeDocxGrants {
    * @param grantId Opaque grant returned by {@link prepare}.
    * @param edits Complete rich-text values for editable paragraphs.
    * @param expectedRevision Revision returned by the last read or save.
-   * @returns Revision and browser-safe blocks of the saved document.
+   * @returns Canonical saved path, revision, and browser-safe blocks of the document.
    */
   async save(
     grantId: string,
     edits: readonly GenOfficeDocxEdit[],
     expectedRevision: string,
-  ): Promise<{ revision: string; blocks: Extract<ArtifactPreviewValue, { kind: 'genoffice-docx' }>['blocks'] }> {
+  ): Promise<{ path: string; revision: string; blocks: Extract<ArtifactPreviewValue, { kind: 'genoffice-docx' }>['blocks'] }> {
     const grant = this.#grants.get(grantId)
     if (grant === undefined) {
       throw new GenOfficeDocxError('unavailable', '', 'GenOffice edit grant is unavailable; reopen the file')
@@ -301,6 +301,7 @@ export class GenOfficeDocxGrants {
     grant.parsed = parsed
     grant.revision = savedRevision
     return {
+      path: grant.path,
       revision: savedRevision,
       blocks: parsed.blocks.flatMap((block) => {
         const value = preparedBlock(block)

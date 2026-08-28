@@ -150,13 +150,13 @@ export class GenOfficeXlsxGrants {
    * @param grantId Opaque grant returned by {@link prepare}.
    * @param edits User-authored cell value and style deltas.
    * @param expectedRevision Revision returned by the last read or save.
-   * @returns Revision of the saved workbook.
+   * @returns Canonical saved path and revision of the workbook.
    */
   async save(
     grantId: string,
     edits: readonly GenOfficeXlsxEdit[],
     expectedRevision: string,
-  ): Promise<{ revision: string }> {
+  ): Promise<{ path: string; revision: string }> {
     const grant = this.#grants.get(grantId)
     if (grant === undefined) {
       throw new GenOfficeXlsxError('unavailable', '', 'GenOffice edit grant is unavailable; reopen the file')
@@ -212,7 +212,7 @@ export class GenOfficeXlsxGrants {
       }
       const savedRevision = revision(mutation.buffer)
       grant.revision = savedRevision
-      return { revision: savedRevision }
+      return { path: grant.path, revision: savedRevision }
     } catch (error: unknown) {
       if (error instanceof GenOfficeXlsxError) throw error
       throw new GenOfficeXlsxError(

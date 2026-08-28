@@ -134,6 +134,7 @@ import {
   GenOfficeXlsxError,
   GenOfficeXlsxGrants,
 } from './genoffice-xlsx.ts'
+import { appendArtifactEdit } from './artifact-edit-awareness.ts'
 
 /** Page size when history is called without maxMessages. */
 const DEFAULT_MAX_MESSAGES = 50
@@ -3116,12 +3117,17 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       },
 
       async saveHtmlArtifact(request) {
+        const found = await agentFor(request.payload.sessionId)
+        if ('error' in found) return err(request, found.error)
         try {
-          return ok(request, await artifactPreviews.save(
+          const { path, revision } = await artifactPreviews.save(
             request.payload.grantId,
             request.payload.content,
             request.payload.revision,
-          ))
+          )
+          appendArtifactEdit(found.agent.session, path, 'html', revision)
+          await ctx.sessions.flush(found.agent.session)
+          return ok(request, { revision })
         } catch (error: unknown) {
           if (!(error instanceof ArtifactPreviewError)) throw error
           return err(request, {
@@ -3133,12 +3139,17 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       },
 
       async saveMarkdownArtifact(request) {
+        const found = await agentFor(request.payload.sessionId)
+        if ('error' in found) return err(request, found.error)
         try {
-          return ok(request, await markdownPreviews.save(
+          const { path, revision } = await markdownPreviews.save(
             request.payload.grantId,
             request.payload.content,
             request.payload.revision,
-          ))
+          )
+          appendArtifactEdit(found.agent.session, path, 'markdown', revision)
+          await ctx.sessions.flush(found.agent.session)
+          return ok(request, { revision })
         } catch (error: unknown) {
           if (!(error instanceof MarkdownPreviewError)) throw error
           return err(request, {
@@ -3150,12 +3161,17 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       },
 
       async saveGenOfficeDocxArtifact(request) {
+        const found = await agentFor(request.payload.sessionId)
+        if ('error' in found) return err(request, found.error)
         try {
-          return ok(request, await genOfficeDocxPreviews.save(
+          const { path, revision, blocks } = await genOfficeDocxPreviews.save(
             request.payload.grantId,
             request.payload.edits,
             request.payload.revision,
-          ))
+          )
+          appendArtifactEdit(found.agent.session, path, 'docx', revision)
+          await ctx.sessions.flush(found.agent.session)
+          return ok(request, { revision, blocks })
         } catch (error: unknown) {
           if (!(error instanceof GenOfficeDocxError)) throw error
           return err(request, {
@@ -3167,12 +3183,17 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       },
 
       async saveGenOfficePptxArtifact(request) {
+        const found = await agentFor(request.payload.sessionId)
+        if ('error' in found) return err(request, found.error)
         try {
-          return ok(request, await genOfficePptxPreviews.save(
+          const { path, revision, slides } = await genOfficePptxPreviews.save(
             request.payload.grantId,
             request.payload.edits,
             request.payload.revision,
-          ))
+          )
+          appendArtifactEdit(found.agent.session, path, 'pptx', revision)
+          await ctx.sessions.flush(found.agent.session)
+          return ok(request, { revision, slides })
         } catch (error: unknown) {
           if (!(error instanceof GenOfficePptxError)) throw error
           return err(request, {
@@ -3184,12 +3205,17 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       },
 
       async saveGenOfficeXlsxArtifact(request) {
+        const found = await agentFor(request.payload.sessionId)
+        if ('error' in found) return err(request, found.error)
         try {
-          return ok(request, await genOfficeXlsxPreviews.save(
+          const { path, revision } = await genOfficeXlsxPreviews.save(
             request.payload.grantId,
             request.payload.edits,
             request.payload.revision,
-          ))
+          )
+          appendArtifactEdit(found.agent.session, path, 'xlsx', revision)
+          await ctx.sessions.flush(found.agent.session)
+          return ok(request, { revision })
         } catch (error: unknown) {
           if (!(error instanceof GenOfficeXlsxError)) throw error
           return err(request, {

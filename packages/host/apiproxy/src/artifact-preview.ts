@@ -172,9 +172,9 @@ export class ArtifactPreviewGrants {
    * @param grantId Opaque edit grant returned by {@link prepare}.
    * @param content Complete UTF-8 HTML source to save.
    * @param expectedRevision Revision returned by the last read or save.
-   * @returns Revision of the saved source.
+   * @returns Canonical saved path and revision of the source.
    */
-  async save(grantId: string, content: string, expectedRevision: string): Promise<{ revision: string }> {
+  async save(grantId: string, content: string, expectedRevision: string): Promise<{ path: string; revision: string }> {
     const grant = this.#editGrants.get(grantId)
     if (grant === undefined) {
       throw new ArtifactPreviewError('unavailable', 'HTML edit grant is unavailable; reopen the file')
@@ -212,7 +212,7 @@ export class ArtifactPreviewGrants {
         grant.entry,
       )
     }
-    return { revision: revision(content) }
+    return { path: grant.entry, revision: revision(content) }
   }
 
   /**

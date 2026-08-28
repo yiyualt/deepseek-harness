@@ -277,13 +277,13 @@ export class GenOfficePptxGrants {
    * @param grantId Opaque grant returned by {@link prepare}.
    * @param edits Changed text boxes and their uniform formatting.
    * @param expectedRevision Revision returned by the last read or save.
-   * @returns Revision and browser-safe slides of the saved presentation.
+   * @returns Canonical saved path, revision, and browser-safe slides of the presentation.
    */
   async save(
     grantId: string,
     edits: readonly GenOfficePptxEdit[],
     expectedRevision: string,
-  ): Promise<{ revision: string; slides: GenOfficePptxSlide[] }> {
+  ): Promise<{ path: string; revision: string; slides: GenOfficePptxSlide[] }> {
     const grant = this.#grants.get(grantId)
     if (grant === undefined) {
       throw new GenOfficePptxError('unavailable', '', 'GenOffice edit grant is unavailable; reopen the file')
@@ -363,6 +363,6 @@ export class GenOfficePptxGrants {
     const savedRevision = revision(saved)
     grant.opened = opened
     grant.revision = savedRevision
-    return { revision: savedRevision, slides }
+    return { path: grant.path, revision: savedRevision, slides }
   }
 }

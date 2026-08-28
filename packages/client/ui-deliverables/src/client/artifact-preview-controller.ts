@@ -196,7 +196,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
     })
     try {
       const response = await this.api.host.saveHtmlArtifact({
-        grantId: tab.htmlGrantId, content, revision,
+        sessionId, grantId: tab.htmlGrantId, content, revision,
       })
       const result = response.result
       store.update((state) => {
@@ -264,6 +264,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
     })
     try {
       const response = await this.api.host.saveMarkdownArtifact({
+        sessionId,
         grantId: tab.markdownGrantId,
         content,
         revision,
@@ -340,6 +341,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
     })
     try {
       const response = await this.api.host.saveGenOfficeDocxArtifact({
+        sessionId,
         grantId: tab.genOfficeGrantId,
         edits,
         revision,
@@ -442,6 +444,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
     })
     try {
       const response = await this.api.host.saveGenOfficePptxArtifact({
+        sessionId,
         grantId: tab.genOfficePptxGrantId,
         edits,
         revision,
@@ -514,6 +517,7 @@ export class ArtifactPreviewController implements ChatFilePreview {
     })
     try {
       const response = await this.api.host.saveGenOfficeXlsxArtifact({
+        sessionId,
         grantId: tab.genOfficeXlsxGrantId,
         edits,
         revision,

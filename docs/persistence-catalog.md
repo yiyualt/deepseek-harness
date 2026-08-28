@@ -202,6 +202,26 @@ Source: [`packages/interaction/user-approval/src/index.ts:55`](../packages/inter
 
 Source: [`packages/interaction/user-approval/src/index.ts:67`](../packages/interaction/user-approval/src/index.ts)
 
+### `artifact/*`
+
+<a id="artifactedited--log-only"></a>
+
+#### `artifact/edited` — log-only
+
+```ts persistence-catalog
+/**
+ * One successful human-authored artifact save. The following model step
+ * receives a logged `artifact-edit` context covering this event.
+ */
+'artifact/edited': {
+  path: string
+  format: HumanEditedArtifactFormat
+  revision: string
+}
+```
+
+Source: [`packages/host/apiproxy/src/artifact-edit-awareness.ts:35`](../packages/host/apiproxy/src/artifact-edit-awareness.ts)
+
 ### `assistant/*`
 
 <a id="assistantchunk--log-only"></a>

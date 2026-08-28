@@ -5,19 +5,23 @@
 // resolver in isolation; only the assembled application shows a real write's
 // locations reaching the prose as an opener. The HTML click exercises the
 // assembled artifact-preview RPC, right-column entry, local iframe resource,
-// Markdown editing, Tencent Docs preview, and the empty-tab HTTP URL flow.
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+// Markdown editing, durable human-edit awareness, Tencent Docs preview, and
+// the empty-tab HTTP URL flow.
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { strToU8, zipSync } from 'fflate'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { CallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
+import type { StreamChunk } from '@deepseek-ai/dsh-llm'
+import type { ReplayOverrideDoc } from '@deepseek-ai/dsh-llm-replay'
 import { buildBlankDocx, parseDocx, saveDocx } from '@deepseek-ai/dsh-genoffice-docx-engine'
 import { addElement, createBlankPptx, duplicateSlide, openPptx, savePptx } from '@deepseek-ai/dsh-genoffice-pptx-engine'
 import { readBasicWorkbook } from '@deepseek-ai/dsh-genoffice-xlsx-engine'
-import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, Session, SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-title'
 import {
   launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
@@ -27,6 +31,7 @@ import { newEnglishPage, saveFailureShot } from './support.ts'
 const MODE = webSnapshotMode()
 const SEED_ID = 'produced-file-mentions-web-e2e'
 const DONE = 'FILE_MENTION_DONE'
+const AWARENESS_DONE = 'ARTIFACT_EDIT_AWARENESS_DONE'
 const TENCENT_SECRET_ENV = 'DSH_WEB_E2E_TENCENT_DOCS_SECRET'
 
 /** One-part text content for a built message. */
@@ -39,6 +44,18 @@ const WRITES = [
   'site/report.html', 'site/other.html', 'site/report.docx', 'site/report.xlsx', 'site/report.pptx', 'site/notes.md',
   'a/style.css', 'b/style.css',
 ]
+
+/** One deterministic answer after the user asks about their local edits. */
+function awarenessReplay(): ReplayOverrideDoc {
+  const chunks: StreamChunk[] = [
+    { type: 'block-start', index: 0, blockType: 'text' },
+    { type: 'text-delta', index: 0, text: AWARENESS_DONE },
+    { type: 'block-end', index: 0, block: { type: 'text', text: AWARENESS_DONE } },
+    { type: 'usage', usage: { inputTokens: 128, outputTokens: 8 } },
+    { type: 'finish', reason: { kind: 'stop' } },
+  ]
+  return [{ kind: 'chunks', chunks }]
+}
 
 /** Minimal ordinary XLSX used by the assembled local-editor path. */
 function xlsxFixture(): Uint8Array {
@@ -162,8 +179,13 @@ describe('web e2e: inline-code mentions of produced files', () => {
   let onlyOffice: Server | undefined
   let embedUrl: string
   let originalTencentSecret: string | undefined
+  let replayDir: string
+  const sessionEvents: SessionEvent[] = []
 
   beforeAll(async () => {
+    replayDir = await mkdtemp(join(tmpdir(), 'dsh-artifact-edit-awareness-replay-'))
+    const replayOverride = join(replayDir, 'replay.override.json')
+    await writeFile(replayOverride, JSON.stringify(awarenessReplay()))
     originalTencentSecret = process.env[TENCENT_SECRET_ENV]
     process.env[TENCENT_SECRET_ENV] = 'web-e2e-secret'
     const server = createServer((request, response) => {
@@ -190,6 +212,8 @@ describe('web e2e: inline-code mentions of produced files', () => {
     if (address === null || typeof address === 'string') throw new Error('ONLYOFFICE test server did not bind TCP')
     embedUrl = `http://127.0.0.1:${String(address.port)}/embed`
     scaffold = await launchWebScaffold({
+      replayFixture: join(replayDir, 'override-only.jsonl'),
+      replayOverride,
       onlyOffice: {
         browserUrl: `http://127.0.0.1:${String(address.port)}`,
         harnessUrl: 'http://127.0.0.1:9',
@@ -200,6 +224,9 @@ describe('web e2e: inline-code mentions of produced files', () => {
         publicUrl: 'http://127.0.0.1:9',
         sdkUrl: `http://127.0.0.1:${String(address.port)}/tencent.js`,
       },
+    })
+    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => {
+      sessionEvents.push(event)
     })
     await mkdir(join(scaffold.workspaceCwd, 'site'), { recursive: true })
     await writeFile(
@@ -228,16 +255,22 @@ describe('web e2e: inline-code mentions of produced files', () => {
   }, 120_000)
 
   afterAll(async () => {
-    await browser?.close()
-    await scaffold?.close()
+    const failures: unknown[] = []
+    await browser?.close().catch((error: unknown) => failures.push(error))
+    await scaffold?.close().catch((error: unknown) => failures.push(error))
+    if (replayDir !== undefined) {
+      await rm(replayDir, { recursive: true, force: true }).catch((error: unknown) => failures.push(error))
+    }
     const server = onlyOffice
     if (server !== undefined) {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => { if (error === undefined) resolve(); else reject(error) })
-      })
+      }).catch((error: unknown) => failures.push(error))
     }
     if (originalTencentSecret === undefined) Reflect.deleteProperty(process.env, TENCENT_SECRET_ENV)
     else process.env[TENCENT_SECRET_ENV] = originalTencentSecret
+    if (failures.length === 1) throw failures[0]
+    if (failures.length > 1) throw new AggregateError(failures, 'produced file mentions cleanup failed')
   })
 
   it.skipIf(MODE === 'record')('links the unique mention and leaves ambiguous and unknown code inert', async () => {
@@ -394,6 +427,39 @@ describe('web e2e: inline-code mentions of produced files', () => {
     }).toBe(1)
     expect(await readFile(join(scaffold.workspaceCwd, 'site', 'notes.md'), 'utf8'))
       .toBe('# Markdown updated\n\nSaved from Web.\n')
+
+    const humanEdits = sessionEvents.filter(event => event.type === 'artifact/edited')
+    expect(humanEdits.map(event => event.data.format)).toEqual(['html', 'docx', 'xlsx', 'pptx', 'markdown'])
+    expect(humanEdits.map(event => event.data.path)).toEqual([
+      join(scaffold.workspaceCwd, 'site', 'report.html'),
+      join(scaffold.workspaceCwd, 'site', 'report.docx'),
+      join(scaffold.workspaceCwd, 'site', 'report.xlsx'),
+      join(scaffold.workspaceCwd, 'site', 'report.pptx'),
+      join(scaffold.workspaceCwd, 'site', 'notes.md'),
+    ])
+
+    const settled = scaffold.whenTurnSettled(60_000)
+    const prompt = await scaffold.ctx.apiProxy.sessions.prompt({
+      rpcId: 'artifact-edit-awareness-prompt' as never,
+      payload: {
+        sessionId: SessionId(SEED_ID),
+        mode: 'queue',
+        content: [{ type: 'text', text: 'Review the files I just edited.' }],
+      },
+    })
+    expect(prompt.result).toMatchObject({ ok: true, value: { accepted: true } })
+    await settled
+    await page.getByText(AWARENESS_DONE, { exact: true }).waitFor({ timeout: 15_000 })
+    const notice = sessionEvents.find(event => (
+      event.type === 'user/message' && event.data.source.kind === 'artifact-edit'
+    ))
+    expect(notice).toBeDefined()
+    if (notice?.type !== 'user/message') throw new Error('artifact edit notice was not logged')
+    const noticeText = notice.data.content
+      .filter(block => block.type === 'text')
+      .map(block => block.text)
+      .join('')
+    for (const path of humanEdits.map(event => event.data.path)) expect(noticeText).toContain(path)
 
     await preview.getByRole('button', { name: 'New tab', exact: true }).click()
     await preview.getByLabel('Enter a website address', { exact: true }).fill(embedUrl)

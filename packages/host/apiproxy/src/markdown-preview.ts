@@ -91,9 +91,9 @@ export class MarkdownPreviewGrants {
    * @param grantId Opaque grant returned by {@link prepare}.
    * @param content Complete UTF-8 Markdown source to save.
    * @param expectedRevision Revision returned by the last read or save.
-   * @returns Revision of the saved content.
+   * @returns Canonical saved path and revision of the content.
    */
-  async save(grantId: string, content: string, expectedRevision: string): Promise<{ revision: string }> {
+  async save(grantId: string, content: string, expectedRevision: string): Promise<{ path: string; revision: string }> {
     const grant = this.#grants.get(grantId)
     if (grant === undefined) {
       throw new MarkdownPreviewError('unavailable', '', 'Markdown edit grant is unavailable; reopen the file')
@@ -127,6 +127,6 @@ export class MarkdownPreviewGrants {
         `Markdown file could not be saved: ${error instanceof Error ? error.message : String(error)}`,
       )
     }
-    return { revision: revision(content) }
+    return { path: grant.path, revision: revision(content) }
   }
 }

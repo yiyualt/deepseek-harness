@@ -6,6 +6,7 @@ import { z } from 'zod'
 import type { DirectoryEntry } from './host.ts'
 import type { RequestPayload, ResponseValue } from './rpc-map.ts'
 import type { Wire } from './rpc.schema.ts'
+import { sessionIdSchema } from './sessions.schema.ts'
 
 /** host.describe request payload (empty object literal). */
 export const hostDescribeRequestSchema = z.object({}) satisfies z.ZodType<Wire<RequestPayload<'host.describe'>>>
@@ -80,6 +81,7 @@ export const hostPrepareArtifactPreviewRequestSchema = z.object({
 
 /** host.saveHtmlArtifact request payload. */
 export const hostSaveHtmlArtifactRequestSchema = z.object({
+  sessionId: sessionIdSchema,
   grantId: z.uuid(),
   content: z.string(),
   revision: z.string().length(64),
@@ -87,6 +89,7 @@ export const hostSaveHtmlArtifactRequestSchema = z.object({
 
 /** host.saveMarkdownArtifact request payload. */
 export const hostSaveMarkdownArtifactRequestSchema = z.object({
+  sessionId: sessionIdSchema,
   grantId: z.uuid(),
   content: z.string(),
   revision: z.string().length(64),
@@ -117,6 +120,7 @@ const genOfficeDocxBlockSchema = z.object({
 
 /** host.saveGenOfficeDocxArtifact request payload. */
 export const hostSaveGenOfficeDocxArtifactRequestSchema = z.object({
+  sessionId: sessionIdSchema,
   grantId: z.uuid(),
   edits: z.array(z.object({
     docxIndex: z.number().int().nonnegative(),
@@ -138,11 +142,11 @@ const genOfficePptxTextStyleSchema = z.object({
 
 const genOfficePptxFrameSchema = z.object({
   elementIndex: z.number().int().nonnegative(),
-  x: z.number().finite(),
-  y: z.number().finite(),
-  width: z.number().finite().nonnegative(),
-  height: z.number().finite().nonnegative(),
-  rotation: z.number().finite(),
+  x: z.number(),
+  y: z.number(),
+  width: z.number().nonnegative(),
+  height: z.number().nonnegative(),
+  rotation: z.number(),
 })
 
 const genOfficePptxElementSchema = z.intersection(genOfficePptxFrameSchema, z.discriminatedUnion('kind', [
@@ -169,6 +173,7 @@ const genOfficePptxSlideSchema = z.object({
 
 /** host.saveGenOfficePptxArtifact request payload. */
 export const hostSaveGenOfficePptxArtifactRequestSchema = z.object({
+  sessionId: sessionIdSchema,
   grantId: z.uuid(),
   edits: z.array(z.object({
     slideIndex: z.number().int().nonnegative(),
@@ -180,7 +185,7 @@ export const hostSaveGenOfficePptxArtifactRequestSchema = z.object({
 }) satisfies z.ZodType<Wire<RequestPayload<'host.saveGenOfficePptxArtifact'>>>
 
 const genOfficeXlsxCellValueSchema = z.union([
-  z.string(), z.number().finite(), z.boolean(), z.null(),
+  z.string(), z.number(), z.boolean(), z.null(),
 ])
 const genOfficeXlsxBorderSchema = z.object({
   style: z.enum([
@@ -213,6 +218,7 @@ const genOfficeXlsxStyleSchema = z.object({
 
 /** host.saveGenOfficeXlsxArtifact request payload. */
 export const hostSaveGenOfficeXlsxArtifactRequestSchema = z.object({
+  sessionId: sessionIdSchema,
   grantId: z.uuid(),
   edits: z.array(z.object({
     sheetName: z.string().min(1),

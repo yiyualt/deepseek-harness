@@ -171,6 +171,7 @@ describe('ArtifactPreviewController', () => {
     controller.editMarkdown(SID, tab?.id ?? '', '# Updated\n')
     await controller.saveMarkdown(SID, tab?.id ?? '')
     expect(api.host.saveMarkdownArtifact).toHaveBeenCalledWith({
+      sessionId: SID,
       grantId: '00000000-0000-4000-8000-000000000001',
       content: '# Updated\n',
       revision: 'a'.repeat(64),
@@ -210,6 +211,7 @@ describe('ArtifactPreviewController', () => {
     controller.editHtml(SID, tab?.id ?? '', '<!doctype html><html><body><h1>Edited</h1></body></html>')
     await controller.saveHtml(SID, tab?.id ?? '')
     expect(api.host.saveHtmlArtifact).toHaveBeenCalledWith({
+      sessionId: SID,
       grantId: '00000000-0000-4000-8000-000000000001',
       content: '<!doctype html><html><body><h1>Edited</h1></body></html>',
       revision: 'a'.repeat(64),
@@ -272,6 +274,7 @@ describe('ArtifactPreviewController', () => {
     }])
     await controller.saveGenOfficeDocx(SID, tab?.id ?? '')
     expect(api.host.saveGenOfficeDocxArtifact).toHaveBeenCalledWith({
+      sessionId: SID,
       grantId: '00000000-0000-4000-8000-000000000004',
       revision: 'a'.repeat(64),
       edits: [{ docxIndex: 0, runs: [{ text: '修改后', bold: true }], align: 'center' }],
@@ -310,6 +313,7 @@ describe('ArtifactPreviewController', () => {
     }])
     await controller.saveGenOfficeXlsx(SID, tab?.id ?? '')
     expect(api.host.saveGenOfficeXlsxArtifact).toHaveBeenCalledWith({
+      sessionId: SID,
       grantId: '00000000-0000-4000-8000-000000000005',
       revision: 'a'.repeat(64),
       edits: [{
@@ -373,6 +377,7 @@ describe('ArtifactPreviewController', () => {
     )
     await controller.saveGenOfficePptx(SID, tab?.id ?? '')
     expect(api.host.saveGenOfficePptxArtifact).toHaveBeenCalledWith({
+      sessionId: SID,
       grantId: '00000000-0000-4000-8000-000000000006',
       revision: 'a'.repeat(64),
       edits: [{

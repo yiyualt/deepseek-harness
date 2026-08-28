@@ -4,6 +4,7 @@
  */
 
 import type { RpcRequest, RpcResponse } from './rpc.ts'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 /** Browser-safe ONLYOFFICE editor configuration produced by the Host. */
 export interface OfficeEditorConfig {
@@ -296,45 +297,50 @@ export interface HostApi {
   /**
    * Save complete HTML source through a preparation grant. The save fails
    * with `artifact-preview-conflict` when the file changed since the revision
-   * supplied by the caller.
+   * supplied by the caller. Success records and flushes human edit awareness
+   * for `sessionId` before replying.
    */
   saveHtmlArtifact(
-    request: RpcRequest<{ grantId: string; content: string; revision: string }>,
+    request: RpcRequest<{ sessionId: SessionId; grantId: string; content: string; revision: string }>,
   ): Promise<RpcResponse<{ revision: string }>>
 
   /**
    * Save complete Markdown source through a preparation grant. The save
    * fails with `artifact-preview-conflict` when the file changed since the
-   * revision supplied by the caller.
+   * revision supplied by the caller. Success records and flushes human edit
+   * awareness for `sessionId` before replying.
    */
   saveMarkdownArtifact(
-    request: RpcRequest<{ grantId: string; content: string; revision: string }>,
+    request: RpcRequest<{ sessionId: SessionId; grantId: string; content: string; revision: string }>,
   ): Promise<RpcResponse<{ revision: string }>>
 
   /**
    * Save editable DOCX paragraph values through a local GenOffice grant. The
    * save fails with `artifact-preview-conflict` when the file changed since
-   * the supplied revision.
+   * the supplied revision. Success records and flushes human edit awareness
+   * for `sessionId` before replying.
    */
   saveGenOfficeDocxArtifact(
-    request: RpcRequest<{ grantId: string; edits: GenOfficeDocxEdit[]; revision: string }>,
+    request: RpcRequest<{ sessionId: SessionId; grantId: string; edits: GenOfficeDocxEdit[]; revision: string }>,
   ): Promise<RpcResponse<{ revision: string; blocks: GenOfficeDocxBlock[] }>>
 
   /**
    * Save PPTX text-box replacements through a local GenOffice grant. The save
    * fails with `artifact-preview-conflict` when the file changed since the
-   * supplied revision.
+   * supplied revision. Success records and flushes human edit awareness for
+   * `sessionId` before replying.
    */
   saveGenOfficePptxArtifact(
-    request: RpcRequest<{ grantId: string; edits: GenOfficePptxEdit[]; revision: string }>,
+    request: RpcRequest<{ sessionId: SessionId; grantId: string; edits: GenOfficePptxEdit[]; revision: string }>,
   ): Promise<RpcResponse<{ revision: string; slides: GenOfficePptxSlide[] }>>
 
   /**
    * Save XLSX cell deltas through a local GenOffice grant. The save fails
    * with `artifact-preview-conflict` when the file changed since the supplied
-   * revision.
+   * revision. Success records and flushes human edit awareness for `sessionId`
+   * before replying.
    */
   saveGenOfficeXlsxArtifact(
-    request: RpcRequest<{ grantId: string; edits: GenOfficeXlsxEdit[]; revision: string }>,
+    request: RpcRequest<{ sessionId: SessionId; grantId: string; edits: GenOfficeXlsxEdit[]; revision: string }>,
   ): Promise<RpcResponse<{ revision: string }>>
 }

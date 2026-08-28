@@ -742,6 +742,8 @@ export interface Config {
   genOfficeXlsxEditing?: boolean
   /** Maximum source and saved XLSX size accepted by the local GenOffice editor. */
   genOfficeXlsxMaxBytes?: number
+  /** Maximum saved human edit facts delivered in one model step. */
+  artifactEditNoticeMaxItems?: number
   /** Document Server origin reachable from the user's browser. */
   onlyOfficeBrowserUrl?: string
   /** Harness origin reachable from the Document Server. */
@@ -777,7 +779,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/host/apiproxy/src/index.ts:45`](../packages/host/apiproxy/src/index.ts)
+Source: [`packages/host/apiproxy/src/index.ts:49`](../packages/host/apiproxy/src/index.ts)
 
 <a id="deepseek-aidsh-host-directory-picker-browse"></a>
 
