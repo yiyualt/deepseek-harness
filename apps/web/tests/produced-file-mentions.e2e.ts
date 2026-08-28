@@ -262,20 +262,26 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await mentions.first().click()
     const preview = page.locator('[data-artifact-preview]')
     await preview.waitFor({ timeout: 10_000 })
-    const frame = page.frameLocator('iframe[title="report.html preview"]')
+    const frame = page.frameLocator('iframe[title="HTML visual editor"]')
     await expect.poll(() => frame.getByText('HTML preview ready', { exact: true }).count(), {
       timeout: 10_000,
     }).toBe(1)
-    await frame.getByRole('button', { name: 'Start preview', exact: true }).click()
-    await expect.poll(() => frame.getByText('running', { exact: true }).count(), {
+    await frame.getByText('HTML preview ready', { exact: true }).dblclick()
+    await page.keyboard.type('Editable')
+    await expect.poll(() => frame.getByText('HTML preview Editable', { exact: true }).count(), {
       timeout: 10_000,
     }).toBe(1)
+    await expect.poll(() => preview.getByText('Unsaved changes', { exact: true }).count()).toBe(1)
+    await preview.getByRole('button', { name: 'Save to file', exact: true }).click()
+    await expect.poll(() => preview.getByText('Saved', { exact: true }).count(), { timeout: 10_000 }).toBeGreaterThan(0)
+    expect(await readFile(join(scaffold.workspaceCwd, 'site', 'report.html'), 'utf8'))
+      .toContain('<h1>HTML preview Editable</h1>')
 
     await page.getByRole('button', { name: 'Open site/other.html', exact: true }).click()
     await expect.poll(() => preview.getByRole('tab').count(), { timeout: 10_000 }).toBe(2)
     expect(await preview.getByRole('tab', { name: 'other.html', exact: true }).getAttribute('aria-selected')).toBe('true')
     await preview.getByRole('tab', { name: 'report.html', exact: true }).click()
-    await expect.poll(() => frame.getByText('running', { exact: true }).count(), {
+    await expect.poll(() => frame.getByText('HTML preview Editable', { exact: true }).count(), {
       timeout: 10_000,
     }).toBe(1)
 
@@ -303,7 +309,10 @@ describe('web e2e: inline-code mentions of produced files', () => {
     await expect.poll(() => preview.getByText('28 characters selected', { exact: true }).count()).toBe(1)
     await selectionToolbar.getByRole('button', { name: 'Bold', exact: true }).click()
     await preview.getByRole('button', { name: 'Save to file', exact: true }).click()
-    await expect.poll(() => preview.getByText('Saved', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
+    await expect.poll(async () => {
+      const saved = await parseDocx(await readFile(join(scaffold.workspaceCwd, 'site', 'report.docx')))
+      return saved.blocks.find(block => !block.hidden)?.runs?.map(run => run.text).join('')
+    }, { timeout: 10_000 }).toBe('Edited locally\nwith GenOffice')
     const savedDocx = await parseDocx(await readFile(join(scaffold.workspaceCwd, 'site', 'report.docx')))
     expect(savedDocx.blocks.find(block => !block.hidden)?.runs?.map(run => run.text).join(''))
       .toBe('Edited locally\nwith GenOffice')

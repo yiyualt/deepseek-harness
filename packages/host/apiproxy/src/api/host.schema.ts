@@ -78,6 +78,13 @@ export const hostPrepareArtifactPreviewRequestSchema = z.object({
   path: z.string().min(1),
 }) satisfies z.ZodType<Wire<RequestPayload<'host.prepareArtifactPreview'>>>
 
+/** host.saveHtmlArtifact request payload. */
+export const hostSaveHtmlArtifactRequestSchema = z.object({
+  grantId: z.uuid(),
+  content: z.string(),
+  revision: z.string().length(64),
+}) satisfies z.ZodType<Wire<RequestPayload<'host.saveHtmlArtifact'>>>
+
 /** host.saveMarkdownArtifact request payload. */
 export const hostSaveMarkdownArtifactRequestSchema = z.object({
   grantId: z.uuid(),
@@ -226,6 +233,9 @@ export const hostPrepareArtifactPreviewValueSchema = z.union([
     kind: z.literal('html'),
     name: z.string().min(1),
     url: z.string().startsWith('/api/artifact-preview/'),
+    grantId: z.uuid(),
+    content: z.string(),
+    revision: z.string().length(64),
   }),
   z.object({
     kind: z.literal('markdown'),
@@ -307,6 +317,11 @@ export const hostPrepareArtifactPreviewValueSchema = z.union([
     }),
   }),
 ]) satisfies z.ZodType<Wire<ResponseValue<'host.prepareArtifactPreview'>>>
+
+/** host.saveHtmlArtifact response value. */
+export const hostSaveHtmlArtifactValueSchema = z.object({
+  revision: z.string().length(64),
+}) satisfies z.ZodType<Wire<ResponseValue<'host.saveHtmlArtifact'>>>
 
 /** host.saveMarkdownArtifact response value. */
 export const hostSaveMarkdownArtifactValueSchema = z.object({

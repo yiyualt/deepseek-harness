@@ -38,6 +38,16 @@ function clearGenOfficePptx(tab: ArtifactPreviewTab): void {
   delete tab.genOfficePptxError
 }
 
+function clearHtmlEditing(tab: ArtifactPreviewTab): void {
+  delete tab.htmlGrantId
+  delete tab.htmlContent
+  delete tab.htmlSavedContent
+  delete tab.htmlRevision
+  delete tab.htmlSaving
+  delete tab.htmlConflict
+  delete tab.htmlError
+}
+
 function webUrl(rawUrl: string): URL | undefined {
   const value = rawUrl.trim()
   if (value === '') return undefined
@@ -143,6 +153,74 @@ export class ArtifactPreviewController implements ChatFilePreview {
       else state.activeId = next.id
     })
     if (store.getSnapshot().tabs.length === 0) this.layout.closeDetails()
+  }
+
+  /**
+   * Replace one local HTML tab's draft source.
+   * @param sessionId Session that owns the tab.
+   * @param id HTML tab id.
+   * @param content Complete HTML source from the visual or source editor.
+   */
+  editHtml(sessionId: SessionId, id: string, content: string): void {
+    this.sourceFor(sessionId).update((state) => {
+      const tab = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'html')
+      if (tab?.htmlGrantId === undefined) return
+      tab.htmlContent = content
+      delete tab.htmlConflict
+      delete tab.htmlError
+    })
+  }
+
+  /**
+   * Save one local HTML draft through its Host grant.
+   * @param sessionId Session that owns the tab.
+   * @param id HTML tab id.
+   */
+  async saveHtml(sessionId: SessionId, id: string): Promise<void> {
+    const store = this.sourceFor(sessionId)
+    const tab = store.getSnapshot().tabs.find(candidate => candidate.id === id && candidate.kind === 'html')
+    if (
+      tab?.htmlGrantId === undefined
+      || tab.htmlContent === undefined
+      || tab.htmlRevision === undefined
+      || tab.htmlSaving === true
+    ) return
+    const content = tab.htmlContent
+    const revision = tab.htmlRevision
+    store.update((state) => {
+      const target = state.tabs.find(candidate => candidate.id === id)
+      if (target === undefined) return
+      target.htmlSaving = true
+      delete target.htmlConflict
+      delete target.htmlError
+    })
+    try {
+      const response = await this.api.host.saveHtmlArtifact({
+        grantId: tab.htmlGrantId, content, revision,
+      })
+      const result = response.result
+      store.update((state) => {
+        const target = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'html')
+        if (target === undefined) return
+        target.htmlSaving = false
+        if (result.ok) {
+          target.htmlSavedContent = content
+          target.htmlRevision = result.value.revision
+          delete target.htmlConflict
+          delete target.htmlError
+        } else {
+          target.htmlConflict = result.error.code === 'artifact-preview-conflict'
+          target.htmlError = result.error.message
+        }
+      })
+    } catch (error: unknown) {
+      store.update((state) => {
+        const target = state.tabs.find(candidate => candidate.id === id && candidate.kind === 'html')
+        if (target === undefined) return
+        target.htmlSaving = false
+        target.htmlError = error instanceof Error ? error.message : String(error)
+      })
+    }
   }
 
   /**
@@ -512,10 +590,18 @@ export class ArtifactPreviewController implements ChatFilePreview {
           tab.status = 'ready'
           tab.name = prepared.name
           tab.kind = prepared.kind
+          clearHtmlEditing(tab)
           clearGenOfficePptx(tab)
           clearGenOfficeXlsx(tab)
           if (prepared.kind === 'html') {
             tab.url = prepared.url
+            tab.htmlGrantId = prepared.grantId
+            tab.htmlContent = prepared.content
+            tab.htmlSavedContent = prepared.content
+            tab.htmlRevision = prepared.revision
+            tab.htmlSaving = false
+            delete tab.htmlConflict
+            delete tab.htmlError
             delete tab.markdownGrantId
             delete tab.markdownContent
             delete tab.markdownSavedContent

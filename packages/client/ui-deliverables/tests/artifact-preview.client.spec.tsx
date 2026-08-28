@@ -72,9 +72,16 @@ function successApi() {
         }
         return {
           rpcId: 'preview',
-          result: { ok: true as const, value: { kind: 'html' as const, name, url: `${PREVIEW_URL}/${name}` } },
+          result: { ok: true as const, value: {
+            kind: 'html' as const, name, url: `${PREVIEW_URL}/${name}`,
+            grantId: '00000000-0000-4000-8000-000000000001',
+            content: '<!doctype html><html><body><h1>Preview</h1></body></html>', revision: 'a'.repeat(64),
+          } },
         }
       }),
+      saveHtmlArtifact: vi.fn(async () => ({
+        rpcId: 'save', result: { ok: true as const, value: { revision: 'b'.repeat(64) } },
+      })),
       saveMarkdownArtifact: vi.fn(async () => ({
         rpcId: 'save',
         result: { ok: true as const, value: { revision: 'b'.repeat(64) } },
@@ -185,6 +192,46 @@ describe('ArtifactPreviewController', () => {
     await controller.saveMarkdown(SID, tab?.id ?? '')
     expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
       markdownConflict: true, markdownError: 'changed on disk', markdownSaving: false,
+    })
+  })
+
+  it('edits and conflict-safely saves a local HTML tab', async () => {
+    const api = successApi()
+    const controller = new ArtifactPreviewController(api as never, {
+      openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn(),
+    })
+
+    await controller.open({ sessionId: SID, path: '/workspace/report.html' })
+    const tab = controller.sourceFor(SID).getSnapshot().tabs[0]
+    expect(tab).toMatchObject({
+      kind: 'html', htmlContent: '<!doctype html><html><body><h1>Preview</h1></body></html>',
+      htmlSavedContent: '<!doctype html><html><body><h1>Preview</h1></body></html>',
+    })
+    controller.editHtml(SID, tab?.id ?? '', '<!doctype html><html><body><h1>Edited</h1></body></html>')
+    await controller.saveHtml(SID, tab?.id ?? '')
+    expect(api.host.saveHtmlArtifact).toHaveBeenCalledWith({
+      grantId: '00000000-0000-4000-8000-000000000001',
+      content: '<!doctype html><html><body><h1>Edited</h1></body></html>',
+      revision: 'a'.repeat(64),
+    })
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
+      htmlSavedContent: '<!doctype html><html><body><h1>Edited</h1></body></html>',
+      htmlRevision: 'b'.repeat(64), htmlSaving: false,
+    })
+
+    api.host.saveHtmlArtifact.mockResolvedValueOnce({
+      rpcId: 'save',
+      result: {
+        ok: false,
+        error: {
+          code: 'artifact-preview-conflict', message: 'changed on disk', details: { path: '/workspace/report.html' },
+        },
+      },
+    } as never)
+    controller.editHtml(SID, tab?.id ?? '', '<h1>Conflict</h1>')
+    await controller.saveHtml(SID, tab?.id ?? '')
+    expect(controller.sourceFor(SID).getSnapshot().tabs[0]).toMatchObject({
+      htmlConflict: true, htmlError: 'changed on disk', htmlSaving: false,
     })
   })
 
@@ -499,6 +546,8 @@ function panelProps(
     closePreview?: () => void
     editMarkdown?: (id: string, content: string) => void
     saveMarkdown?: (id: string) => void
+    editHtml?: (id: string, content: string) => void
+    saveHtml?: (id: string) => void
     editGenOfficeDocx?: (id: string, blocks: GenOfficeDocxBlock[]) => void
     saveGenOfficeDocx?: (id: string) => void
     editGenOfficePptx?: (
@@ -523,6 +572,8 @@ function panelProps(
     openPreviewUrl: actions.openPreviewUrl ?? vi.fn(() => true),
     closePreviewTab: actions.closePreviewTab ?? vi.fn(),
     closePreview: actions.closePreview ?? vi.fn(),
+    editHtml: actions.editHtml ?? vi.fn(),
+    saveHtml: actions.saveHtml ?? vi.fn(),
     editMarkdown: actions.editMarkdown ?? vi.fn(),
     saveMarkdown: actions.saveMarkdown ?? vi.fn(),
     editGenOfficeDocx: actions.editGenOfficeDocx ?? vi.fn(),
@@ -584,6 +635,35 @@ describe('ArtifactPreviewPanel', () => {
     expect(closePreviewTab).toHaveBeenCalledWith('two')
     fireEvent.click(view.getByRole('button', { name: 'preview.close' }))
     expect(closePreview).toHaveBeenCalledTimes(1)
+  })
+
+  it('switches a local HTML artifact between safe visual and source editing', () => {
+    const editHtml = vi.fn()
+    const saveHtml = vi.fn()
+    const tab = {
+      id: 'html', status: 'ready' as const, requestId: 1, kind: 'html' as const,
+      name: 'report.html', path: '/report.html', url: PREVIEW_URL,
+      htmlGrantId: '00000000-0000-4000-8000-000000000001',
+      htmlContent: '<!doctype html><html><head><link rel="stylesheet" href="style.css"></head><body><h1>Draft</h1></body></html>',
+      htmlSavedContent: '<!doctype html><html><head><link rel="stylesheet" href="style.css"></head><body><h1>Draft</h1></body></html>',
+      htmlRevision: 'a'.repeat(64),
+    }
+    const state: ArtifactPreviewState = { activeId: 'html', tabs: [tab] }
+    const view = render(<ArtifactPreviewPanel {...panelProps(state, { editHtml, saveHtml })} />)
+    const visual = view.getByTitle('preview.htmlVisualLabel')
+    expect(visual.getAttribute('sandbox')).toBe('allow-same-origin')
+    expect(visual.getAttribute('srcdoc')).toContain('data-dsh-html-editor')
+
+    fireEvent.click(view.getByRole('tab', { name: 'preview.htmlSource' }))
+    const source = view.getByLabelText('preview.htmlSourceLabel')
+    fireEvent.change(source, { target: { value: '<h1>Edited</h1>' } })
+    expect(editHtml).toHaveBeenCalledWith('html', '<h1>Edited</h1>')
+
+    tab.htmlContent = '<h1>Edited</h1>'
+    view.rerender(<ArtifactPreviewPanel {...panelProps(state, { editHtml, saveHtml })} />)
+    expect(view.getByText('preview.htmlUnsaved')).toBeDefined()
+    fireEvent.click(view.getByRole('button', { name: 'preview.htmlSave' }))
+    expect(saveHtml).toHaveBeenCalledWith('html')
   })
 
   it('submits a website address from an empty tab and shows invalid input', () => {

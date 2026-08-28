@@ -14,6 +14,13 @@ export interface ArtifactPreviewTab {
   path: string
   kind?: 'html' | 'markdown' | 'genoffice-docx' | 'genoffice-pptx' | 'genoffice-xlsx' | 'office' | 'tencent-docs'
   url?: string
+  htmlGrantId?: string
+  htmlContent?: string
+  htmlSavedContent?: string
+  htmlRevision?: string
+  htmlSaving?: boolean
+  htmlConflict?: boolean
+  htmlError?: string
   markdownGrantId?: string
   markdownContent?: string
   markdownSavedContent?: string

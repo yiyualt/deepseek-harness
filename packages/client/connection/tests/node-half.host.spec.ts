@@ -169,7 +169,7 @@ describe('connection node half', () => {
     // ordinary reads (carrier-level 404 from the empty proxy proves the fence
     // passed), but each privileged method stays loopback-only and 403s.
     for (const method of [
-      'host.pickDirectory', 'host.openPath', 'host.prepareArtifactPreview', 'host.saveMarkdownArtifact',
+      'host.pickDirectory', 'host.openPath', 'host.prepareArtifactPreview', 'host.saveHtmlArtifact', 'host.saveMarkdownArtifact',
       'host.saveGenOfficeDocxArtifact', 'host.saveGenOfficePptxArtifact', 'host.saveGenOfficeXlsxArtifact',
       'settings.describe', 'settings.openDocument', 'settings.update', 'settings.replace', 'settings.mutate',
       'credentials.describe', 'credentials.set', 'credentials.unset',
@@ -476,7 +476,7 @@ describe('connection node half over a real HTTP server', () => {
       for (const method of [
         'settings.describe', 'settings.openDocument', 'settings.update', 'settings.replace', 'settings.mutate',
         'credentials.describe', 'credentials.set', 'credentials.unset',
-        'host.pickDirectory', 'host.openPath', 'host.prepareArtifactPreview', 'host.saveMarkdownArtifact',
+        'host.pickDirectory', 'host.openPath', 'host.prepareArtifactPreview', 'host.saveHtmlArtifact', 'host.saveMarkdownArtifact',
         'host.saveGenOfficeDocxArtifact', 'host.saveGenOfficePptxArtifact', 'host.saveGenOfficeXlsxArtifact',
         // Carries a draft credential and turns the host into a fetcher for a
         // URL the caller picked: an anonymous LAN caller must not reach it.

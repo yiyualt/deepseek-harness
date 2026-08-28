@@ -16,6 +16,7 @@ import { TencentDocsPreview } from './TencentDocsPreview.tsx'
 import { GenOfficeDocxEditor } from './GenOfficeDocxEditor.tsx'
 import { GenOfficeXlsxEditor } from './GenOfficeXlsxEditor.tsx'
 import { GenOfficePptxEditor } from './GenOfficePptxEditor.tsx'
+import { HtmlEditor } from './HtmlEditor.tsx'
 
 /** Layout action injected into the preview entry. */
 export interface ArtifactPreviewPanelInjected {
@@ -33,6 +34,10 @@ export interface ArtifactPreviewPanelInjected {
   editMarkdown: (id: string, content: string) => void
   /** Save one Markdown tab's current draft. */
   saveMarkdown: (id: string) => void
+  /** Replace one local HTML tab's draft source. */
+  editHtml: (id: string, content: string) => void
+  /** Save one local HTML tab's current draft. */
+  saveHtml: (id: string) => void
   /** Replace one DOCX rich-text draft. */
   editGenOfficeDocx: (id: string, blocks: GenOfficeDocxBlock[]) => void
   /** Save one local GenOffice DOCX draft. */
@@ -102,6 +107,7 @@ function UrlEntry({ id, openPreviewUrl, t }: {
 /** Render retained artifact previews as a browser-style tab strip. */
 export function ArtifactPreviewPanel({
   usePreview, activatePreview, newPreviewTab, openPreviewUrl,
+  editHtml, saveHtml,
   editMarkdown, saveMarkdown, editGenOfficeDocx, saveGenOfficeDocx,
   editGenOfficePptx, saveGenOfficePptx,
   editGenOfficeXlsx, saveGenOfficeXlsx,
@@ -171,21 +177,40 @@ export function ArtifactPreviewPanel({
             <UrlEntry id={active.id} openPreviewUrl={openPreviewUrl} t={t} />
           </div>
         )}
-        {preview.tabs.map(tab => tab.status === 'ready' && tab.url !== undefined && (
-          <div
-            key={tab.id}
-            className={css.framePane}
-            role="tabpanel"
-            hidden={tab.id !== preview.activeId}
-          >
-            <iframe
-              className={css.frame}
-              src={tab.url}
-              title={t('preview.frameTitle', { name: tab.name })}
-              sandbox="allow-scripts allow-same-origin"
-              referrerPolicy="no-referrer"
-            />
-          </div>
+        {preview.tabs.map(tab => (
+          tab.status === 'ready'
+          && tab.url !== undefined
+          && tab.htmlGrantId === undefined
+          && (
+            <div
+              key={tab.id}
+              className={css.framePane}
+              role="tabpanel"
+              hidden={tab.id !== preview.activeId}
+            >
+              <iframe
+                className={css.frame}
+                src={tab.url}
+                title={t('preview.frameTitle', { name: tab.name })}
+                sandbox="allow-scripts allow-same-origin"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          )
+        ))}
+        {preview.tabs.map(tab => (
+          tab.status === 'ready'
+          && tab.kind === 'html'
+          && tab.htmlGrantId !== undefined
+          && tab.htmlContent !== undefined
+          && tab.url !== undefined
+          && (
+            <div key={tab.id} className={css.framePane} role="tabpanel"
+              hidden={tab.id !== preview.activeId}>
+              <HtmlEditor tab={tab} edit={(content) => { editHtml(tab.id, content) }}
+                save={() => { saveHtml(tab.id) }} t={t} />
+            </div>
+          )
         ))}
         {preview.tabs.map(tab => (
           tab.status === 'ready'

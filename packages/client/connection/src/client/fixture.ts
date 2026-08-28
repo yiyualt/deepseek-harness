@@ -2566,7 +2566,11 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         kind: 'html' as const,
         name: request.payload.path.split('/').at(-1) ?? request.payload.path,
         url: `/api/artifact-preview/00000000-0000-4000-8000-000000000000/${encodeURIComponent(request.payload.path.split('/').at(-1) ?? 'index.html')}`,
+        grantId: '00000000-0000-4000-8000-000000000001',
+        content: '<h1>Preview</h1>',
+        revision: 'a'.repeat(64),
       }),
+      saveHtmlArtifact: request => ok(request, { revision: request.payload.revision }),
       saveMarkdownArtifact: request => ok(request, { revision: request.payload.revision }),
       saveGenOfficeDocxArtifact: request => ok(request, { revision: request.payload.revision, blocks: [] }),
       saveGenOfficePptxArtifact: request => ok(request, { revision: request.payload.revision, slides: [] }),
@@ -3113,6 +3117,7 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'host.createDirectory': return this.api.host.createDirectory(request)
       case 'host.openPath': return this.api.host.openPath(request, new AbortController().signal)
       case 'host.prepareArtifactPreview': return this.api.host.prepareArtifactPreview(request)
+      case 'host.saveHtmlArtifact': return this.api.host.saveHtmlArtifact(request)
       case 'host.saveMarkdownArtifact': return this.api.host.saveMarkdownArtifact(request)
       case 'host.saveGenOfficeDocxArtifact': return this.api.host.saveGenOfficeDocxArtifact(request)
       case 'host.saveGenOfficePptxArtifact': return this.api.host.saveGenOfficePptxArtifact(request)

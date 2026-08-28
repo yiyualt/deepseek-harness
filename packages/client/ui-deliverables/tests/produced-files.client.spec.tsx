@@ -489,14 +489,20 @@ describe('plugin registration', () => {
           kind: 'html' as const,
           name: 'report.html',
           url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html',
+          grantId: '00000000-0000-4000-8000-000000000001',
+          content: '<h1>Report</h1>',
+          revision: 'a'.repeat(64),
         },
       },
+    }))
+    const saveHtmlArtifact = vi.fn(async (payload: { revision: string }) => ({
+      rpcId: 'save', result: { ok: true as const, value: { revision: payload.revision } },
     }))
     const saveMarkdownArtifact = vi.fn(async (payload: { revision: string }) => ({
       rpcId: 'save', result: { ok: true as const, value: { revision: payload.revision } },
     }))
     ctx.provide('connection', {
-      api: { host: { prepareArtifactPreview, saveMarkdownArtifact }, settings: {} },
+      api: { host: { prepareArtifactPreview, saveHtmlArtifact, saveMarkdownArtifact }, settings: {} },
       isLoopback: false,
       hostDescription,
     } as never)

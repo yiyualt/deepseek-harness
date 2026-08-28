@@ -153,7 +153,13 @@ export class FakeApiClient implements IApiClient {
         kind: 'html' as const,
         name: 'report.html',
         url: '/api/artifact-preview/00000000-0000-4000-8000-000000000000/report.html',
+        grantId: '00000000-0000-4000-8000-000000000001',
+        content: '<h1>Report</h1>',
+        revision: 'a'.repeat(64),
       })),
+    ),
+    saveHtmlArtifact: payload => this.record(
+      'host.saveHtmlArtifact', payload, Promise.resolve(ok({ revision: payload.revision })),
     ),
     saveMarkdownArtifact: payload => this.record(
       'host.saveMarkdownArtifact', payload, Promise.resolve(ok({ revision: payload.revision })),

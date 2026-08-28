@@ -44,6 +44,7 @@ export interface RpcMethodMap {
   'host.createDirectory': HostApi['createDirectory']
   'host.openPath': HostApi['openPath']
   'host.prepareArtifactPreview': HostApi['prepareArtifactPreview']
+  'host.saveHtmlArtifact': HostApi['saveHtmlArtifact']
   'host.saveMarkdownArtifact': HostApi['saveMarkdownArtifact']
   'host.saveGenOfficeDocxArtifact': HostApi['saveGenOfficeDocxArtifact']
   'host.saveGenOfficePptxArtifact': HostApi['saveGenOfficePptxArtifact']

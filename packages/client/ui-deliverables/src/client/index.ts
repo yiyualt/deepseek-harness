@@ -72,6 +72,8 @@ export function apply(ctx: ClientContext): void {
         activatePreview: (id) => { preview.activate(sessionId, id) },
         newPreviewTab: () => { preview.newTab(sessionId) },
         openPreviewUrl: (id, url) => preview.openUrl(sessionId, id, url),
+        editHtml: (id, content) => { preview.editHtml(sessionId, id, content) },
+        saveHtml: (id) => { void preview.saveHtml(sessionId, id) },
         editMarkdown: (id, content) => { preview.editMarkdown(sessionId, id, content) },
         saveMarkdown: (id) => { void preview.saveMarkdown(sessionId, id) },
         editGenOfficeDocx: (id, blocks) => {

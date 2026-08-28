@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -35,6 +35,8 @@ describe('ArtifactPreviewGrants', () => {
     const token = tokenFrom(grant.url)
 
     expect(grant.name).toBe('report.html')
+    expect(grant.content).toContain('<h1>Preview</h1>')
+    expect(grant.revision).toHaveLength(64)
     const html = await grants.response(token, 'report.html', new AbortController().signal)
     expect(html.status).toBe(200)
     expect(html.headers.get('content-type')).toBe('text/html; charset=utf-8')
@@ -44,6 +46,23 @@ describe('ArtifactPreviewGrants', () => {
     const css = await grants.response(token, 'assets/style.css', new AbortController().signal)
     expect(css.headers.get('content-type')).toBe('text/css; charset=utf-8')
     expect(await css.text()).toContain('color: green')
+  })
+
+  it('atomically saves granted HTML source and rejects an external change', async () => {
+    const entry = join(root, 'index.html')
+    await writeFile(entry, '<h1>Original</h1>')
+    const grants = new ArtifactPreviewGrants()
+    const prepared = await grants.prepare(entry)
+
+    const saved = await grants.save(prepared.grantId, '<h1>Edited</h1>', prepared.revision)
+    expect(saved.revision).toHaveLength(64)
+    expect(await readFile(entry, 'utf8')).toBe('<h1>Edited</h1>')
+
+    await writeFile(entry, '<h1>External</h1>')
+    await expect(grants.save(prepared.grantId, '<h1>Stale</h1>', saved.revision)).rejects.toMatchObject({
+      reason: 'conflict',
+    } satisfies Partial<ArtifactPreviewError>)
+    expect(await readFile(entry, 'utf8')).toBe('<h1>External</h1>')
   })
 
   it('rejects unsupported, missing, and non-file entry points', async () => {

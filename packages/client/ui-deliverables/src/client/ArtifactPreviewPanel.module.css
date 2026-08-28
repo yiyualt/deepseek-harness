@@ -283,6 +283,122 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+.htmlEditor {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--dsw-alias-bg-base);
+}
+
+.htmlToolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  gap: 10px;
+}
+
+.htmlModes {
+  display: flex;
+  flex: 1;
+  align-self: stretch;
+  gap: 14px;
+}
+
+.htmlModes button {
+  position: relative;
+  padding: 0 3px;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font: var(--dsw-font-xs-13);
+}
+
+.htmlModes button[aria-selected='true'] {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+}
+
+.htmlModes button[aria-selected='true']::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--dsw-alias-state-business-primary);
+  content: '';
+}
+
+.htmlModes button:focus-visible {
+  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline-offset: -1px;
+}
+
+.htmlState {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  font: var(--dsw-font-xs-13);
+}
+
+.htmlSave {
+  flex: none;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--dsw-alias-state-business-primary);
+  color: var(--dsw-alias-label-primary-foreground);
+  cursor: pointer;
+  font: var(--dsw-font-xs-13);
+}
+
+.htmlSave:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.htmlSave:focus-visible {
+  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 2px;
+}
+
+.htmlError {
+  flex: none;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-state-error-primary);
+  font: var(--dsw-font-xs-13);
+}
+
+.htmlVisual,
+.htmlSource {
+  display: block;
+  box-sizing: border-box;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  outline: none;
+  background: white;
+}
+
+.htmlVisual:focus-visible,
+.htmlSource:focus {
+  box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary);
+}
+
+.htmlSource {
+  resize: none;
+  padding: 16px;
+  color: var(--dsw-alias-label-primary);
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  tab-size: 2;
+}
+
 .markdownEditor {
   display: flex;
   flex-direction: column;

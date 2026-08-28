@@ -108,6 +108,7 @@ const PRIVILEGED_METHODS = new Set([
   'host.pickDirectory',
   'host.openPath',
   'host.prepareArtifactPreview',
+  'host.saveHtmlArtifact',
   'host.saveMarkdownArtifact',
   'host.saveGenOfficeDocxArtifact',
   'host.saveGenOfficePptxArtifact',

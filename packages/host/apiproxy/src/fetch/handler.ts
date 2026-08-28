@@ -41,6 +41,7 @@ import {
   hostPickDirectoryRequestSchema, hostPrepareArtifactPreviewRequestSchema,
   hostSaveGenOfficeDocxArtifactRequestSchema, hostSaveGenOfficePptxArtifactRequestSchema,
   hostSaveGenOfficeXlsxArtifactRequestSchema,
+  hostSaveHtmlArtifactRequestSchema,
   hostSaveMarkdownArtifactRequestSchema,
 } from '../api/host.schema.ts'
 import {
@@ -119,6 +120,7 @@ const UNARY_ROUTES: UnaryRoutes = {
   'host.createDirectory': { schema: hostCreateDirectoryRequestSchema, invoke: (api, r) => api.host.createDirectory(r) },
   'host.openPath': { schema: hostOpenPathRequestSchema, invoke: (api, r, signal) => api.host.openPath(r, signal) },
   'host.prepareArtifactPreview': { schema: hostPrepareArtifactPreviewRequestSchema, invoke: (api, r) => api.host.prepareArtifactPreview(r) },
+  'host.saveHtmlArtifact': { schema: hostSaveHtmlArtifactRequestSchema, invoke: (api, r) => api.host.saveHtmlArtifact(r) },
   'host.saveMarkdownArtifact': { schema: hostSaveMarkdownArtifactRequestSchema, invoke: (api, r) => api.host.saveMarkdownArtifact(r) },
   'host.saveGenOfficeDocxArtifact': { schema: hostSaveGenOfficeDocxArtifactRequestSchema, invoke: (api, r) => api.host.saveGenOfficeDocxArtifact(r) },
   'host.saveGenOfficePptxArtifact': { schema: hostSaveGenOfficePptxArtifactRequestSchema, invoke: (api, r) => api.host.saveGenOfficePptxArtifact(r) },

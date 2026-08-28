@@ -186,7 +186,7 @@ export interface GenOfficeXlsxEdit {
 
 /** Prepared renderer selected from the artifact's file type. */
 export type ArtifactPreviewValue =
-  | { kind: 'html'; name: string; url: string }
+  | { kind: 'html'; name: string; url: string; grantId: string; content: string; revision: string }
   | { kind: 'markdown'; name: string; grantId: string; content: string; revision: string }
   | { kind: 'genoffice-docx'; name: string; grantId: string; blocks: GenOfficeDocxBlock[]; revision: string }
   | { kind: 'genoffice-pptx'; name: string; grantId: string; slides: GenOfficePptxSlide[]; revision: string }
@@ -285,13 +285,22 @@ export interface HostApi {
 
   /**
    * Prepare one existing HTML, Markdown, or supported document file for the
-   * Web preview column. HTML returns a same-origin iframe URL, Markdown returns
-   * UTF-8 source and an edit grant, local GenOffice returns DOCX, XLSX, or
+   * Web preview column. HTML returns a same-origin resource URL, UTF-8 source,
+   * and an edit grant; Markdown returns UTF-8 source and an edit grant; local GenOffice returns DOCX, XLSX, or
    * PPTX projections, and configured external providers return browser editor data.
    */
   prepareArtifactPreview(
     request: RpcRequest<{ path: string }>,
   ): Promise<RpcResponse<ArtifactPreviewValue>>
+
+  /**
+   * Save complete HTML source through a preparation grant. The save fails
+   * with `artifact-preview-conflict` when the file changed since the revision
+   * supplied by the caller.
+   */
+  saveHtmlArtifact(
+    request: RpcRequest<{ grantId: string; content: string; revision: string }>,
+  ): Promise<RpcResponse<{ revision: string }>>
 
   /**
    * Save complete Markdown source through a preparation grant. The save

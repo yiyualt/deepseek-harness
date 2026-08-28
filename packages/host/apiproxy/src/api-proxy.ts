@@ -3104,7 +3104,30 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
                 ? 'artifact-preview-conflict'
                 : 'artifact-preview-unavailable',
             message: error.message,
-            details: { path: error instanceof MarkdownPreviewError ? error.path : request.payload.path },
+            details: {
+              path: error instanceof MarkdownPreviewError
+                ? error.path
+                : error instanceof ArtifactPreviewError && error.path !== ''
+                  ? error.path
+                  : request.payload.path,
+            },
+          })
+        }
+      },
+
+      async saveHtmlArtifact(request) {
+        try {
+          return ok(request, await artifactPreviews.save(
+            request.payload.grantId,
+            request.payload.content,
+            request.payload.revision,
+          ))
+        } catch (error: unknown) {
+          if (!(error instanceof ArtifactPreviewError)) throw error
+          return err(request, {
+            code: error.reason === 'conflict' ? 'artifact-preview-conflict' : 'artifact-preview-unavailable',
+            message: error.message,
+            details: { path: error.path },
           })
         }
       },

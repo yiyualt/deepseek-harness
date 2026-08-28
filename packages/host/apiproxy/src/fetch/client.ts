@@ -19,6 +19,7 @@ import {
   hostPrepareArtifactPreviewValueSchema, hostSaveGenOfficeDocxArtifactValueSchema,
   hostSaveGenOfficePptxArtifactValueSchema,
   hostSaveGenOfficeXlsxArtifactValueSchema,
+  hostSaveHtmlArtifactValueSchema,
   hostSaveMarkdownArtifactValueSchema,
 } from '../api/host.schema.ts'
 import {
@@ -116,6 +117,7 @@ export interface IApiClient {
     createDirectory(payload: RequestPayload<'host.createDirectory'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'host.createDirectory'>>>
     openPath(payload: RequestPayload<'host.openPath'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'host.openPath'>>>
     prepareArtifactPreview(payload: RequestPayload<'host.prepareArtifactPreview'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'host.prepareArtifactPreview'>>>
+    saveHtmlArtifact(payload: RequestPayload<'host.saveHtmlArtifact'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'host.saveHtmlArtifact'>>>
     saveMarkdownArtifact(payload: RequestPayload<'host.saveMarkdownArtifact'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'host.saveMarkdownArtifact'>>>
     saveGenOfficeDocxArtifact(payload: RequestPayload<'host.saveGenOfficeDocxArtifact'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'host.saveGenOfficeDocxArtifact'>>>
     saveGenOfficePptxArtifact(payload: RequestPayload<'host.saveGenOfficePptxArtifact'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'host.saveGenOfficePptxArtifact'>>>
@@ -201,6 +203,7 @@ const UNARY_VALUE_SCHEMAS: { [K in keyof RpcMethodMap]: z.ZodType<Wire<ResponseV
   'host.createDirectory': hostCreateDirectoryValueSchema,
   'host.openPath': hostOpenPathValueSchema,
   'host.prepareArtifactPreview': hostPrepareArtifactPreviewValueSchema,
+  'host.saveHtmlArtifact': hostSaveHtmlArtifactValueSchema,
   'host.saveMarkdownArtifact': hostSaveMarkdownArtifactValueSchema,
   'host.saveGenOfficeDocxArtifact': hostSaveGenOfficeDocxArtifactValueSchema,
   'host.saveGenOfficePptxArtifact': hostSaveGenOfficePptxArtifactValueSchema,
@@ -456,6 +459,7 @@ export abstract class AbstractApiClient implements IApiClient {
     createDirectory: (payload, signal) => this.callUnary('host.createDirectory', payload, signal),
     openPath: (payload, signal) => this.callUnary('host.openPath', payload, signal),
     prepareArtifactPreview: (payload, signal) => this.callUnary('host.prepareArtifactPreview', payload, signal),
+    saveHtmlArtifact: (payload, signal) => this.callUnary('host.saveHtmlArtifact', payload, signal),
     saveMarkdownArtifact: (payload, signal) => this.callUnary('host.saveMarkdownArtifact', payload, signal),
     saveGenOfficeDocxArtifact: (payload, signal) => this.callUnary('host.saveGenOfficeDocxArtifact', payload, signal),
     saveGenOfficePptxArtifact: (payload, signal) => this.callUnary('host.saveGenOfficePptxArtifact', payload, signal),

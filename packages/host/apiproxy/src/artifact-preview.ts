@@ -4,14 +4,15 @@
  * stay below the granted directory.
  */
 
-import { randomUUID } from 'node:crypto'
-import { readFile, realpath, stat } from 'node:fs/promises'
-import { basename, dirname, extname, relative, resolve, sep } from 'node:path'
+import { createHash, randomUUID } from 'node:crypto'
+import { readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises'
+import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 
 /** Physical route prefix owned by the fetch carrier. */
 export const ARTIFACT_PREVIEW_PATH = '/api/artifact-preview'
 
 const HTML_EXTENSIONS = new Set(['.html', '.htm', '.xhtml'])
+const MAX_HTML_BYTES = 2 * 1024 * 1024
 
 const MIME: Readonly<Record<string, string>> = {
   '.css': 'text/css; charset=utf-8',
@@ -55,13 +56,20 @@ export interface ArtifactPreviewGrant {
   name: string
   /** Same-origin resource URL suitable for a sandboxed iframe. */
   url: string
+  /** Opaque authority required to replace the entry file. */
+  grantId: string
+  /** Complete UTF-8 source for visual or source editing. */
+  content: string
+  /** SHA-256 revision of {@link content}. */
+  revision: string
 }
 
 /** Expected preparation failure classified for the Host RPC vocabulary. */
 export class ArtifactPreviewError extends Error {
   constructor(
-    readonly reason: 'unsupported' | 'unavailable',
+    readonly reason: 'unsupported' | 'unavailable' | 'conflict',
     message: string,
+    readonly path = '',
   ) {
     super(message)
     this.name = 'ArtifactPreviewError'
@@ -70,6 +78,19 @@ export class ArtifactPreviewError extends Error {
 
 interface StoredGrant {
   readonly root: string
+  readonly entry: string
+}
+
+function revision(content: string): string {
+  return createHash('sha256').update(content).digest('hex')
+}
+
+function assertSize(path: string, content: string): void {
+  if (Buffer.byteLength(content, 'utf8') > MAX_HTML_BYTES) {
+    throw new ArtifactPreviewError(
+      'unavailable', `HTML artifact exceeds the ${String(MAX_HTML_BYTES)} byte limit: ${path}`, path,
+    )
+  }
 }
 
 function isInside(root: string, candidate: string): boolean {
@@ -91,7 +112,8 @@ function previewHeaders(path: string): Headers {
  * subresources. Grants die with the ApiProxy instance.
  */
 export class ArtifactPreviewGrants {
-  readonly #grants = new Map<string, StoredGrant>()
+  readonly #previewGrants = new Map<string, StoredGrant>()
+  readonly #editGrants = new Map<string, StoredGrant>()
 
   /**
    * Exchange one existing HTML file for an opaque preview URL.
@@ -110,6 +132,11 @@ export class ArtifactPreviewGrants {
       if (!metadata.isFile()) {
         throw new ArtifactPreviewError('unavailable', `artifact preview target is not a regular file: ${path}`)
       }
+      if (metadata.size > MAX_HTML_BYTES) {
+        throw new ArtifactPreviewError(
+          'unavailable', `HTML artifact exceeds the ${String(MAX_HTML_BYTES)} byte limit: ${path}`, path,
+        )
+      }
     } catch (error: unknown) {
       if (error instanceof ArtifactPreviewError) throw error
       throw new ArtifactPreviewError(
@@ -118,14 +145,74 @@ export class ArtifactPreviewGrants {
       )
     }
 
-    const token = randomUUID()
-    const name = basename(entry)
-    this.#grants.set(token, { root: dirname(entry) })
-    return {
-      kind: 'html',
-      name,
-      url: `${ARTIFACT_PREVIEW_PATH}/${token}/${encodeURIComponent(name)}`,
+    try {
+      const content = await readFile(entry, 'utf8')
+      assertSize(entry, content)
+      const token = randomUUID()
+      const grantId = randomUUID()
+      const name = basename(entry)
+      this.#previewGrants.set(token, { root: dirname(entry), entry })
+      this.#editGrants.set(grantId, { root: dirname(entry), entry })
+      return {
+        kind: 'html', name, grantId, content, revision: revision(content),
+        url: `${ARTIFACT_PREVIEW_PATH}/${token}/${encodeURIComponent(name)}`,
+      }
+    } catch (error: unknown) {
+      if (error instanceof ArtifactPreviewError) throw error
+      throw new ArtifactPreviewError(
+        'unavailable',
+        `artifact preview target is unreadable: ${error instanceof Error ? error.message : String(error)}`,
+        entry,
+      )
     }
+  }
+
+  /**
+   * Replace a granted HTML entry while its source revision still matches.
+   * @param grantId Opaque edit grant returned by {@link prepare}.
+   * @param content Complete UTF-8 HTML source to save.
+   * @param expectedRevision Revision returned by the last read or save.
+   * @returns Revision of the saved source.
+   */
+  async save(grantId: string, content: string, expectedRevision: string): Promise<{ revision: string }> {
+    const grant = this.#editGrants.get(grantId)
+    if (grant === undefined) {
+      throw new ArtifactPreviewError('unavailable', 'HTML edit grant is unavailable; reopen the file')
+    }
+    assertSize(grant.entry, content)
+    let current: string
+    try {
+      current = await readFile(grant.entry, 'utf8')
+    } catch (error: unknown) {
+      throw new ArtifactPreviewError(
+        'unavailable',
+        `HTML file is unreadable: ${error instanceof Error ? error.message : String(error)}`,
+        grant.entry,
+      )
+    }
+    if (revision(current) !== expectedRevision) {
+      throw new ArtifactPreviewError(
+        'conflict', `HTML file changed on disk; reopen it before saving: ${grant.entry}`, grant.entry,
+      )
+    }
+
+    const temporary = join(dirname(grant.entry), `.${basename(grant.entry)}.${randomUUID()}.tmp`)
+    try {
+      await writeFile(temporary, content, 'utf8')
+      await rename(temporary, grant.entry)
+    } catch (error: unknown) {
+      try {
+        await unlink(temporary)
+      } catch {
+        // A failed write may not create the temporary file; no other owner remains.
+      }
+      throw new ArtifactPreviewError(
+        'unavailable',
+        `HTML file could not be saved: ${error instanceof Error ? error.message : String(error)}`,
+        grant.entry,
+      )
+    }
+    return { revision: revision(content) }
   }
 
   /**
@@ -136,7 +223,7 @@ export class ArtifactPreviewGrants {
    * @returns isolated inline response; invalid or escaped targets answer 404.
    */
   async response(token: string, requestedPath: string, signal: AbortSignal): Promise<Response> {
-    const grant = this.#grants.get(token)
+    const grant = this.#previewGrants.get(token)
     if (grant === undefined) return new Response('preview grant not found', { status: 404 })
 
     let decoded: string
