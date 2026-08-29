@@ -1453,6 +1453,28 @@ export interface Config {
 
 Source: [`packages/feedback/message-feedback/src/index.ts:49`](../packages/feedback/message-feedback/src/index.ts)
 
+<a id="deepseek-aidsh-office-excel-websocket"></a>
+
+## `@deepseek-ai/dsh-office-excel-websocket`
+
+Requires: `agents` · `officeExcel` · `webServer`
+
+```ts config-catalog
+/** WebSocket transport limits and origin allowlist. */
+export interface Config {
+  /** Exact browser origins allowed to upgrade into the workbook channel. */
+  readonly allowedOrigins: string[]
+  /** Maximum encoded size accepted for one client frame. */
+  readonly maxMessageBytes: number
+  /** Time allowed for a new task pane to bind a live Harness Session. */
+  readonly bindTimeoutMs: number
+  /** Maximum wall-clock time for one Office.js invocation. */
+  readonly invokeTimeoutMs: number
+}
+```
+
+Source: [`packages/office/excel-websocket/src/index.ts:29`](../packages/office/excel-websocket/src/index.ts)
+
 <a id="deepseek-aidsh-permission-presets"></a>
 
 ## `@deepseek-ai/dsh-permission-presets`
@@ -3252,6 +3274,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-host-tencent-docs-connector` — requires `credentials` · `mcp` ([`packages/host/tencent-docs-connector/src/index.ts`](../packages/host/tencent-docs-connector/src/index.ts))
 - `@deepseek-ai/dsh-llm` ([`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts))
 - `@deepseek-ai/dsh-lsp` ([`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts))
+- `@deepseek-ai/dsh-office-excel` ([`packages/office/excel/src/index.ts`](../packages/office/excel/src/index.ts))
 - `@deepseek-ai/dsh-schedule` — requires `agents` · `sessions` · `tools` · `sessionPersistence` ([`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts))
 - `@deepseek-ai/dsh-session` ([`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts))
 - `@deepseek-ai/dsh-session-checkpoint-policy` — requires `llm` · `sessionPersistence` · `sessions` · `tools` ([`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts))
@@ -3266,6 +3289,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-tool-ask-user` — requires `tools` · `userQuestions` ([`packages/interaction/tool-ask-user/src/index.ts`](../packages/interaction/tool-ask-user/src/index.ts))
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — requires `tools` ([`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts))
 - `@deepseek-ai/dsh-tool-cordis` — requires `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect` ([`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts))
+- `@deepseek-ai/dsh-tool-excel` — requires `officeExcel` · `tools` ([`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts))
 - `@deepseek-ai/dsh-tool-subagent-control` — requires `tools` · `subagents` ([`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts))
 - `@deepseek-ai/dsh-user-questions` ([`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts))
 - `@deepseek-ai/dsh-workspace` — requires `storageDomain` · `sessionPersistence` ([`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts))

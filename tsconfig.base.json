@@ -123,6 +123,7 @@
         "./packages/jobs/*/src/invariant.ts",
         "./packages/workflow/*/src/invariant.ts",
         "./packages/web/*/src/invariant.ts",
+        "./packages/office/*/src/invariant.ts",
         "./packages/attachment/*/src/invariant.ts",
         "./packages/spill/*/src/invariant.ts",
         "./packages/todo/*/src/invariant.ts",

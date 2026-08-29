@@ -45,6 +45,8 @@ import * as ToolPwsh from '@deepseek-ai/dsh-tool-pwsh'
 import * as ToolBashPersistent from '@deepseek-ai/dsh-tool-bash-persistent'
 import CordisHostRunner from '@deepseek-ai/dsh-cordis-host-runner'
 import * as ToolCordis from '@deepseek-ai/dsh-tool-cordis'
+import OfficeExcel from '@deepseek-ai/dsh-office-excel'
+import * as ToolExcel from '@deepseek-ai/dsh-tool-excel'
 import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 import * as ToolFsSearch from '@deepseek-ai/dsh-tool-fs-search'
 import * as ToolStrReplaceEditor from '@deepseek-ai/dsh-tool-str-replace-editor'
@@ -329,6 +331,19 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'Not in any shipped tree (a deliberate opt-in — dynamic package code reaches the real runtime, see .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md). The toolset injects `ctx.dynamicCordisRunner` from `@deepseek-ai/dsh-cordis-host-runner`, which owns the definition registry and the vm sandbox; a composition missing it never activates the tools. A running package may register ADDITIONAL model-visible tools until it is stopped, undefined, or DSH restarts; a full changed request header logs those tool-set changes.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-excel',
+    dir: 'tool-excel',
+    source: 'packages/office/tool-excel/src/index.ts',
+    requires: ['ctx.tools', 'ctx.officeExcel', 'a calling Agent with a bound Excel task pane at execution time'],
+    writes: ['tool/call', 'current Excel workbook through Office.js', 'tool/result'],
+    async mount(ctx) {
+      await ctx.plugin(OfficeExcel)
+      await ctx.plugin(ToolExcel)
+    },
+    note:
+      'Four session-routed workbook tools; schema registration is unconditional, while execution fails explicitly unless that Agent Session owns a live Excel task-pane connection.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-bash-persistent',

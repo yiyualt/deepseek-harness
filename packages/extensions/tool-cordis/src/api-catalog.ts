@@ -987,6 +987,31 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'officeExcel',
+    summary: 'Single-provider Excel capability service.',
+    description: 'Single-provider Excel capability service.',
+    methods: [
+      {
+        signature: 'registerProvider(provider: ExcelProvider): () => void',
+        description: 'Register the active Excel transport provider.',
+        parameters: [{ name: 'provider', description: 'Transport implementation.' }],
+        returns: 'Registration disposer.',
+      },
+      {
+        signature: 'connected(sessionId: SessionId): boolean',
+        description: 'Check whether a session currently owns an Excel connection.',
+        parameters: [{ name: 'sessionId', description: 'Harness session id.' }],
+        returns: 'Connection state.',
+      },
+      {
+        signature: 'invoke(request: ExcelInvokeRequest): Promise<JsonValue>',
+        description: 'Execute one request through the active provider.',
+        parameters: [{ name: 'request', description: 'Session, tool and arguments.' }],
+        returns: 'Excel result.',
+      },
+    ],
+  },
+  {
     key: 'permissionPresets',
     summary: 'Owns the deployment\'s permission presets and their write path.',
     description: 'Owns the deployment\'s permission presets and their write path. Requires a confining `ctx.shell` executor and `ctx.approval`; unmatched knob values are reported as CUSTOM_PRESET, not an error.',
@@ -3217,6 +3242,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'EpochHeader',
     declaration: 'export interface EpochHeader {\n    config: LlmCallConfig;\n    adapterDefaults?: LlmCallConfigAdapterDefaults;\n    system?: string;\n    tools?: ToolSchema[];\n}',
+  },
+  {
+    name: 'ExcelInvokeRequest',
+    declaration: 'export interface ExcelInvokeRequest {\n    readonly sessionId: SessionId;\n    readonly toolName: string;\n    readonly arguments: JsonValue;\n    readonly signal: AbortSignal;\n}',
+  },
+  {
+    name: 'ExcelProvider',
+    declaration: 'export interface ExcelProvider {\n    connected(sessionId: SessionId): boolean;\n    invoke(request: ExcelInvokeRequest): Promise<JsonValue>;\n}',
   },
   {
     name: 'FileDiff',

@@ -48,6 +48,22 @@
     - id: code-runtime
       name: '@deepseek-ai/dsh-code-runtime-worker-thread'
 
+    # Excel capability, local task-pane transport, and model-facing tools. The
+    # task pane binds an exact Harness Session before any operation can run.
+    - id: office-excel
+      name: '@deepseek-ai/dsh-office-excel'
+
+    - id: office-excel-websocket
+      name: '@deepseek-ai/dsh-office-excel-websocket'
+      config:
+        allowedOrigins: ['https://localhost:3010']
+        maxMessageBytes: 1048576
+        bindTimeoutMs: 10000
+        invokeTimeoutMs: 60000
+
+    - id: tool-excel
+      name: '@deepseek-ai/dsh-tool-excel'
+
     - id: storage
       name: '@deepseek-ai/dsh-storage'
 

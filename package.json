@@ -144,6 +144,8 @@
   "devDependencies": {
     "@agentclientprotocol/sdk": "0.25.1",
     "@deepseek-ai/dsh-host-kingsoft-docs-connector": "workspace:^",
+    "@deepseek-ai/dsh-office-excel": "workspace:^",
+    "@deepseek-ai/dsh-tool-excel": "workspace:^",
     "@deepseek-ai/dsh-tool-session-query": "workspace:^",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@testing-library/dom": "^10.4.1",

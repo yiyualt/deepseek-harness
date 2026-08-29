@@ -21,6 +21,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-bash` | `bash` | `ctx.tools`, `ctx.shell`, `ctx.systemPrompt`, `ctx.shellEnv`, `ctx.jobs at call time for run_in_background` | `tool/call`, `tool/result` | - | The bash tool is the model-facing consumer of the bash executor seam. A `run_in_background` run registers with the generic `ctx.jobs` runtime and is collected/stopped through the `job_*` tools from `@deepseek-ai/dsh-tool-jobs`; the `enableRunInBackground` config (default true) removes the parameter entirely when disabled. |
 | `@deepseek-ai/dsh-tool-pwsh` | `pwsh` | `ctx.tools`, `ctx.shell`, `ctx.systemPrompt`, `ctx.shellEnv`, `ctx.jobs at call time for run_in_background` | `tool/call`, `tool/result` | - | The pwsh tool is the PowerShell-dialect consumer of the bash executor seam for Windows compositions (a PowerShell executor such as `@deepseek-ai/dsh-pwsh-local` backs `ctx.shell`); it mirrors the bash tool call-for-call minus sandbox controls — `run_in_background` runs register with the generic `ctx.jobs` runtime and are collected/stopped through the `job_*` tools, and the managed `DSH_*` environment comes from `@deepseek-ai/dsh-shell-env`. Each call runs in a fresh process (no persistent PTY session), with native `C:\...` paths and `$env:NAME` variables. |
 | `@deepseek-ai/dsh-tool-cordis` | `cordis_define`, `cordis_inspect_list`, `cordis_inspect_query`, `cordis_inspect_self`, `cordis_run`, `cordis_stop`, `cordis_undefine` | `ctx.tools`, `ctx.dynamicCordisRunner` | `tool/call`, `tool/result`, `process-local dynamic package lifecycle` | - | Not in any shipped tree (a deliberate opt-in — dynamic package code reaches the real runtime, see .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md). The toolset injects `ctx.dynamicCordisRunner` from `@deepseek-ai/dsh-cordis-host-runner`, which owns the definition registry and the vm sandbox; a composition missing it never activates the tools. A running package may register ADDITIONAL model-visible tools until it is stopped, undefined, or DSH restarts; a full changed request header logs those tool-set changes. |
+| `@deepseek-ai/dsh-tool-excel` | `excel_clear_range`, `excel_create_worksheet`, `excel_insert_chart`, `excel_inspect`, `excel_read_range`, `excel_write_range` | `ctx.tools`, `ctx.officeExcel`, `a calling Agent with a bound Excel task pane at execution time` | `tool/call`, `current Excel workbook through Office.js`, `tool/result` | - | Four session-routed workbook tools; schema registration is unconditional, while execution fails explicitly unless that Agent Session owns a live Excel task-pane connection. |
 | `@deepseek-ai/dsh-tool-bash-persistent` | `bash` | `ctx.tools`, `ctx.terminals`, `an owning Agent at execution time` | `tool/call`, `PTY shell state`, `tool/result` | - | One owner-isolated persistent bash tool; deployment composition supplies the PTY backend and may override the model-facing environment description. |
 | `@deepseek-ai/dsh-tool-str-replace-editor` | `str_replace_editor` | `ctx.tools`, `ctx.fs` | `tool/call`, `fs/observed after view presence/absence, edit absence, or successful mutation`, `tool/result` | - | Standalone view/create/unique literal replace/line insert tool over the filesystem seam; it composes with any shell or terminal API. |
 | `@deepseek-ai/dsh-tool-fs` | `edit`, `read`, `read_image`, `write` | `ctx.tools`, `ctx.fs`, `ctx.systemPrompt`, `ctx.attachments (read_image registration)`, `ctx.llm + an image-capable route (read_image execution)` | `tool/call`, `fs/write-intent or fs/edit-intent for mutations`, `fs/observed after read presence/absence or successful file operation`, `durable attachment (read_image)`, `tool/result` | - | The read-before-write/edit policy is added by `@deepseek-ai/dsh-fs-observation-policy` (an `fs/*` event-gate plugin, no schema change); a deployment that loads these tools is expected to also load it. `read_image` is not registered without `ctx.attachments`; its schema is route-independent, and execution refuses unless the exact routed model declares image input. |
@@ -501,6 +502,213 @@ Permanently remove a dynamic Plugin owned by the current Session. If it is runni
 Source: [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
 
 Not in any shipped tree (a deliberate opt-in — dynamic package code reaches the real runtime, see .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md). The toolset injects `ctx.dynamicCordisRunner` from `@deepseek-ai/dsh-cordis-host-runner`, which owns the definition registry and the vm sandbox; a composition missing it never activates the tools. A running package may register ADDITIONAL model-visible tools until it is stopped, undefined, or DSH restarts; a full changed request header logs those tool-set changes.
+
+<a id="deepseek-aidsh-tool-excel"></a>
+
+## `@deepseek-ai/dsh-tool-excel`
+
+### `excel_clear_range`
+
+Clear values or all content and formatting from one bounded Excel range, then read the range back.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sheet": {
+      "type": "string",
+      "description": "Worksheet name. Omit for the active worksheet."
+    },
+    "address": {
+      "type": "string",
+      "description": "Bounded A1 target address."
+    },
+    "applyTo": {
+      "type": "string",
+      "description": "Clear only contents (default) or all formatting and contents.",
+      "enum": [
+        "contents",
+        "all"
+      ]
+    }
+  },
+  "required": [
+    "address"
+  ]
+}
+```
+
+Source: [`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+### `excel_create_worksheet`
+
+Create a new worksheet in the connected Excel workbook. Use this for analysis, dashboard, or staging output that must not overwrite source data. The call fails if the worksheet already exists.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique worksheet name, up to 31 characters."
+    },
+    "activate": {
+      "type": "boolean",
+      "description": "Activate the new worksheet after creation. Defaults to true."
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
+```
+
+Source: [`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+### `excel_insert_chart`
+
+Insert a real chart object into the connected Excel worksheet from a bounded source range. Choose an explicit destination so the chart does not cover source data. Omit sheet to use the active worksheet.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sheet": {
+      "type": "string",
+      "description": "Worksheet name. Omit for the active worksheet."
+    },
+    "sourceAddress": {
+      "type": "string",
+      "description": "Bounded A1 source range including category and series headers, such as A1:D8."
+    },
+    "chartType": {
+      "type": "string",
+      "description": "Chart type to create.",
+      "enum": [
+        "columnClustered",
+        "barClustered",
+        "line",
+        "pie",
+        "area",
+        "doughnut",
+        "xyScatter"
+      ]
+    },
+    "seriesBy": {
+      "type": "string",
+      "description": "Interpret series automatically (default), by columns, or by rows.",
+      "enum": [
+        "auto",
+        "columns",
+        "rows"
+      ]
+    },
+    "startCell": {
+      "type": "string",
+      "description": "Top-left destination cell, such as F2."
+    },
+    "endCell": {
+      "type": "string",
+      "description": "Bottom-right destination cell, such as M18."
+    },
+    "title": {
+      "type": "string",
+      "description": "Visible chart title."
+    },
+    "name": {
+      "type": "string",
+      "description": "Optional unique Excel object name for later identification."
+    }
+  },
+  "required": [
+    "sourceAddress",
+    "chartType",
+    "startCell",
+    "endCell"
+  ]
+}
+```
+
+Source: [`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+### `excel_inspect`
+
+Inspect the connected Excel workbook: worksheets, active sheet, and current selection. Call this before editing when workbook structure is unknown.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "includeSelection": {
+      "type": "boolean",
+      "description": "Include the selected range values and formulas. Defaults to true."
+    }
+  }
+}
+```
+
+Source: [`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+### `excel_read_range`
+
+Read values, formulas, and display text from one bounded Excel range. Omit sheet to use the active worksheet.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sheet": {
+      "type": "string",
+      "description": "Worksheet name. Omit for the active worksheet."
+    },
+    "address": {
+      "type": "string",
+      "description": "A1 address such as A1:D20. Use a bounded range, never an entire worksheet."
+    }
+  },
+  "required": [
+    "address"
+  ]
+}
+```
+
+Source: [`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+### `excel_write_range`
+
+Write a rectangular matrix of literal values to one Excel range, then read the range back. The matrix dimensions must exactly match the target range.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sheet": {
+      "type": "string",
+      "description": "Worksheet name. Omit for the active worksheet."
+    },
+    "address": {
+      "type": "string",
+      "description": "Bounded A1 target address such as B2:D4."
+    },
+    "values": {
+      "type": "array",
+      "description": "Rectangular row-major matrix of JSON scalar values.",
+      "items": {
+        "type": "array",
+        "items": {}
+      }
+    }
+  },
+  "required": [
+    "address",
+    "values"
+  ]
+}
+```
+
+Source: [`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+Four session-routed workbook tools; schema registration is unconditional, while execution fails explicitly unless that Agent Session owns a live Excel task-pane connection.
 
 <a id="deepseek-aidsh-tool-bash-persistent"></a>
 
