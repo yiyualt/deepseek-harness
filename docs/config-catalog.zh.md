@@ -1457,6 +1457,28 @@ export interface Config {
 
 来源：[`packages/feedback/message-feedback/src/index.ts:49`](../packages/feedback/message-feedback/src/index.ts)
 
+<a id="deepseek-aidsh-office-excel-websocket"></a>
+
+## `@deepseek-ai/dsh-office-excel-websocket`
+
+需要：`agents` · `officeExcel` · `webServer`
+
+```ts config-catalog
+/** WebSocket transport limits and origin allowlist. */
+export interface Config {
+  /** Exact browser origins allowed to upgrade into the workbook channel. */
+  readonly allowedOrigins: string[]
+  /** Maximum encoded size accepted for one client frame. */
+  readonly maxMessageBytes: number
+  /** Time allowed for a new task pane to bind a live Harness Session. */
+  readonly bindTimeoutMs: number
+  /** Maximum wall-clock time for one Office.js invocation. */
+  readonly invokeTimeoutMs: number
+}
+```
+
+来源：[`packages/office/excel-websocket/src/index.ts:29`](../packages/office/excel-websocket/src/index.ts)
+
 <a id="deepseek-aidsh-permission-presets"></a>
 
 ## `@deepseek-ai/dsh-permission-presets`
@@ -3256,6 +3278,7 @@ export interface Config {
 - `@deepseek-ai/dsh-host-tencent-docs-connector` — 需要 `credentials` · `mcp`（[`packages/host/tencent-docs-connector/src/index.ts`](../packages/host/tencent-docs-connector/src/index.ts)）
 - `@deepseek-ai/dsh-llm`（[`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts)）
 - `@deepseek-ai/dsh-lsp`（[`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts)）
+- `@deepseek-ai/dsh-office-excel`（[`packages/office/excel/src/index.ts`](../packages/office/excel/src/index.ts)）
 - `@deepseek-ai/dsh-schedule` — 需要 `agents` · `sessions` · `tools` · `sessionPersistence`（[`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts)）
 - `@deepseek-ai/dsh-session`（[`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts)）
 - `@deepseek-ai/dsh-session-checkpoint-policy` — 需要 `llm` · `sessionPersistence` · `sessions` · `tools`（[`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts)）
@@ -3270,6 +3293,7 @@ export interface Config {
 - `@deepseek-ai/dsh-tool-ask-user` — 需要 `tools` · `userInteraction`（[`packages/interaction/tool-ask-user/src/index.ts`](../packages/interaction/tool-ask-user/src/index.ts)）
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — 需要 `tools`（[`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts)）
 - `@deepseek-ai/dsh-tool-cordis` — 需要 `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect`（[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)）
+- `@deepseek-ai/dsh-tool-excel` — 需要 `officeExcel` · `tools`（[`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)）
 - `@deepseek-ai/dsh-tool-subagent-control` — 需要 `tools` · `subagents`（[`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts)）
 - `@deepseek-ai/dsh-user-questions`（[`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts)）
 - `@deepseek-ai/dsh-workspace` — 需要 `storageDomain` · `sessionPersistence`（[`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts)）

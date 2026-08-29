@@ -23,6 +23,7 @@
 | `@deepseek-ai/dsh-tool-bash` | `bash` | `ctx.tools`、`ctx.shell`、`ctx.systemPrompt`、`ctx.shellEnv`、`ctx.jobs at call time for run_in_background` | `tool/call`、`tool/result` | - | bash 工具是 bash 执行器 seam 面向模型的消费方。使用 `run_in_background` 的运行会注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具（来自 `@deepseek-ai/dsh-tool-jobs`）收集／停止；禁用 `enableRunInBackground` 配置（默认为 true）后，该参数会被完全移除。 |
 | `@deepseek-ai/dsh-tool-pwsh` | `pwsh` | `ctx.tools`、`ctx.shell`、`ctx.systemPrompt`、`ctx.shellEnv`、`ctx.jobs at call time for run_in_background` | `tool/call`、`tool/result` | - | pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费方（由 `@deepseek-ai/dsh-pwsh-local` 等 PowerShell 执行器为 `ctx.shell` 提供后端）；除沙箱接口外，它逐项对应 bash 工具调用。使用 `run_in_background` 的运行会注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具收集／停止；托管的 `DSH_*` 环境来自 `@deepseek-ai/dsh-shell-env`。每次调用都在新进程中运行，不使用持久 PTY 会话。路径采用原生 `C:\...` 形式，变量采用 `$env:NAME`。 |
 | `@deepseek-ai/dsh-tool-cordis` | `cordis_define`、`cordis_inspect_list`、`cordis_inspect_query`、`cordis_inspect_self`、`cordis_run`、`cordis_stop`、`cordis_undefine` | `ctx.tools`、`ctx.dynamicCordisRunner` | `tool/call`、`tool/result`、`process-local dynamic package lifecycle` | - | 不在任何随产品发布的树中，需要显式选择启用；动态 Package 代码可以访问真实运行时，见 .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md。该工具集注入 `@deepseek-ai/dsh-cordis-host-runner` 提供的 `ctx.dynamicCordisRunner`，后者拥有定义注册表和 vm 沙箱；组合缺少它时这些工具不会激活。运行中的 Package 在停止、undefine 或 DSH 重启前可以注册**额外的**模型可见工具；发生这类工具集变化时，系统会记录完整且有变动的请求头。 |
+| `@deepseek-ai/dsh-tool-excel` | `excel_clear_range`、`excel_create_worksheet`、`excel_insert_chart`、`excel_inspect`、`excel_read_range`、`excel_write_range` | `ctx.tools`、`ctx.officeExcel`、`执行时持有已绑定 Excel 任务窗格的调用 Agent` | `tool/call`、`通过 Office.js 操作当前 Excel 工作簿`、`tool/result` | - | 六个按 Session 路由的工作簿工具；schema 始终注册，但仅当该 Agent Session 拥有存活的 Excel 任务窗格连接时才可执行，否则会明确失败。 |
 | `@deepseek-ai/dsh-tool-bash-persistent` | `bash` | `ctx.tools`、`ctx.terminals`、`an owning Agent at execution time` | `tool/call`、`PTY shell state`、`tool/result` | - | 一个按所有者隔离的持久 bash 工具；部署组合提供 PTY 后端，并可覆盖面向模型的环境描述。 |
 | `@deepseek-ai/dsh-tool-str-replace-editor` | `str_replace_editor` | `ctx.tools`、`ctx.fs` | `tool/call`、`fs/observed after view presence/absence, edit absence, or successful mutation`、`tool/result` | - | 基于文件系统 seam 的独立查看／创建／唯一字面量替换／按行插入工具；可与任何 shell 或终端接口组合。 |
 | `@deepseek-ai/dsh-tool-fs` | `edit`、`read`、`read_image`、`write` | `ctx.tools`、`ctx.fs`、`ctx.systemPrompt`、`ctx.attachments (read_image registration)`、`ctx.llm + an image-capable route (read_image execution)` | `tool/call`、`fs/write-intent or fs/edit-intent for mutations`、`fs/observed after read presence/absence or successful file operation`、`durable attachment (read_image)`、`tool/result` | - | 先读后写／编辑策略由 `@deepseek-ai/dsh-fs-observation-policy` 添加；它是一个 `fs/*` 事件门禁插件，不会改变 schema。加载这些工具的部署按预期也应加载该插件。没有 `ctx.attachments` 时 `read_image` 不会注册；其 schema 与路由无关，执行时除非确切路由的模型声明图像输入，否则拒绝。 |
@@ -503,6 +504,213 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 来源：[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)
 
 不在任何随产品发布的树中，需要显式选择启用；动态 Package 代码可以访问真实运行时，见 .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md。该工具集注入 `@deepseek-ai/dsh-cordis-host-runner` 提供的 `ctx.dynamicCordisRunner`，后者拥有定义注册表和 vm 沙箱；组合缺少它时这些工具不会激活。运行中的 Package 在停止、undefine 或 DSH 重启前可以注册**额外的**模型可见工具；发生这类工具集变化时，系统会记录完整且有变动的请求头。
+
+<a id="deepseek-aidsh-tool-excel"></a>
+
+## `@deepseek-ai/dsh-tool-excel`
+
+### `excel_clear_range`
+
+清除一个有界 Excel 区域中的值，或清除其全部内容和格式，然后回读该区域。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sheet": {
+      "type": "string",
+      "description": "Worksheet name. Omit for the active worksheet."
+    },
+    "address": {
+      "type": "string",
+      "description": "Bounded A1 target address."
+    },
+    "applyTo": {
+      "type": "string",
+      "description": "Clear only contents (default) or all formatting and contents.",
+      "enum": [
+        "contents",
+        "all"
+      ]
+    }
+  },
+  "required": [
+    "address"
+  ]
+}
+```
+
+来源：[`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+### `excel_create_worksheet`
+
+在已连接的 Excel 工作簿中创建新工作表。适用于分析、仪表盘或不能覆盖源数据的暂存输出。如果工作表已存在，调用会失败。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique worksheet name, up to 31 characters."
+    },
+    "activate": {
+      "type": "boolean",
+      "description": "Activate the new worksheet after creation. Defaults to true."
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
+```
+
+来源：[`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+### `excel_insert_chart`
+
+根据一个有界源区域，在已连接的 Excel 工作表中插入真实图表对象。应明确指定目标位置，以免图表遮挡源数据。省略 sheet 时使用活动工作表。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sheet": {
+      "type": "string",
+      "description": "Worksheet name. Omit for the active worksheet."
+    },
+    "sourceAddress": {
+      "type": "string",
+      "description": "Bounded A1 source range including category and series headers, such as A1:D8."
+    },
+    "chartType": {
+      "type": "string",
+      "description": "Chart type to create.",
+      "enum": [
+        "columnClustered",
+        "barClustered",
+        "line",
+        "pie",
+        "area",
+        "doughnut",
+        "xyScatter"
+      ]
+    },
+    "seriesBy": {
+      "type": "string",
+      "description": "Interpret series automatically (default), by columns, or by rows.",
+      "enum": [
+        "auto",
+        "columns",
+        "rows"
+      ]
+    },
+    "startCell": {
+      "type": "string",
+      "description": "Top-left destination cell, such as F2."
+    },
+    "endCell": {
+      "type": "string",
+      "description": "Bottom-right destination cell, such as M18."
+    },
+    "title": {
+      "type": "string",
+      "description": "Visible chart title."
+    },
+    "name": {
+      "type": "string",
+      "description": "Optional unique Excel object name for later identification."
+    }
+  },
+  "required": [
+    "sourceAddress",
+    "chartType",
+    "startCell",
+    "endCell"
+  ]
+}
+```
+
+来源：[`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+### `excel_inspect`
+
+检查已连接的 Excel 工作簿，包括工作表、活动工作表和当前选区。在工作簿结构未知时，应先调用此工具再编辑。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "includeSelection": {
+      "type": "boolean",
+      "description": "Include the selected range values and formulas. Defaults to true."
+    }
+  }
+}
+```
+
+来源：[`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+### `excel_read_range`
+
+读取一个有界 Excel 区域的值、公式和显示文本。省略 sheet 时使用活动工作表。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sheet": {
+      "type": "string",
+      "description": "Worksheet name. Omit for the active worksheet."
+    },
+    "address": {
+      "type": "string",
+      "description": "A1 address such as A1:D20. Use a bounded range, never an entire worksheet."
+    }
+  },
+  "required": [
+    "address"
+  ]
+}
+```
+
+来源：[`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+### `excel_write_range`
+
+将矩形字面量值矩阵写入一个 Excel 区域，然后回读该区域。矩阵尺寸必须与目标区域完全一致。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "sheet": {
+      "type": "string",
+      "description": "Worksheet name. Omit for the active worksheet."
+    },
+    "address": {
+      "type": "string",
+      "description": "Bounded A1 target address such as B2:D4."
+    },
+    "values": {
+      "type": "array",
+      "description": "Rectangular row-major matrix of JSON scalar values.",
+      "items": {
+        "type": "array",
+        "items": {}
+      }
+    }
+  },
+  "required": [
+    "address",
+    "values"
+  ]
+}
+```
+
+来源：[`packages/office/tool-excel/src/index.ts`](../packages/office/tool-excel/src/index.ts)
+
+六个按 Session 路由的工作簿工具；schema 始终注册，但仅当该 Agent Session 拥有存活的 Excel 任务窗格连接时才可执行，否则会明确失败。
 
 <a id="deepseek-aidsh-tool-bash-persistent"></a>
 

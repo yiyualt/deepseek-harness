@@ -343,7 +343,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolExcel)
     },
     note:
-      'Four session-routed workbook tools; schema registration is unconditional, while execution fails explicitly unless that Agent Session owns a live Excel task-pane connection.',
+      'Six session-routed workbook tools; schema registration is unconditional, while execution fails explicitly unless that Agent Session owns a live Excel task-pane connection.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-bash-persistent',
