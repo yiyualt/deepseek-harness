@@ -475,6 +475,39 @@ type ObjectJsonSchema = JsonSchemaNode & { type: 'object' }
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — this section is byte-identical in both language sides of the page. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxofficeexcel--officeexcelservice"></a>
+
+### `ctx.officeExcel` — `OfficeExcelService`
+
+Single-provider Excel capability service.
+
+```ts cordis-catalog
+/**
+ * Register the active Excel transport provider.
+ * @param provider - Transport implementation.
+ * @returns Registration disposer.
+ */
+registerProvider(provider: ExcelProvider): () => void
+
+/**
+ * Check whether a session currently owns an Excel connection.
+ * @param sessionId - Harness session id.
+ * @returns Connection state.
+ */
+connected(sessionId: SessionId): boolean
+
+/**
+ * Execute one request through the active provider.
+ * @param request - Session, tool and arguments.
+ * @returns Excel result.
+ */
+invoke(request: ExcelInvokeRequest): Promise<JsonValue>
+```
+
+Types: [SessionId](core.md)
+
+Source: [`packages/office/excel/src/index.ts:43`](../../packages/office/excel/src/index.ts)
+
 <a id="ctxtools--toolruntime"></a>
 
 ### `ctx.tools` — `ToolRuntime`

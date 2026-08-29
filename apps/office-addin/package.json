@@ -1,0 +1,34 @@
+{
+  "name": "@deepseek-ai/dsh-office-addin",
+  "description": "Microsoft Excel task-pane client for DeepSeek Harness",
+  "version": "0.1.0-rc.5",
+  "publishConfig": { "access": "public" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "directory": "apps/office-addin"
+  },
+  "type": "module",
+  "files": ["dist", "!dist/**/*.map", "manifest.xml", "scripts"],
+  "scripts": {
+    "certs": "office-addin-dev-certs install",
+    "sideload:mac": "node scripts/sideload-macos.mjs",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/office-js": "^1.0.377",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "office-addin-dev-certs": "^1.13.0",
+    "typescript": "^6.0.3",
+    "vite": "^6.0.0"
+  }
+}
